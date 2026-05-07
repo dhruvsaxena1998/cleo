@@ -3,7 +3,11 @@ package tui
 import "github.com/charmbracelet/lipgloss"
 
 func (m Model) View() string {
-	return renderFrame(m)
+	out := renderFrame(m)
+	if m.mode == ModePopup && m.popup != nil {
+		out += "\n\n" + m.popup.View()
+	}
+	return out
 }
 
 func renderFrame(m Model) string {

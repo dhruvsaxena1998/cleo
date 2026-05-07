@@ -19,6 +19,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(loadStateCmd(m.ctx), tickStateCmd())
 	case tea.KeyMsg:
 		return m.handleKey(msg)
+	case SpawnSubmitted:
+		return m.performSpawn(msg)
+	case SpawnCancelled:
+		m.mode = ModeNormal
+		m.popup = nil
+		return m, nil
+	case ConfirmYes:
+		return m.performKill(msg.Target)
+	case ConfirmNo:
+		m.mode = ModeNormal
+		m.popup = nil
+		return m, nil
 	case paneCapturedMsg:
 		if m.paneCache == nil {
 			m.paneCache = map[string]string{}
