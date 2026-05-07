@@ -17,11 +17,20 @@ func NewRootCmd() *cobra.Command {
 		SilenceErrors: true,
 		Version:       Version,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// TUI launch wired in Phase 9; for now a friendly stub.
 			fmt.Println("cleo TUI — coming in phase 9")
 			return nil
 		},
 	}
+	getCtx := func() *Ctx {
+		c, err := NewCtx()
+		if err != nil {
+			panic(err)
+		}
+		return c
+	}
+	root.AddCommand(
+		newAddCmd(getCtx),
+	)
 	return root
 }
 
