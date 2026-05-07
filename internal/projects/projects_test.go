@@ -1,6 +1,7 @@
 package projects
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -62,5 +63,27 @@ func TestList(t *testing.T) {
 	}
 	if len(got) != 2 {
 		t.Errorf("len %d", len(got))
+	}
+}
+
+func TestResolveFromCwd(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(filepath.Join(dir, "projects.json"))
+	root := filepath.Join(dir, "myapp")
+	if err := os.MkdirAll(filepath.Join(root, "src", "deep"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.Add(root); err != nil {
+		t.Fatal(err)
+	}
+	p, err := store.ResolveFromCwd(filepath.Join(root, "src", "deep"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.ID != "myapp" {
+		t.Errorf("got %q", p.ID)
+	}
+	if _, err := store.ResolveFromCwd(t.TempDir()); err != ErrNotFound {
+		t.Errorf("expected ErrNotFound, got %v", err)
 	}
 }
