@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"strings"
 	"testing"
+	"time"
 )
 
 func newTestClient(t *testing.T) *Client {
@@ -54,5 +55,31 @@ func TestKill(t *testing.T) {
 	ok, _ := c.HasSession("cleo-x-claude-1")
 	if ok {
 		t.Errorf("expected gone")
+	}
+}
+
+func TestCapturePane(t *testing.T) {
+	c := newTestClient(t)
+	_ = c.NewSession(NewSessionOpts{Name: "cleo-cap-1", Cwd: "/tmp", Cmd: "echo HELLO_WORLD; sleep 60"})
+	// give shell a moment
+	time.Sleep(150 * time.Millisecond)
+	out, err := c.CapturePane("cleo-cap-1", 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "HELLO_WORLD") {
+		t.Errorf("missing token in capture: %q", out)
+	}
+}
+
+func TestRenameSession(t *testing.T) {
+	c := newTestClient(t)
+	_ = c.NewSession(NewSessionOpts{Name: "old", Cwd: "/tmp", Cmd: "sleep 60"})
+	if err := c.RenameSession("old", "new"); err != nil {
+		t.Fatal(err)
+	}
+	ok, _ := c.HasSession("new")
+	if !ok {
+		t.Errorf("expected new")
 	}
 }

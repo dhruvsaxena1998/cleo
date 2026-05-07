@@ -95,3 +95,16 @@ func (c *Client) Kill(name string) error {
 func (c *Client) KillServer() error {
 	return c.cmd("kill-server").Run()
 }
+
+func (c *Client) CapturePane(name string, lines int) (string, error) {
+	args := []string{"capture-pane", "-p", "-t", name + ":."}
+	if lines > 0 {
+		args = append(args, "-S", fmt.Sprintf("-%d", lines))
+	}
+	out, err := c.cmd(args...).Output()
+	return string(out), err
+}
+
+func (c *Client) RenameSession(from, to string) error {
+	return c.cmd("rename-session", "-t", from, to).Run()
+}
