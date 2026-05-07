@@ -1,0 +1,19 @@
+project_name: cleo
+builds:
+  - main: ./cmd/cleo
+    binary: cleo
+    goos: [darwin, linux]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X github.com/dhruvsaxena1998/cleo/internal/cli.Version={{.Version}}
+archives:
+  - format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+brews:
+  - repository:
+      owner: dhruvsaxena1998
+      name: homebrew-tap
+    homepage: https://github.com/dhruvsaxena1998/cleo
+    description: Terminal session manager for AI coding agents
