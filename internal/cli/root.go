@@ -32,6 +32,7 @@ func NewRootCmd() *cobra.Command {
 		newAddCmd(getCtx),
 		newRmCmd(getCtx),
 		newLsCmd(getCtx),
+		newRunCmd(getCtx),
 	)
 	return root
 }

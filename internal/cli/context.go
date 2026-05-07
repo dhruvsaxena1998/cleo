@@ -15,7 +15,7 @@ type Ctx struct {
 	Config   config.Config
 	Projects *projects.Store
 	State    *state.Store
-	Tmux     *tmux.Client
+	Tmux     TmuxClient
 	Player   *sound.Player
 	Events   func(sid string) *events.Log
 }
