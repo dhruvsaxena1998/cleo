@@ -29,7 +29,7 @@ func renderFrame(m Model) string {
 }
 
 func (m Model) renderFooter() string {
-	return styleDimmed.Render("n new  v view  ↵ attach  k kill  / filter  m mute  ? help  q quit")
+	return styleDimmed.Render("n new  v view  ↵ attach  K kill  / filter  m mute  ? help  q quit")
 }
 
 func (m Model) retentionBanner() string {

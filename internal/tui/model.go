@@ -18,7 +18,6 @@ type Model struct {
 	paneCache     map[string]string // session id → last captured pane content
 	selected      string            // session id selected for "v" view; "" = none
 	filter        string
-	filterMode    bool
 	mode          Mode
 	popup         tea.Model
 	help          help.Model

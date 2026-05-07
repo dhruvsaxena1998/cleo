@@ -12,6 +12,7 @@ import (
 
 	"github.com/dhruvsaxena1998/cleo/internal/cli"
 	"github.com/dhruvsaxena1998/cleo/internal/state"
+	"github.com/dhruvsaxena1998/cleo/internal/tmux"
 )
 
 func mkdirAll(p string) error { return os.MkdirAll(p, 0o755) }
@@ -20,12 +21,34 @@ func contains(b []byte, s string) bool {
 	return strings.Contains(string(b), s)
 }
 
+// fakeTmux is a test double for cli.TmuxClient that reports a fixed set of live sessions.
+type fakeTmux struct {
+	live map[string]bool
+}
+
+func (f *fakeTmux) NewSession(_ tmux.NewSessionOpts) error { return nil }
+func (f *fakeTmux) HasSession(n string) (bool, error)      { return f.live[n], nil }
+func (f *fakeTmux) LsPrefix(prefix string) ([]string, error) {
+	var out []string
+	for n := range f.live {
+		if strings.HasPrefix(n, prefix) {
+			out = append(out, n)
+		}
+	}
+	return out, nil
+}
+func (f *fakeTmux) Kill(n string) error                     { delete(f.live, n); return nil }
+func (f *fakeTmux) CapturePane(string, int) (string, error) { return "", nil }
+func (f *fakeTmux) RenameSession(from, to string) error     { return nil }
+
 func TestSidebarRendersProjectsAndSessions(t *testing.T) {
 	root := t.TempDir()
 	c, err := cli.NewCtxWithRoot(root)
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Use a fake tmux so reconcile.Run sees the session as live and doesn't mark it Dead.
+	c.Tmux = &fakeTmux{live: map[string]bool{"cleo-myapp-claude-1": true}}
 	target := filepath.Join(t.TempDir(), "myapp")
 	if err := mkdirAll(target); err != nil {
 		t.Fatal(err)

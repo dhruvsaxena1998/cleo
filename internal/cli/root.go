@@ -27,7 +27,8 @@ func NewRootCmd(tuiRun func(*Ctx) error) *cobra.Command {
 	getCtx := func() *Ctx {
 		c, err := NewCtx()
 		if err != nil {
-			panic(err)
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
 		}
 		return c
 	}

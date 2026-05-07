@@ -8,6 +8,7 @@ import (
 
 	"github.com/dhruvsaxena1998/cleo/internal/cli"
 	"github.com/dhruvsaxena1998/cleo/internal/projects"
+	"github.com/dhruvsaxena1998/cleo/internal/reconcile"
 	"github.com/dhruvsaxena1998/cleo/internal/state"
 )
 
@@ -25,6 +26,7 @@ type paneCapturedMsg struct {
 
 func loadStateCmd(c *cli.Ctx) tea.Cmd {
 	return func() tea.Msg {
+		_ = reconcile.Run(c.State, c.Tmux, c.Config.Retention.IdleToCompletedTimeout)
 		ps, _ := c.Projects.List()
 		ss, _ := c.State.List()
 		return stateLoadedMsg{projects: ps, sessions: ss}
