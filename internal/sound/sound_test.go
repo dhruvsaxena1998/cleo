@@ -28,3 +28,16 @@ func TestExtractAssetsIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestProbePlayerNoneFound(t *testing.T) {
+	// override $PATH so no player is found
+	t.Setenv("PATH", "")
+	p := NewPlayer(0.7)
+	if p.Available() {
+		t.Errorf("expected unavailable")
+	}
+	// Play() must not return error even when nothing is available
+	if err := p.Play("/nope.wav"); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
