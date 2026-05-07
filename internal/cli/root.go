@@ -35,6 +35,7 @@ func NewRootCmd() *cobra.Command {
 		newRunCmd(getCtx),
 		newAttachCmd(getCtx),
 		newKillCmd(getCtx),
+		newPruneCmd(getCtx),
 	)
 	return root
 }
