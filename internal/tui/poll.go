@@ -35,6 +35,8 @@ func tickStateCmd() tea.Cmd {
 	return tea.Tick(750*time.Millisecond, func(time.Time) tea.Msg { return tickStateMsg{} })
 }
 
+type capturePaneTickMsg struct{ sid string }
+
 func capturePaneCmd(c *cli.Ctx, sid string, lines int) tea.Cmd {
 	return func() tea.Msg {
 		out, _ := c.Tmux.CapturePane(sid, lines)

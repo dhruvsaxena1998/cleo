@@ -14,7 +14,9 @@ type Model struct {
 	projects      []projects.Project
 	sessions      []state.Session
 	cursor        cursor
-	expanded      map[string]bool // project id → expanded
+	expanded      map[string]bool   // project id → expanded
+	paneCache     map[string]string // session id → last captured pane content
+	selected      string            // session id selected for "v" view; "" = none
 	filter        string
 	filterMode    bool
 	mode          Mode
@@ -39,9 +41,10 @@ type cursor struct {
 
 func New(ctx *cli.Ctx) Model {
 	return Model{
-		ctx:      ctx,
-		expanded: map[string]bool{},
-		help:     help.New(),
+		ctx:       ctx,
+		expanded:  map[string]bool{},
+		paneCache: map[string]string{},
+		help:      help.New(),
 	}
 }
 
