@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/dhruvsaxena1998/cleo/internal/tmux"
@@ -33,8 +34,16 @@ func (f *fakeTmux) NewSession(o tmux.NewSessionOpts) error {
 	f.exists[o.Name] = true
 	return nil
 }
-func (f *fakeTmux) HasSession(n string) (bool, error)       { return f.exists[n], nil }
-func (f *fakeTmux) LsPrefix(p string) ([]string, error)     { return nil, nil }
+func (f *fakeTmux) HasSession(n string) (bool, error) { return f.exists[n], nil }
+func (f *fakeTmux) LsPrefix(p string) ([]string, error) {
+	var out []string
+	for k := range f.exists {
+		if strings.HasPrefix(k, p) {
+			out = append(out, k)
+		}
+	}
+	return out, nil
+}
 func (f *fakeTmux) Kill(n string) error                     { delete(f.exists, n); return nil }
 func (f *fakeTmux) CapturePane(string, int) (string, error) { return "", nil }
 func (f *fakeTmux) RenameSession(from, to string) error     { return nil }

@@ -6,6 +6,8 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+
+	"github.com/dhruvsaxena1998/cleo/internal/reconcile"
 )
 
 func newLsCmd(getCtx func() *Ctx) *cobra.Command {
@@ -14,6 +16,7 @@ func newLsCmd(getCtx func() *Ctx) *cobra.Command {
 		Short: "List projects and sessions",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getCtx()
+			_ = reconcile.Run(c.State, c.Tmux, c.Config.Retention.IdleToCompletedTimeout)
 			projects, _ := c.Projects.List()
 			sessions, _ := c.State.List()
 
