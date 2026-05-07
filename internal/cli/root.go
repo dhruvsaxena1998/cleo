@@ -33,6 +33,8 @@ func NewRootCmd() *cobra.Command {
 		newRmCmd(getCtx),
 		newLsCmd(getCtx),
 		newRunCmd(getCtx),
+		newAttachCmd(getCtx),
+		newKillCmd(getCtx),
 	)
 	return root
 }
