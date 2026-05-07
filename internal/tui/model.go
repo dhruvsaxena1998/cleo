@@ -1,0 +1,50 @@
+package tui
+
+import (
+	"github.com/charmbracelet/bubbles/help"
+	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/dhruvsaxena1998/cleo/internal/cli"
+	"github.com/dhruvsaxena1998/cleo/internal/projects"
+	"github.com/dhruvsaxena1998/cleo/internal/state"
+)
+
+type Model struct {
+	ctx           *cli.Ctx
+	projects      []projects.Project
+	sessions      []state.Session
+	cursor        cursor
+	expanded      map[string]bool // project id → expanded
+	filter        string
+	filterMode    bool
+	mode          Mode
+	popup         tea.Model
+	help          help.Model
+	width, height int
+	err           error
+}
+
+type Mode int
+
+const (
+	ModeNormal Mode = iota
+	ModeFilter
+	ModePopup
+)
+
+type cursor struct {
+	projectIdx int
+	agentIdx   int // -1 = on the project row
+}
+
+func New(ctx *cli.Ctx) Model {
+	return Model{
+		ctx:      ctx,
+		expanded: map[string]bool{},
+		help:     help.New(),
+	}
+}
+
+func (m Model) Init() tea.Cmd {
+	return tea.Batch(loadStateCmd(m.ctx), tickStateCmd())
+}

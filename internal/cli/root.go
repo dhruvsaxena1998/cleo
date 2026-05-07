@@ -9,7 +9,7 @@ import (
 
 const Version = "0.1.0-dev"
 
-func NewRootCmd() *cobra.Command {
+func NewRootCmd(tuiRun func(*Ctx) error) *cobra.Command {
 	root := &cobra.Command{
 		Use:           "cleo",
 		Short:         "Terminal session manager for AI coding agents",
@@ -17,8 +17,11 @@ func NewRootCmd() *cobra.Command {
 		SilenceErrors: true,
 		Version:       Version,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			fmt.Println("cleo TUI — coming in phase 9")
-			return nil
+			c, err := NewCtx()
+			if err != nil {
+				return err
+			}
+			return tuiRun(c)
 		},
 	}
 	getCtx := func() *Ctx {
@@ -42,8 +45,8 @@ func NewRootCmd() *cobra.Command {
 	return root
 }
 
-func Execute() {
-	if err := NewRootCmd().Execute(); err != nil {
+func Execute(tuiRun func(*Ctx) error) {
+	if err := NewRootCmd(tuiRun).Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
