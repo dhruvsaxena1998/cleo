@@ -1,9 +1,17 @@
 package tui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"fmt"
+
+	"github.com/charmbracelet/lipgloss"
+)
 
 func (m Model) View() string {
+	banner := m.retentionBanner()
 	out := renderFrame(m)
+	if banner != "" {
+		out = banner + "\n" + out
+	}
 	if m.mode == ModePopup && m.popup != nil {
 		out += "\n\n" + m.popup.View()
 	}
@@ -22,4 +30,23 @@ func renderFrame(m Model) string {
 
 func (m Model) renderFooter() string {
 	return styleDimmed.Render("n new  v view  ↵ attach  k kill  / filter  m mute  ? help  q quit")
+}
+
+func (m Model) retentionBanner() string {
+	threshold := m.ctx.Config.Retention.HintThreshold
+	if threshold <= 0 {
+		return ""
+	}
+	counts := map[string]int{}
+	for _, s := range m.sessions {
+		if s.State.IsFinished() {
+			counts[s.ProjectID]++
+		}
+	}
+	for pid, n := range counts {
+		if n > threshold {
+			return styleDimmed.Render(fmt.Sprintf("💡 '%s' has %d finished sessions — run `cleo prune %s` to clean up", pid, n, pid))
+		}
+	}
+	return ""
 }
