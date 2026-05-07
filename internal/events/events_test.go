@@ -1,6 +1,7 @@
 package events
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -36,5 +37,23 @@ func TestTailLimitsToN(t *testing.T) {
 	got, _ := log.Tail(3)
 	if len(got) != 3 {
 		t.Errorf("got %d", len(got))
+	}
+}
+
+func TestArchive(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "x.jsonl")
+	log := NewLog(src)
+	_ = log.Append(Entry{Type: "x"})
+	archDir := filepath.Join(dir, "archive")
+	if err := Archive(src, archDir); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(src); !os.IsNotExist(err) {
+		t.Errorf("src still exists")
+	}
+	matches, _ := filepath.Glob(filepath.Join(archDir, "x.jsonl.gz"))
+	if len(matches) != 1 {
+		t.Errorf("archive missing")
 	}
 }
