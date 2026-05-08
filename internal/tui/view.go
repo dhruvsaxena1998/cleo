@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -53,71 +54,73 @@ func renderFrame(m Model) string {
 
 func (m Model) renderTopbar(width int) string {
 	stats := m.sessionStats()
-	sound := styleFaint.Render("sound on")
+	sound := lipgloss.NewStyle().Foreground(m.theme.Overlay0).Render("sound on")
 	if !m.ctx.Config.Sound.Enabled {
-		sound = styleFaint.Render("muted")
+		sound = lipgloss.NewStyle().Foreground(m.theme.Overlay0).Render("muted")
 	}
-	left := styleApp.Render("cleo") + styleFaint.Render("  ai agents")
+	left := lipgloss.NewStyle().Foreground(m.theme.Mauve).Bold(true).Render("cleo") +
+		lipgloss.NewStyle().Foreground(m.theme.Overlay0).Render("  ai agents")
 	right := fmt.Sprintf("%s  %s  %s  %s",
-		pill(fmt.Sprintf("%d projects", len(m.projects)), clrSubtext),
-		pill(fmt.Sprintf("%d live", stats.live), clrGreen),
-		pill(fmt.Sprintf("%d waiting", stats.waiting), clrAmber),
+		m.theme.Pill(fmt.Sprintf("%d projects", len(m.projects)), m.theme.Subtext0),
+		m.theme.Pill(fmt.Sprintf("%d live", stats.live), m.theme.Green),
+		m.theme.Pill(fmt.Sprintf("%d waiting", stats.waiting), m.theme.Peach),
 		sound,
 	)
 	space := width - lipgloss.Width(left) - lipgloss.Width(right) - 2
 	if space < 1 {
 		space = 1
 	}
-	return styleTopbar.Width(width).Render(left + strings.Repeat(" ", space) + right)
+	return lipgloss.NewStyle().Background(m.theme.Mantle).Foreground(m.theme.Text).Padding(0, 1).
+		Width(width).Render(left + strings.Repeat(" ", space) + right)
 }
 
 // ── Footer ────────────────────────────────────────────────────────────────────
 
 func (m Model) renderFooter(width int) string {
-	sep := styleFaint.Render("  ·  ")
+	faint := lipgloss.NewStyle().Foreground(m.theme.Overlay0)
+	sep := faint.Render("  ·  ")
 
 	var hints []string
 	switch {
 	case m.mode == ModeFilter:
 		hints = []string{
-			keyHint("enter", "apply"),
-			keyHint("esc", "clear"),
-			styleFaint.Render("type to filter projects and sessions"),
+			m.theme.KeyHint("enter", "apply"),
+			m.theme.KeyHint("esc", "clear"),
+			faint.Render("type to filter projects and sessions"),
 		}
 	default:
 		sess, hasSess := m.sessionAtCursor()
 		if hasSess {
-			// Primary action first
 			if sess.State.IsFinished() {
 				hints = []string{
-					styleFaint.Render(m.statusOr(fmt.Sprintf("%s is %s", sess.ID, sess.State))),
-					keyHint("K", "remove"),
-					keyHint("n", "new sibling"),
-					keyHint("/", "filter"),
-					keyHint("q", "quit"),
+					faint.Render(m.statusOr(fmt.Sprintf("%s is %s", sess.ID, sess.State))),
+					m.theme.KeyHint("K", "remove"),
+					m.theme.KeyHint("n", "new sibling"),
+					m.theme.KeyHint("/", "filter"),
+					m.theme.KeyHint("q", "quit"),
 				}
 			} else {
 				hints = []string{
-					keyHint("↵ ", "attach"),
-					keyHint("v", "view"),
-					keyHint("r", "rename"),
-					keyHint("K", "kill"),
-					keyHint("n", "new sibling"),
-					keyHint("space", "collapse"),
-					keyHint("/", "filter"),
-					keyHint("m", "mute"),
-					keyHint("q", "quit"),
+					m.theme.KeyHint("↵ ", "attach"),
+					m.theme.KeyHint("v", "view"),
+					m.theme.KeyHint("r", "rename"),
+					m.theme.KeyHint("K", "kill"),
+					m.theme.KeyHint("n", "new sibling"),
+					m.theme.KeyHint("space", "collapse"),
+					m.theme.KeyHint("/", "filter"),
+					m.theme.KeyHint("m", "mute"),
+					m.theme.KeyHint("q", "quit"),
 				}
 			}
 		} else {
 			hints = []string{
-				keyHint("n", "new session"),
-				keyHint("space", "expand"),
-				keyHint("j/k", "move"),
-				keyHint("↵ ", "attach"),
-				keyHint("/", "filter"),
-				keyHint("m", "mute"),
-				keyHint("q", "quit"),
+				m.theme.KeyHint("n", "new session"),
+				m.theme.KeyHint("space", "expand"),
+				m.theme.KeyHint("j/k", "move"),
+				m.theme.KeyHint("↵ ", "attach"),
+				m.theme.KeyHint("/", "filter"),
+				m.theme.KeyHint("m", "mute"),
+				m.theme.KeyHint("q", "quit"),
 			}
 		}
 	}
@@ -150,8 +153,8 @@ func (m Model) retentionBanner(width int) string {
 		if n > threshold {
 			msg := fmt.Sprintf("  hint  %s has %d finished sessions  run: cleo prune %s", pid, n, pid)
 			return lipgloss.NewStyle().
-				Foreground(clrGold).
-				Background(clrRaised).
+				Foreground(m.theme.Gold).
+				Background(m.theme.Surf0).
 				Width(width).
 				Render(truncateWidth(msg, width-2))
 		}
@@ -208,16 +211,9 @@ func (m Model) renderOverlay(base, overlay string) string {
 			break
 		}
 		baseLine := baseLines[idx]
-		bw := lipgloss.Width(baseLine)
-		// Clear the region behind the overlay
-		padding := ""
-		if left > 0 && left <= bw {
-			padding = strings.Repeat(" ", left)
-			_ = padding
-		}
-		// Replace the section
-		baseLines[idx] = strings.Repeat(" ", left) + ol
-		_ = bw
+		leftPart := ansi.Truncate(baseLine, left, "")
+		rightPart := ansi.TruncateLeft(baseLine, left+overlayW, "")
+		baseLines[idx] = leftPart + ol + rightPart
 	}
 	return strings.Join(baseLines, "\n")
 }
