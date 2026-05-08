@@ -46,8 +46,15 @@ func renderFrame(m Model) string {
 	right := m.renderRightColumn(mainW, bodyH)
 	body := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 
-	parts := []string{m.renderTopbar(w), body, m.renderFooter(w)}
-	return strings.Join(parts, "\n")
+	// Stamp the theme's base background on every line so that any transparent
+	// characters (spaces between ANSI-styled spans) show the theme colour
+	// instead of the terminal default.
+	baseSt := lipgloss.NewStyle().Background(m.theme.Base).Width(w)
+	rows := strings.Split(strings.Join([]string{m.renderTopbar(w), body, m.renderFooter(w)}, "\n"), "\n")
+	for i, row := range rows {
+		rows[i] = baseSt.Render(row)
+	}
+	return strings.Join(rows, "\n")
 }
 
 // ── Topbar ────────────────────────────────────────────────────────────────────
@@ -126,7 +133,7 @@ func (m Model) renderFooter(width int) string {
 	}
 
 	line := "  " + strings.Join(hints, sep)
-	return truncateWidth(line, width)
+	return lipgloss.NewStyle().Background(m.theme.Base).Width(width).Render(truncateWidth(line, width))
 }
 
 func (m Model) statusOr(fallback string) string {

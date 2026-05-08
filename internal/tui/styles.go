@@ -118,16 +118,22 @@ func (t Theme) KeyHint(k, desc string) string {
 }
 
 func (t Theme) PanelBox(title, hint string, body []string, w, h int) string {
-	bdr := lipgloss.NewStyle().Foreground(t.Surf1)
-	titleSt := lipgloss.NewStyle().Foreground(t.Accent).Bold(true)
-	hintSt := lipgloss.NewStyle().Foreground(t.Overlay0)
-
 	iw := w - 2
 	if iw < 4 {
 		iw = 4
 	}
-
+	cUsable := iw - 2
 	tUsable := iw - 2
+
+	// bdr carries the Base background so border characters fill with the theme colour
+	// rather than the terminal default.
+	bdr := lipgloss.NewStyle().Foreground(t.Surf1).Background(t.Base)
+	titleSt := lipgloss.NewStyle().Foreground(t.Accent).Bold(true)
+	hintSt := lipgloss.NewStyle().Foreground(t.Overlay0)
+	// innerSt fills the full iw-wide slot between the two │ glyphs with Base bg;
+	// Width(iw) ensures trailing spaces are explicitly styled, not transparent.
+	innerSt := lipgloss.NewStyle().Background(t.Base).Width(iw)
+
 	left := titleSt.Render(title)
 	right := ""
 	if hint != "" {
@@ -149,31 +155,30 @@ func (t Theme) PanelBox(title, hint string, body []string, w, h int) string {
 	}
 
 	hbar := strings.Repeat("─", iw)
-	cUsable := iw - 2
 
 	var b strings.Builder
 	b.WriteString(bdr.Render("┌"+hbar+"┐") + "\n")
-	b.WriteString(bdr.Render("│") + " " + padRight(titleRow, tUsable) + " " + bdr.Render("│") + "\n")
+	b.WriteString(bdr.Render("│") + innerSt.Render(" "+padRight(titleRow, tUsable)) + bdr.Render("│") + "\n")
 	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
 	for _, line := range lines {
 		padded := padRight(line, cUsable)
 		if lipgloss.Width(padded) > cUsable {
 			padded = truncateWidth(padded, cUsable)
 		}
-		b.WriteString(bdr.Render("│") + " " + padded + " " + bdr.Render("│") + "\n")
+		b.WriteString(bdr.Render("│") + innerSt.Render(" "+padded) + bdr.Render("│") + "\n")
 	}
 	b.WriteString(bdr.Render("└" + hbar + "┘"))
 	return b.String()
 }
 
 func (t Theme) SectionDivider(label string, width int) string {
-	faint := lipgloss.NewStyle().Foreground(t.Overlay0)
-	head := faint.Render("── " + label + " ")
+	st := lipgloss.NewStyle().Foreground(t.Overlay0).Background(t.Base)
+	head := st.Render("── " + label + " ")
 	rem := width - lipgloss.Width(head)
 	if rem < 1 {
 		rem = 1
 	}
-	return head + faint.Render(strings.Repeat("─", rem))
+	return head + st.Render(strings.Repeat("─", rem))
 }
 
 func (t Theme) EventTypeColor(evType string) lipgloss.Color {
