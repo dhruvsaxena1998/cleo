@@ -1,0 +1,95 @@
+package tui
+
+import (
+	"fmt"
+	"strings"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+)
+
+type HelpPopup struct{}
+type HelpClosed struct{}
+
+func NewHelpPopup() HelpPopup { return HelpPopup{} }
+
+func (p HelpPopup) Init() tea.Cmd { return nil }
+
+func (p HelpPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if k, ok := msg.(tea.KeyMsg); ok {
+		switch k.String() {
+		case "esc", "q", "?":
+			return p, func() tea.Msg { return HelpClosed{} }
+		}
+	}
+	return p, nil
+}
+
+func (p HelpPopup) View() string {
+	const popW = 48
+	bdr := lipgloss.NewStyle().Foreground(clrBorder)
+	iw := popW - 2
+	cw := iw - 2
+
+	type row struct{ key, desc string }
+	sections := []struct {
+		title string
+		rows  []row
+	}{
+		{"Navigation", []row{
+			{"↑/k", "up"},
+			{"↓/j", "down"},
+			{"space", "expand / collapse"},
+		}},
+		{"Session Actions", []row{
+			{"↵", "attach"},
+			{"v", "view pane"},
+			{"n", "new session"},
+			{"r", "rename"},
+			{"K", "kill session"},
+		}},
+		{"Global", []row{
+			{"/", "filter"},
+			{"m", "mute / unmute"},
+			{"?", "help"},
+			{"q", "quit"},
+		}},
+	}
+
+	hbar := strings.Repeat("─", iw)
+	var b strings.Builder
+
+	// Title bar
+	b.WriteString(bdr.Render("┌"+hbar+"┐") + "\n")
+	titleLeft := lipgloss.NewStyle().Foreground(clrBlue).Bold(true).Render("Keybindings")
+	titleRight := styleFaint.Render("esc / q to close")
+	gap := cw - lipgloss.Width(titleLeft) - lipgloss.Width(titleRight)
+	if gap < 0 {
+		gap = 0
+	}
+	b.WriteString(bdr.Render("│") + " " + titleLeft + strings.Repeat(" ", gap) + titleRight + " " + bdr.Render("│") + "\n")
+	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
+
+	writeRow := func(s string) {
+		b.WriteString(bdr.Render("│") + " " + padRight(truncateWidth(s, cw), cw) + " " + bdr.Render("│") + "\n")
+	}
+	writeBlank := func() {
+		b.WriteString(bdr.Render("│") + " " + strings.Repeat(" ", cw) + " " + bdr.Render("│") + "\n")
+	}
+
+	for si, sec := range sections {
+		if si > 0 {
+			b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
+		}
+		writeBlank()
+		writeRow(styleFaint.Render(sec.title))
+		for _, r := range sec.rows {
+			line := fmt.Sprintf("  %s  %s", styleKey.Render(r.key), styleDimmed.Render(r.desc))
+			writeRow(line)
+		}
+		writeBlank()
+	}
+
+	b.WriteString(bdr.Render("└" + hbar + "┘"))
+	return b.String()
+}

@@ -46,6 +46,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.openRenamePopup()
 	case key.Matches(msg, km.Mute):
 		return m.toggleMute()
+	case key.Matches(msg, km.Help):
+		return m.openHelpPopup()
 	case key.Matches(msg, km.Up):
 		return m.cursorUp()
 	case key.Matches(msg, km.Down):
@@ -220,6 +222,12 @@ func (m Model) openRenamePopup() (Model, tea.Cmd) {
 		return m, nil
 	}
 	m.popup = NewRenamePopup(sess.ID, sess.Name)
+	m.mode = ModePopup
+	return m, m.popup.Init()
+}
+
+func (m Model) openHelpPopup() (Model, tea.Cmd) {
+	m.popup = NewHelpPopup()
 	m.mode = ModePopup
 	return m, m.popup.Init()
 }
