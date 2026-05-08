@@ -2,6 +2,7 @@ package focus
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -64,7 +65,12 @@ func (s *Store) write(f fileFormat) error {
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
 		return err
 	}
-	tmp := s.path + ".tmp"
+	// Per-process temp file avoids a race when multiple cleo focus invocations
+	// run concurrently (e.g. client-attached and client-focus-in hooks both fire
+	// on tmux attach). A shared tmp path causes the second rename to fail with
+	// ENOENT after the first process has already renamed the file away.
+	tmp := fmt.Sprintf("%s.tmp.%d", s.path, os.Getpid())
+	defer os.Remove(tmp)
 	b, err := json.MarshalIndent(f, "", "  ")
 	if err != nil {
 		return err
