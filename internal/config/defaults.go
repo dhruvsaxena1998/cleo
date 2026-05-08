@@ -74,7 +74,11 @@ func mergeDefaults(c *Config) {
 		c.Agents = d.Agents
 	}
 	if c.UI.SidebarWidth == 0 {
+		userTheme := c.UI.Theme
 		c.UI = d.UI
+		if userTheme != "" {
+			c.UI.Theme = userTheme
+		}
 	}
 	if c.UI.Theme == "" {
 		c.UI.Theme = d.UI.Theme
