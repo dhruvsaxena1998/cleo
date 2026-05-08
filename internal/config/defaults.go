@@ -35,6 +35,7 @@ func Defaults_() Config {
 			PanePreviewInterval: 1500 * time.Millisecond,
 			EventLogLines:       200,
 			SidebarWidth:        32,
+			Theme:               "catppuccin-mocha",
 		},
 		Retention: Retention{
 			HintThreshold:          6,
@@ -74,6 +75,9 @@ func mergeDefaults(c *Config) {
 	}
 	if c.UI.SidebarWidth == 0 {
 		c.UI = d.UI
+	}
+	if c.UI.Theme == "" {
+		c.UI.Theme = d.UI.Theme
 	}
 	if c.Retention.HintThreshold == 0 {
 		c.Retention = d.Retention

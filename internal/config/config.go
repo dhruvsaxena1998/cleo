@@ -41,6 +41,7 @@ type UI struct {
 	PanePreviewInterval time.Duration `toml:"pane_preview_interval"`
 	EventLogLines       int           `toml:"event_log_lines"`
 	SidebarWidth        int           `toml:"sidebar_width"`
+	Theme               string        `toml:"theme"` // catppuccin-mocha | gruvbox-dark | onedark | void | synthwave
 }
 
 type Retention struct {
