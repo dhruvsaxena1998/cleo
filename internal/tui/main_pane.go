@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/dhruvsaxena1998/cleo/internal/events"
 	"github.com/dhruvsaxena1998/cleo/internal/state"
 )
 
@@ -45,45 +44,47 @@ func (m Model) renderMain(width int) string {
 // ── Meta panel (6-cell grid) ──────────────────────────────────────────────────
 
 func (m Model) renderMetaPanel(w, h int, sess state.Session, has bool) string {
-	cw := w - 4 // usable content width
+	cw := w - 4
 	col := cw / 6
 	if col < 6 {
 		col = 6
 	}
 
-	labelStyle := styleFaint
-	valueStyle := styleBright
+	faint := lipgloss.NewStyle().Foreground(m.theme.Overlay0)
+	bright := lipgloss.NewStyle().Foreground(m.theme.Text).Bold(true)
+	metric := lipgloss.NewStyle().Foreground(m.theme.Accent).Bold(true)
+	dimmed := lipgloss.NewStyle().Foreground(m.theme.Subtext0)
 
 	if !has {
-		labels := labelStyle.Render(
+		labels := faint.Render(
 			padRight("agent", col) + padRight("state", col) + padRight("project", col) +
 				padRight("runtime", col) + padRight("tools", col) + "last")
-		values := styleFaint.Render("─  no session selected  ─")
-		return panelBox("Session", "—", []string{labels, values}, w, h)
+		values := faint.Render("─  no session selected  ─")
+		return m.theme.PanelBox("Session", "—", []string{labels, values}, w, h)
 	}
 
 	cfgAgent := m.ctx.Config.Agents[sess.Agent]
-	badge := agentBadge(cfgAgent.Label, cfgAgent.Color) + " " + styleDimmed.Render(sess.Agent)
+	badge := m.theme.AgentBadge(cfgAgent.Label, cfgAgent.Color) + " " + dimmed.Render(sess.Agent)
 
-	labelRow := labelStyle.Render(padRight("agent", col)) +
-		labelStyle.Render(padRight("state", col)) +
-		labelStyle.Render(padRight("project", col)) +
-		labelStyle.Render(padRight("runtime", col)) +
-		labelStyle.Render(padRight("tools", col)) +
-		labelStyle.Render("last")
+	labelRow := faint.Render(padRight("agent", col)) +
+		faint.Render(padRight("state", col)) +
+		faint.Render(padRight("project", col)) +
+		faint.Render(padRight("runtime", col)) +
+		faint.Render(padRight("tools", col)) +
+		faint.Render("last")
 
-	stateVal := lipgloss.NewStyle().Foreground(stateColor(string(sess.State))).Bold(true).Render(
+	stateVal := lipgloss.NewStyle().Foreground(m.theme.StateColor(string(sess.State))).Bold(true).Render(
 		truncateWidth(string(sess.State), col-1))
 
 	valueRow := padRight(badge, col) +
 		padRight(stateVal, col) +
-		padRight(valueStyle.Render(truncateWidth(sess.ProjectID, col-1)), col) +
-		padRight(styleMetric.Render(sinceLabel(sess.StartedAt)), col) +
-		padRight(styleMetric.Render(fmt.Sprintf("%d", sess.ToolCount)), col) +
-		styleMetric.Render(humanDuration(sess.LastEventAt))
+		padRight(bright.Render(truncateWidth(sess.ProjectID, col-1)), col) +
+		padRight(metric.Render(sinceLabel(sess.StartedAt)), col) +
+		padRight(metric.Render(fmt.Sprintf("%d", sess.ToolCount)), col) +
+		metric.Render(humanDuration(sess.LastEventAt))
 
 	hint := truncateWidth(sess.ID, w-14)
-	return panelBox("Session", hint, []string{labelRow, valueRow}, w, h)
+	return m.theme.PanelBox("Session", hint, []string{labelRow, valueRow}, w, h)
 }
 
 // ── Events panel ──────────────────────────────────────────────────────────────
@@ -94,10 +95,11 @@ func (m Model) renderEventsPanel(w, h int, sess state.Session, has bool) string 
 		contentH = 1
 	}
 
+	faint := lipgloss.NewStyle().Foreground(m.theme.Overlay0)
 	var hint, lines string
 	if !has {
 		hint = "—"
-		lines = styleFaint.Render("select a session to view events")
+		lines = faint.Render("select a session to view events")
 	} else {
 		log := m.ctx.Events(sess.ID)
 		entries, _ := log.Tail(m.ctx.Config.UI.EventLogLines)
@@ -110,12 +112,12 @@ func (m Model) renderEventsPanel(w, h int, sess state.Session, has bool) string 
 		}
 		for i, e := range entries[start:] {
 			isLast := i == len(entries[start:])-1
-			b.WriteString(formatEventRow(e, w-4, isLast) + "\n")
+			b.WriteString(m.theme.FormatEventRow(e, w-4, isLast) + "\n")
 		}
 		lines = strings.TrimRight(b.String(), "\n")
 	}
 
-	return panelBox("Events", hint, strings.Split(lines, "\n"), w, h)
+	return m.theme.PanelBox("Events", hint, strings.Split(lines, "\n"), w, h)
 }
 
 // ── Preview panel ─────────────────────────────────────────────────────────────
@@ -126,21 +128,24 @@ func (m Model) renderPreviewPanel(w, h int, sess state.Session, has bool) string
 		contentH = 1
 	}
 
+	faint := lipgloss.NewStyle().Foreground(m.theme.Overlay0)
+	dimmed := lipgloss.NewStyle().Foreground(m.theme.Subtext0)
+
 	if !has {
-		return panelBox("Terminal Preview", "tmux capture-pane -p",
-			[]string{styleFaint.Render("navigate to a session to view its terminal")}, w, h)
+		return m.theme.PanelBox("Terminal Preview", "tmux capture-pane -p",
+			[]string{faint.Render("navigate to a session to view its terminal")}, w, h)
 	}
 
 	if sess.State.IsFinished() {
-		return panelBox("Terminal Preview", "session finished",
-			[]string{styleFaint.Render("tmux session is gone; press K to remove this record")}, w, h)
+		return m.theme.PanelBox("Terminal Preview", "session finished",
+			[]string{faint.Render("tmux session is gone; press K to remove this record")}, w, h)
 	}
 
 	pane := m.paneCache[sess.ID]
 	hint := "tmux capture-pane -p"
 	if pane == "" {
-		return panelBox("Terminal Preview", hint,
-			[]string{styleFaint.Render("loading…  press v to refresh")}, w, h)
+		return m.theme.PanelBox("Terminal Preview", hint,
+			[]string{faint.Render("loading…  press v to refresh")}, w, h)
 	}
 
 	allLines := strings.Split(pane, "\n")
@@ -159,59 +164,69 @@ func (m Model) renderPreviewPanel(w, h int, sess state.Session, has bool) string
 	shown := allLines[start:]
 	body := make([]string, len(shown))
 	for i, l := range shown {
-		body[i] = styleDimmed.Render(l)
+		body[i] = dimmed.Render(l)
 	}
-	return panelBox("Terminal Preview", hint, body, w, h)
+	return m.theme.PanelBox("Terminal Preview", hint, body, w, h)
 }
 
 // ── Fallback text views (used by snapshot test & renderMain) ──────────────────
 
 func (m Model) renderDashboard(width int) string {
+	faint := lipgloss.NewStyle().Foreground(m.theme.Overlay0)
+	bright := lipgloss.NewStyle().Foreground(m.theme.Text).Bold(true)
+	dimmed := lipgloss.NewStyle().Foreground(m.theme.Subtext0)
+	idSt := lipgloss.NewStyle().Foreground(m.theme.Accent).Bold(true)
+
 	if len(m.sessions) == 0 {
-		return "\n\n  " + styleBright.Render("No sessions yet") + "\n\n" +
-			"  " + styleDimmed.Render("Register projects with cleo add, then press n to spawn an agent.") + "\n\n" +
-			"  " + keyHint("n", "new agent") + "   " + keyHint("/", "filter projects")
+		return "\n\n  " + bright.Render("No sessions yet") + "\n\n" +
+			"  " + dimmed.Render("Register projects with cleo add, then press n to spawn an agent.") + "\n\n" +
+			"  " + m.theme.KeyHint("n", "new agent") + "   " + m.theme.KeyHint("/", "filter projects")
 	}
 	var b strings.Builder
 	stats := m.sessionStats()
-	b.WriteString("  " + styleFaint.Render("overview") + "\n")
+	b.WriteString("  " + faint.Render("overview") + "\n")
 	b.WriteString("  " +
-		pill(fmt.Sprintf("%d sessions", len(m.sessions)), clrSubtext) + " " +
-		pill(fmt.Sprintf("%d live", stats.live), clrGreen) + " " +
-		pill(fmt.Sprintf("%d waiting", stats.waiting), clrAmber) + "\n\n")
+		m.theme.Pill(fmt.Sprintf("%d sessions", len(m.sessions)), m.theme.Subtext0) + " " +
+		m.theme.Pill(fmt.Sprintf("%d live", stats.live), m.theme.Green) + " " +
+		m.theme.Pill(fmt.Sprintf("%d waiting", stats.waiting), m.theme.Peach) + "\n\n")
 	for _, s := range m.sessions {
 		cfgAgent := m.ctx.Config.Agents[s.Agent]
 		badge := agentLabel(cfgAgent.Label, cfgAgent.Color)
 		b.WriteString(fmt.Sprintf("  %s  %s  %s  %s  %s\n",
 			badge,
-			padRight(styleID.Render(truncateWidth(s.ID, 30)), 30),
-			styledGlyph(string(s.State)),
-			padRight(styledStateText(string(s.State)), 18),
-			styleDimmed.Render(humanDuration(s.StartedAt)),
+			padRight(idSt.Render(truncateWidth(s.ID, 30)), 30),
+			m.theme.StyledGlyph(string(s.State)),
+			padRight(m.theme.StyledStateText(string(s.State)), 18),
+			dimmed.Render(humanDuration(s.StartedAt)),
 		))
 	}
-	b.WriteString("\n  " + styleFaint.Render("Select a session, then press v for logs or enter to attach."))
+	b.WriteString("\n  " + faint.Render("Select a session, then press v for logs or enter to attach."))
 	return b.String()
 }
 
 func (m Model) renderSessionDetail(sess state.Session, width int) string {
+	faint := lipgloss.NewStyle().Foreground(m.theme.Overlay0)
+	dimmed := lipgloss.NewStyle().Foreground(m.theme.Subtext0)
+	idSt := lipgloss.NewStyle().Foreground(m.theme.Accent).Bold(true)
+	metric := lipgloss.NewStyle().Foreground(m.theme.Accent).Bold(true)
+
 	var b strings.Builder
-	b.WriteString("  " + styleFaint.Render("session") + "\n")
-	b.WriteString("  " + styleID.Render(truncateWidth(sess.ID, width-4)) + "\n\n")
-	dot := styleFaint.Render("  ·  ")
-	statsLine := styledGlyph(string(sess.State)) + "  " + styledStateText(string(sess.State)) +
-		dot + styleDimmed.Render("started ") + styleMetric.Render(sinceLabel(sess.StartedAt)) +
-		dot + styleDimmed.Render("tools ") + styleMetric.Render(fmt.Sprintf("%d", sess.ToolCount)) +
-		dot + styleDimmed.Render("last ") + styleMetric.Render(humanDuration(sess.LastEventAt))
+	b.WriteString("  " + faint.Render("session") + "\n")
+	b.WriteString("  " + idSt.Render(truncateWidth(sess.ID, width-4)) + "\n\n")
+	dot := faint.Render("  ·  ")
+	statsLine := m.theme.StyledGlyph(string(sess.State)) + "  " + m.theme.StyledStateText(string(sess.State)) +
+		dot + dimmed.Render("started ") + metric.Render(sinceLabel(sess.StartedAt)) +
+		dot + dimmed.Render("tools ") + metric.Render(fmt.Sprintf("%d", sess.ToolCount)) +
+		dot + dimmed.Render("last ") + metric.Render(humanDuration(sess.LastEventAt))
 	b.WriteString("  " + truncateWidth(statsLine, width-4) + "\n")
 	if sess.LastMessage != "" {
-		b.WriteString("  " + styleDimmed.Render(truncateWidth(sess.LastMessage, width-4)) + "\n")
+		b.WriteString("  " + dimmed.Render(truncateWidth(sess.LastMessage, width-4)) + "\n")
 	}
-	b.WriteString("\n  " + sectionDivider("events", width-4) + "\n")
+	b.WriteString("\n  " + m.theme.SectionDivider("events", width-4) + "\n")
 	log := m.ctx.Events(sess.ID)
 	entries, _ := log.Tail(m.ctx.Config.UI.EventLogLines)
 	if len(entries) == 0 {
-		b.WriteString("  " + styleFaint.Render("no events yet") + "\n")
+		b.WriteString("  " + faint.Render("no events yet") + "\n")
 	} else {
 		start := len(entries) - 9
 		if start < 0 {
@@ -219,16 +234,16 @@ func (m Model) renderSessionDetail(sess state.Session, width int) string {
 		}
 		for i, e := range entries[start:] {
 			isLast := i == len(entries[start:])-1
-			b.WriteString("  " + formatEventRow(e, width-4, isLast) + "\n")
+			b.WriteString("  " + m.theme.FormatEventRow(e, width-4, isLast) + "\n")
 		}
 	}
-	b.WriteString("\n  " + sectionDivider("terminal", width-4) + "\n")
+	b.WriteString("\n  " + m.theme.SectionDivider("terminal", width-4) + "\n")
 	pane := m.paneCache[sess.ID]
 	if pane == "" {
-		b.WriteString("  " + styleFaint.Render("press v to load preview") + "\n")
+		b.WriteString("  " + faint.Render("press v to load preview") + "\n")
 	} else {
 		for _, line := range strings.Split(truncateLines(pane, 12), "\n") {
-			b.WriteString("  " + styleDimmed.Render(truncateWidth(line, width-4)) + "\n")
+			b.WriteString("  " + dimmed.Render(truncateWidth(line, width-4)) + "\n")
 		}
 	}
 	return b.String()
@@ -248,59 +263,6 @@ func (m Model) selectedSession() (state.Session, bool) {
 		}
 	}
 	return state.Session{}, false
-}
-
-// ── Event row formatting ──────────────────────────────────────────────────────
-
-func eventTypeColor(t string) lipgloss.Color {
-	switch t {
-	case "PreToolUse", "pre_tool_use":
-		return clrAmber
-	case "PostToolUse", "post_tool_use":
-		return clrGreen
-	case "Stop", "stop", "SessionEnd", "session_end", "idle_timeout":
-		return clrOrange
-	case "Notification", "notification", "user_resume":
-		return clrAccent
-	case "SessionStart", "session_start":
-		return clrAccent
-	case "error", "dead":
-		return clrRed
-	}
-	return clrSubtext
-}
-
-func formatEventRow(e events.Entry, width int, highlight bool) string {
-	// Columns: time(9)  type(16)  detail(flex)  duration(8)
-	ts := styleFaint.Render(e.At.Format("15:04:05"))
-	evType := lipgloss.NewStyle().Foreground(eventTypeColor(e.Type)).Render(fmt.Sprintf("%-16s", e.Type))
-	detail := ""
-	if e.Detail != "" {
-		detail = e.Detail
-	} else if e.Tool != "" {
-		detail = e.Tool
-	}
-	dur := ""
-	if e.DurationS > 0 {
-		dur = styleFaint.Render(fmt.Sprintf("%.1fs", e.DurationS))
-	}
-
-	durW := 6
-	fixed := 9 + 2 + 16 + 2 + durW + 2
-	detailW := width - fixed
-	if detailW < 4 {
-		detailW = 4
-	}
-	detailStr := styleDimmed.Render(truncateWidth(detail, detailW))
-	if e.Type == "Notification" || e.Type == "notification" {
-		detailStr = lipgloss.NewStyle().Foreground(clrGold).Render(truncateWidth(detail, detailW))
-	}
-
-	row := ts + "  " + evType + "  " + padRight(detailStr, detailW) + "  " + padRight(dur, durW)
-	if highlight {
-		row = styleSelected.Render(row)
-	}
-	return row
 }
 
 // ── Time helpers ──────────────────────────────────────────────────────────────
