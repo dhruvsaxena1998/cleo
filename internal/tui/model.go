@@ -11,6 +11,7 @@ import (
 
 type Model struct {
 	ctx           *cli.Ctx
+	theme         Theme
 	projects      []projects.Project
 	sessions      []state.Session
 	cursor        cursor
@@ -42,6 +43,7 @@ type cursor struct {
 func New(ctx *cli.Ctx) Model {
 	return Model{
 		ctx:       ctx,
+		theme:     Resolve(ctx.Config.UI.Theme),
 		expanded:  map[string]bool{},
 		paneCache: map[string]string{},
 		help:      help.New(),
