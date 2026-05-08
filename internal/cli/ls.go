@@ -24,6 +24,21 @@ type lsRow struct {
 
 func strPtr(s string) *string { return &s }
 
+func fmtAge(t time.Time) string {
+	if t.IsZero() {
+		return "-"
+	}
+	d := time.Since(t)
+	switch {
+	case d < time.Hour:
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh", int(d.Hours()))
+	default:
+		return fmt.Sprintf("%dd", int(d.Hours()/24))
+	}
+}
+
 func timePtr(t time.Time) *time.Time {
 	if t.IsZero() {
 		return nil
@@ -46,6 +61,21 @@ func newLsCmd(getCtx func() *Ctx) *cobra.Command {
 			byProj := map[string][]int{}
 			for i, s := range sessions {
 				byProj[s.ProjectID] = append(byProj[s.ProjectID], i)
+			}
+
+			// Sort each project's sessions by LastEventAt descending (most recently active first).
+			// Sessions with zero LastEventAt sort after sessions with a value.
+			for pid := range byProj {
+				indices := byProj[pid]
+				sort.SliceStable(indices, func(i, j int) bool {
+					a := sessions[indices[i]].LastEventAt
+					b := sessions[indices[j]].LastEventAt
+					if a.IsZero() != b.IsZero() {
+						return !a.IsZero() // non-zero sorts first
+					}
+					return a.After(b)
+				})
+				byProj[pid] = indices
 			}
 
 			if jsonFlag {
@@ -81,15 +111,19 @@ func newLsCmd(getCtx func() *Ctx) *cobra.Command {
 			}
 
 			tw := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-			fmt.Fprintln(tw, "PROJECT\tAGENT\tNAME\tSTATE\tID")
+			fmt.Fprintln(tw, "PROJECT\tAGENT\tNAME\tSTATE\tID\tAGE")
 			for _, p := range projects {
 				if len(byProj[p.ID]) == 0 {
-					fmt.Fprintf(tw, "%s\t-\t-\t-\t-\n", p.ID)
+					fmt.Fprintf(tw, "%s\t-\t-\t-\t-\t-\n", p.ID)
 					continue
 				}
 				for _, i := range byProj[p.ID] {
 					s := sessions[i]
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n", p.ID, s.Agent, s.Name, s.State, s.ID)
+					effectiveTime := s.LastEventAt
+					if effectiveTime.IsZero() {
+						effectiveTime = s.StartedAt
+					}
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", p.ID, s.Agent, s.Name, s.State, s.ID, fmtAge(effectiveTime))
 				}
 			}
 			return tw.Flush()

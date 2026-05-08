@@ -104,6 +104,27 @@ func TestLsJSONFlag(t *testing.T) {
 	}
 }
 
+func TestLsAGEColumn(t *testing.T) {
+	root := t.TempDir()
+	c, _ := NewCtxWithRoot(root)
+	target := filepath.Join(t.TempDir(), "myapp")
+	_ = mkdir(target)
+	_, _ = c.Projects.Add(target)
+	_ = c.State.Put(state.Session{ID: "cleo-myapp-claude-1", ProjectID: "myapp", Agent: "claude", Name: "1", State: state.Running})
+	c.Tmux = &fakeTmux{exists: map[string]bool{"cleo-myapp-claude-1": true}}
+
+	cmd := newLsCmd(func() *Ctx { return c })
+	out := &bytes.Buffer{}
+	cmd.SetOut(out)
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	output := out.String()
+	if !strings.Contains(output, "AGE") {
+		t.Errorf("expected AGE column header in output, got:\n%s", output)
+	}
+}
+
 func TestLsReconcilesMissingSessions(t *testing.T) {
 	root := t.TempDir()
 	c, _ := NewCtxWithRoot(root)
