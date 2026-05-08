@@ -10,10 +10,11 @@ import (
 type ConfirmPopup struct {
 	prompt string
 	target string
+	theme  Theme
 }
 
-func NewConfirmPopup(prompt, target string) ConfirmPopup {
-	return ConfirmPopup{prompt: prompt, target: target}
+func NewConfirmPopup(prompt, target string, theme Theme) ConfirmPopup {
+	return ConfirmPopup{prompt: prompt, target: target, theme: theme}
 }
 
 type ConfirmYes struct{ Target string }
@@ -23,13 +24,13 @@ func (p ConfirmPopup) Init() tea.Cmd { return nil }
 
 func (p ConfirmPopup) View() string {
 	const popW = 44
-	bdr := lipgloss.NewStyle().Foreground(clrBorder)
+	bdr := lipgloss.NewStyle().Foreground(p.theme.Overlay1)
 	iw := popW - 2
 
 	var b strings.Builder
 	b.WriteString(bdr.Render("┌"+strings.Repeat("─", iw)+"┐") + "\n")
-	titleLeft := styleError.Render("Confirm Kill")
-	titleRight := styleFaint.Render("destructive")
+	titleLeft := lipgloss.NewStyle().Foreground(p.theme.Red).Render("Confirm Kill")
+	titleRight := lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("destructive")
 	gap := iw - lipgloss.Width(titleLeft) - lipgloss.Width(titleRight) - 2
 	if gap < 1 {
 		gap = 1
@@ -40,10 +41,10 @@ func (p ConfirmPopup) View() string {
 	cw := iw - 2
 	b.WriteString(bdr.Render("│") + " " + strings.Repeat(" ", cw) + " " + bdr.Render("│") + "\n")
 	prompt := truncateWidth(p.prompt, cw)
-	b.WriteString(bdr.Render("│") + " " + padRight(styleDimmed.Render(prompt), cw) + " " + bdr.Render("│") + "\n")
+	b.WriteString(bdr.Render("│") + " " + padRight(lipgloss.NewStyle().Foreground(p.theme.Subtext0).Render(prompt), cw) + " " + bdr.Render("│") + "\n")
 	b.WriteString(bdr.Render("│") + " " + strings.Repeat(" ", cw) + " " + bdr.Render("│") + "\n")
 	b.WriteString(bdr.Render("├"+strings.Repeat("─", iw)+"┤") + "\n")
-	foot := keyHint("y", "confirm kill") + "   " + keyHint("esc", "cancel") + styleDimmed.Render(" / ") + keyHint("n", "cancel")
+	foot := p.theme.KeyHint("y", "confirm kill") + "   " + p.theme.KeyHint("esc", "cancel") + lipgloss.NewStyle().Foreground(p.theme.Subtext0).Render(" / ") + p.theme.KeyHint("n", "cancel")
 	b.WriteString(bdr.Render("│") + " " + padRight(truncateWidth(foot, cw), cw) + " " + bdr.Render("│") + "\n")
 	b.WriteString(bdr.Render("└" + strings.Repeat("─", iw) + "┘"))
 	return b.String()

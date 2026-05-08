@@ -11,6 +11,7 @@ import (
 type RenamePopup struct {
 	sessionID string
 	input     textinput.Model
+	theme     Theme
 }
 
 type RenameSubmitted struct {
@@ -19,20 +20,19 @@ type RenameSubmitted struct {
 }
 type RenameCancelled struct{}
 
-func NewRenamePopup(sessionID, currentName string) RenamePopup {
+func NewRenamePopup(sessionID, currentName string, theme Theme) RenamePopup {
 	ti := textinput.New()
 	ti.SetValue(currentName)
 	ti.CharLimit = 64
 	ti.Focus()
-	return RenamePopup{sessionID: sessionID, input: ti}
+	return RenamePopup{sessionID: sessionID, input: ti, theme: theme}
 }
 
 func (p RenamePopup) Init() tea.Cmd { return textinput.Blink }
 
 func (p RenamePopup) View() string {
 	const popW = 48
-	bdr := lipgloss.NewStyle().Foreground(clrSurf1)
-	cyn := lipgloss.NewStyle().Foreground(clrBlue).Bold(true)
+	bdr := lipgloss.NewStyle().Foreground(p.theme.Overlay1)
 	iw := popW - 2
 	cw := iw - 2
 
@@ -40,9 +40,8 @@ func (p RenamePopup) View() string {
 	var b strings.Builder
 
 	b.WriteString(bdr.Render("┌"+hbar+"┐") + "\n")
-
-	title := cyn.Render("Rename Session")
-	sid := styleFaint.Render(truncateWidth(p.sessionID, cw-lipgloss.Width(title)-1))
+	title := lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render("Rename Session")
+	sid := lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render(truncateWidth(p.sessionID, cw-lipgloss.Width(title)-1))
 	gap := cw - lipgloss.Width(title) - lipgloss.Width(sid)
 	if gap < 0 {
 		gap = 0
@@ -56,11 +55,11 @@ func (p RenamePopup) View() string {
 	blank := func() { row("") }
 
 	blank()
-	row(styleFaint.Render("new name"))
-	row("  " + styleKey.Render("›") + " " + p.input.View())
+	row(lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("new name"))
+	row("  " + lipgloss.NewStyle().Foreground(p.theme.Gold).Bold(true).Render("›") + " " + p.input.View())
 	blank()
 	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
-	row(keyHint("enter", "confirm") + "  " + keyHint("esc", "cancel"))
+	row(p.theme.KeyHint("enter", "confirm") + "  " + p.theme.KeyHint("esc", "cancel"))
 	b.WriteString(bdr.Render("└" + hbar + "┘"))
 
 	return b.String()

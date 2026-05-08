@@ -8,10 +8,12 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-type HelpPopup struct{}
+type HelpPopup struct {
+	theme Theme
+}
 type HelpClosed struct{}
 
-func NewHelpPopup() HelpPopup { return HelpPopup{} }
+func NewHelpPopup(theme Theme) HelpPopup { return HelpPopup{theme: theme} }
 
 func (p HelpPopup) Init() tea.Cmd { return nil }
 
@@ -27,7 +29,7 @@ func (p HelpPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (p HelpPopup) View() string {
 	const popW = 48
-	bdr := lipgloss.NewStyle().Foreground(clrBorder)
+	bdr := lipgloss.NewStyle().Foreground(p.theme.Overlay1)
 	iw := popW - 2
 	cw := iw - 2
 
@@ -59,10 +61,9 @@ func (p HelpPopup) View() string {
 	hbar := strings.Repeat("─", iw)
 	var b strings.Builder
 
-	// Title bar
 	b.WriteString(bdr.Render("┌"+hbar+"┐") + "\n")
-	titleLeft := lipgloss.NewStyle().Foreground(clrBlue).Bold(true).Render("Keybindings")
-	titleRight := styleFaint.Render("esc / q to close")
+	titleLeft := lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render("Keybindings")
+	titleRight := lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("esc / q to close")
 	gap := cw - lipgloss.Width(titleLeft) - lipgloss.Width(titleRight)
 	if gap < 0 {
 		gap = 0
@@ -82,9 +83,12 @@ func (p HelpPopup) View() string {
 			b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
 		}
 		writeBlank()
-		writeRow(styleFaint.Render(sec.title))
+		writeRow(lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render(sec.title))
 		for _, r := range sec.rows {
-			line := fmt.Sprintf("  %s  %s", styleKey.Render(r.key), styleDimmed.Render(r.desc))
+			line := fmt.Sprintf("  %s  %s",
+				lipgloss.NewStyle().Foreground(p.theme.Gold).Bold(true).Render(r.key),
+				lipgloss.NewStyle().Foreground(p.theme.Subtext0).Render(r.desc),
+			)
 			writeRow(line)
 		}
 		writeBlank()

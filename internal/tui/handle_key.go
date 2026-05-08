@@ -159,7 +159,7 @@ func (m Model) openSpawnPopup() (Model, tea.Cmd) {
 	for k := range m.ctx.Config.Agents {
 		agents = append(agents, k)
 	}
-	m.popup = NewSpawnPopup(pid, agents)
+	m.popup = NewSpawnPopup(pid, agents, m.theme)
 	m.mode = ModePopup
 	return m, m.popup.Init()
 }
@@ -207,7 +207,7 @@ func (m Model) confirmKill() (Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
-	m.popup = NewConfirmPopup(fmt.Sprintf("kill %q?", sess.ID), sess.ID)
+	m.popup = NewConfirmPopup(fmt.Sprintf("kill %q?", sess.ID), sess.ID, m.theme)
 	m.mode = ModePopup
 	return m, m.popup.Init()
 }
@@ -221,13 +221,13 @@ func (m Model) openRenamePopup() (Model, tea.Cmd) {
 		m.status = fmt.Sprintf("%s is %s; finished sessions cannot be renamed", sess.ID, sess.State)
 		return m, nil
 	}
-	m.popup = NewRenamePopup(sess.ID, sess.Name)
+	m.popup = NewRenamePopup(sess.ID, sess.Name, m.theme)
 	m.mode = ModePopup
 	return m, m.popup.Init()
 }
 
 func (m Model) openHelpPopup() (Model, tea.Cmd) {
-	m.popup = NewHelpPopup()
+	m.popup = NewHelpPopup(m.theme)
 	m.mode = ModePopup
 	return m, m.popup.Init()
 }
