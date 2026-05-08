@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
 	"github.com/dhruvsaxena1998/cleo/internal/hooks"
@@ -199,15 +200,22 @@ func hookEntryHasCommand(entry any, commandNeedle, event string) bool {
 	return strings.Contains(text, commandNeedle) && strings.Contains(text, event)
 }
 
+var (
+	okStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#a6e3a1"))
+	warnStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#f38ba8"))
+)
+
 func printDoctorReport(w io.Writer, report doctorReport) {
 	fmt.Fprintln(w, "Cleo doctor")
 	fmt.Fprintln(w)
 	for _, check := range report.Checks {
-		status := "ok"
-		if !check.OK {
-			status = "warn"
+		var symbol string
+		if check.OK {
+			symbol = okStyle.Render("✓")
+		} else {
+			symbol = warnStyle.Render("✗")
 		}
-		fmt.Fprintf(w, "[%s] %s: %s\n", status, check.Label, check.Detail)
+		fmt.Fprintf(w, "%s %s: %s\n", symbol, check.Label, check.Detail)
 	}
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Codex approval check:")

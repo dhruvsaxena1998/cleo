@@ -88,7 +88,8 @@ func TestPrintDoctorReportListsCodexApprovalHooks(t *testing.T) {
 	got := out.String()
 	for _, want := range []string{
 		"Cleo doctor",
-		"[ok] Codex hooks",
+		"✓",
+		"Codex hooks",
 		"Codex approval check",
 		"SessionStart",
 		"UserPromptSubmit",
