@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/dhruvsaxena1998/cleo/internal/state"
 	"github.com/spf13/cobra"
 )
 
@@ -18,6 +19,13 @@ func newKillCmd(getCtx func() *Ctx) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
+			c := getCtx()
+			if _, err := c.State.Get(id); err != nil {
+				if errors.Is(err, state.ErrSessionNotFound) {
+					return fmt.Errorf("session %q not found", id)
+				}
+				return err
+			}
 			if !yes {
 				fmt.Fprintf(cmd.OutOrStdout(), "kill %q? [y/N] ", id)
 				ans, _ := bufio.NewReader(os.Stdin).ReadString('\n')
@@ -25,8 +33,9 @@ func newKillCmd(getCtx func() *Ctx) *cobra.Command {
 					return errors.New("aborted")
 				}
 			}
-			c := getCtx()
-			_ = c.Tmux.Kill(id)
+			if err := c.Tmux.Kill(id); err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: tmux kill failed: %v\n", err)
+			}
 			return c.State.Delete(id)
 		},
 	}

@@ -1,0 +1,656 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cleo Terminal TUI Directions</title>
+  <style>
+    :root {
+      --bg: #0b0f10;
+      --panel: #101516;
+      --panel2: #0d1213;
+      --fg: #d7ddd9;
+      --muted: #7b8782;
+      --dim: #4d5753;
+      --line: #2c3632;
+      --line2: #1c2522;
+      --select: #1d3b3a;
+      --select2: #28514f;
+      --cyan: #78dce8;
+      --green: #a9dc76;
+      --yellow: #ffd866;
+      --orange: #fc9867;
+      --red: #ff6188;
+      --blue: #ab9df2;
+      --mono: "SFMono-Regular", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font: 14px/1.35 var(--mono);
+      overflow: hidden;
+    }
+
+    .app {
+      width: 100vw;
+      height: 100vh;
+      display: grid;
+      grid-template-rows: 1fr 28px;
+      background: var(--bg);
+    }
+
+    .screen {
+      display: none;
+      min-height: 0;
+      padding: 6px;
+    }
+    .screen.active { display: grid; }
+
+    .footer {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 0 10px;
+      border-top: 1px solid var(--line);
+      background: #080b0c;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      font-size: 12px;
+    }
+    .key { color: var(--yellow); font-weight: 700; }
+    .muted { color: var(--muted); }
+    .dim { color: var(--dim); }
+    .cyan { color: var(--cyan); }
+    .green { color: var(--green); }
+    .yellow { color: var(--yellow); }
+    .orange { color: var(--orange); }
+    .red { color: var(--red); }
+    .blue { color: var(--blue); }
+
+    .box {
+      min-width: 0;
+      min-height: 0;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      display: grid;
+      grid-template-rows: 24px minmax(0, 1fr);
+      overflow: hidden;
+    }
+    .title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 24px;
+      padding: 0 8px;
+      border-bottom: 1px solid var(--line);
+      background: #0d1314;
+      color: var(--fg);
+      font-size: 12px;
+    }
+    .title b { color: var(--cyan); }
+    .content {
+      min-height: 0;
+      overflow: hidden;
+      padding: 4px 6px;
+    }
+
+    .row {
+      display: grid;
+      align-items: center;
+      min-height: 22px;
+      gap: 8px;
+      padding: 0 5px;
+      color: var(--fg);
+    }
+    .row.selected {
+      background: var(--select);
+      color: #eefdfb;
+    }
+    .truncate {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    .badge {
+      display: inline-block;
+      min-width: 24px;
+      text-align: center;
+      color: #061010;
+      font-weight: 800;
+      font-size: 11px;
+      line-height: 16px;
+    }
+    .cl { background: #c58c70; }
+    .cx { background: #5fd0a5; }
+    .oc { background: #f0b36a; }
+    .pi { background: #ab9df2; }
+
+    .filter {
+      height: 24px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 7px;
+      margin-bottom: 4px;
+      background: #070a0b;
+      border: 1px solid var(--line);
+    }
+
+    pre {
+      margin: 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font: inherit;
+    }
+
+    /* Variant 1: lazygit-style split panes */
+    .lg {
+      grid-template-columns: 35vw minmax(0, 1fr);
+      gap: 6px;
+    }
+    .left-stack {
+      display: grid;
+      grid-template-rows: 52px minmax(0, 1fr) 30%;
+      gap: 6px;
+      min-height: 0;
+    }
+    .agent-list .row { grid-template-columns: 18px 34px minmax(0, 1fr) 44px 56px; }
+    .project-row { grid-template-columns: 18px minmax(0, 1fr) 32px; font-weight: 800; }
+    .right-stack {
+      display: grid;
+      grid-template-rows: 92px minmax(0, 1fr) 34%;
+      gap: 6px;
+      min-height: 0;
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 1px;
+      background: var(--line);
+      border: 1px solid var(--line);
+    }
+    .meta {
+      background: #0c1112;
+      padding: 7px 8px;
+      min-width: 0;
+    }
+    .meta span { display: block; color: var(--muted); font-size: 11px; }
+    .meta b { display: block; margin-top: 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .event-row { grid-template-columns: 72px 112px minmax(0, 1fr) 64px; border-bottom: 1px solid var(--line2); }
+    .branch-row { grid-template-columns: 20px minmax(0, 1fr) 52px; }
+
+    /* Variant 2: gh-dash style columns */
+    .dash {
+      grid-template-rows: 30px minmax(0, 1fr);
+      gap: 6px;
+    }
+    .topline {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 14px;
+      border: 1px solid var(--line);
+      background: #0d1314;
+      padding: 0 9px;
+      min-width: 0;
+    }
+    .dash-body {
+      display: grid;
+      grid-template-columns: 30vw 28vw minmax(0, 1fr);
+      gap: 6px;
+      min-height: 0;
+    }
+    .project-list .row { grid-template-columns: 18px minmax(0, 1fr) 52px 34px; }
+    .session-list .row { grid-template-columns: 32px minmax(0, 1fr) 54px; }
+    .info-stack {
+      display: grid;
+      grid-template-rows: 122px minmax(0, 1fr) 34%;
+      gap: 6px;
+      min-height: 0;
+    }
+
+    /* Variant 3: tmux monitor style */
+    .tmux {
+      grid-template-rows: 26px minmax(0, 1fr);
+      gap: 6px;
+    }
+    .tmux-tabs {
+      display: flex;
+      align-items: center;
+      gap: 1px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background: #080b0c;
+    }
+    .tmux-tab {
+      padding: 4px 10px;
+      border-right: 1px solid var(--line);
+      background: #111718;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .tmux-tab.active {
+      background: var(--select);
+      color: var(--fg);
+    }
+    .monitor {
+      display: grid;
+      grid-template-columns: 26vw minmax(0, 1fr);
+      gap: 6px;
+      min-height: 0;
+    }
+    .monitor-right {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 34vw;
+      gap: 6px;
+      min-height: 0;
+    }
+    .stream .row { grid-template-columns: 70px 30px minmax(0, 1fr) 74px; border-bottom: 1px solid var(--line2); }
+    .inspector-line {
+      display: grid;
+      grid-template-columns: 116px minmax(0, 1fr);
+      min-height: 23px;
+      border-bottom: 1px solid var(--line2);
+    }
+
+    .switcher { display: none; }
+
+    .modal-layer {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(3, 5, 6, 0.42);
+      z-index: 20;
+    }
+    .modal-layer.active { display: flex; }
+    .modal {
+      width: min(760px, calc(100vw - 52px));
+      height: min(460px, calc(100vh - 72px));
+      border: 1px solid var(--line);
+      background: #0b1011;
+      box-shadow: 0 0 0 1px #050707, 0 20px 60px rgba(0,0,0,.55);
+      display: grid;
+      grid-template-rows: 26px minmax(0, 1fr) 28px;
+      overflow: hidden;
+    }
+    .modal-title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 9px;
+      border-bottom: 1px solid var(--line);
+      background: #101718;
+    }
+    .modal-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 230px;
+      min-height: 0;
+    }
+    .form-pane {
+      padding: 10px;
+      min-width: 0;
+      border-right: 1px solid var(--line);
+    }
+    .field {
+      border: 1px solid var(--line);
+      background: #080c0d;
+      margin-bottom: 8px;
+    }
+    .field-label {
+      height: 21px;
+      padding: 2px 7px;
+      border-bottom: 1px solid var(--line2);
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .field-value {
+      min-height: 30px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 8px;
+    }
+    .choice-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+      padding: 7px;
+    }
+    .choice {
+      min-height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 7px;
+      border: 1px solid var(--line2);
+      background: #0d1213;
+      color: var(--fg);
+    }
+    .choice.active {
+      background: var(--select);
+      border-color: var(--select2);
+      color: #eefdfb;
+    }
+    .preview-pane {
+      padding: 10px;
+      background: #080c0d;
+      min-width: 0;
+    }
+    .modal-foot {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 9px;
+      border-top: 1px solid var(--line);
+      background: #101718;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 1000px) {
+      .lg { grid-template-columns: 42vw minmax(0, 1fr); }
+      .dash-body { grid-template-columns: 36vw minmax(0, 1fr); }
+      .dash-body > .box:nth-child(2) { display: none; }
+      .monitor-right { grid-template-columns: minmax(0, 1fr); }
+      .monitor-right > .box:nth-child(2) { display: none; }
+      .meta-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <!--
+    Terminal-native pass:
+    - Sharp split panes, compact row height, ASCII/tree affordances.
+    - No dashboard cards, no rounded web chrome, no explanatory marketing UI.
+    - Built to translate into Bubble Tea + Lipgloss: box titles, lists, selected rows, status bars, footer commands.
+  -->
+  <div class="switcher">
+    <button class="active" data-target="lg">1 lazygit</button>
+    <button data-target="dash">2 gh-dash</button>
+    <button data-target="tmux">3 tmux</button>
+  </div>
+
+  <div class="modal-layer active" id="newSessionModal">
+    <div class="modal">
+      <div class="modal-title">
+        <b class="cyan">New Session</b>
+        <span class="muted">spawn tmux-backed agent</span>
+      </div>
+      <div class="modal-body">
+        <div class="form-pane">
+          <div class="field">
+            <div class="field-label">1. label <span class="dim">(optional, auto-generated if empty)</span></div>
+            <div class="field-value"><span class="key">›</span><span class="truncate">payment webhook race</span><span class="dim">slug: payment-webhook-race</span></div>
+          </div>
+          <div class="field">
+            <div class="field-label">2. project</div>
+            <div class="choice-grid">
+              <div class="choice active"><span>cleo</span><span class="green">8</span></div>
+              <div class="choice"><span>core-api</span><span class="yellow">4</span></div>
+              <div class="choice"><span>website</span><span class="blue">2</span></div>
+              <div class="choice"><span>billing</span><span class="red">5</span></div>
+            </div>
+          </div>
+          <div class="field">
+            <div class="field-label">3. ai-agent</div>
+            <div class="choice-grid">
+              <div class="choice"><span><span class="badge cl">cl</span> claude</span><span class="muted">hooks</span></div>
+              <div class="choice active"><span><span class="badge cx">cx</span> codex</span><span class="muted">hooks</span></div>
+              <div class="choice"><span><span class="badge oc">oc</span> opencode</span><span class="muted">tmux</span></div>
+              <div class="choice"><span><span class="badge pi">pi</span> pi</span><span class="muted">tmux</span></div>
+            </div>
+          </div>
+        </div>
+        <aside class="preview-pane">
+          <div class="muted">will create</div>
+          <br>
+          <div class="inspector-line"><span class="muted">project</span><span>cleo</span></div>
+          <div class="inspector-line"><span class="muted">agent</span><span><span class="badge cx">cx</span> codex</span></div>
+          <div class="inspector-line"><span class="muted">label</span><span>payment-webhook-race</span></div>
+          <div class="inspector-line"><span class="muted">session id</span><span class="truncate">cleo-cleo-codex-payment-webhook-race</span></div>
+          <br>
+<pre class="muted">$ tmux new-session -d \
+  -s cleo-cleo-codex-payment-webhook-race \
+  -c ~/Dev/cleo \
+  codex</pre>
+        </aside>
+      </div>
+      <div class="modal-foot">
+        <span><span class="key">tab</span> next field</span>
+        <span><span class="key">j/k</span> move</span>
+        <span><span class="key">enter</span> spawn</span>
+        <span><span class="key">esc</span> cancel</span>
+      </div>
+    </div>
+  </div>
+
+  <main class="app">
+    <section class="screen lg active" data-screen="lg">
+      <div class="left-stack">
+        <div class="box">
+          <div class="title"><b>Filter</b><span>/ active</span></div>
+          <div class="content"><div class="filter"><span class="key">/</span><span class="truncate">payment state:waiting agent:codex</span></div></div>
+        </div>
+        <div class="box agent-list">
+          <div class="title"><b>Projects / Sessions</b><span>8 sessions</span></div>
+          <div class="content">
+            <div class="row project-row"><span>▾</span><span class="truncate">cleo</span><span class="green">3</span></div>
+            <div class="row selected"><span>├</span><span class="badge cx">cx</span><span class="truncate">payment-webhook-race</span><span class="yellow">wait</span><span>42m</span></div>
+            <div class="row"><span>├</span><span class="badge cl">cl</span><span class="truncate">redesign-terminal-ui</span><span class="green">run</span><span>18m</span></div>
+            <div class="row"><span>└</span><span class="badge oc">oc</span><span class="truncate">tmux-reconcile-tests</span><span class="blue">idle</span><span>7m</span></div>
+            <div class="row project-row"><span>▾</span><span class="truncate">website</span><span class="yellow">1</span></div>
+            <div class="row"><span>└</span><span class="badge cl">cl</span><span class="truncate">fix-pricing-copy</span><span class="yellow">wait</span><span>1h</span></div>
+            <div class="row project-row"><span>▸</span><span class="truncate">mobile-app</span><span class="muted">5</span></div>
+            <div class="row project-row"><span>▸</span><span class="truncate">infra</span><span class="red">1</span></div>
+          </div>
+        </div>
+        <div class="box">
+          <div class="title"><b>Actions</b><span>selected session</span></div>
+          <div class="content">
+            <div class="row branch-row selected"><span>›</span><span>attach tmux session</span><span class="key">enter</span></div>
+            <div class="row branch-row"><span></span><span>spawn sibling agent</span><span class="key">n</span></div>
+            <div class="row branch-row"><span></span><span>copy session id</span><span class="key">y</span></div>
+            <div class="row branch-row"><span></span><span>kill after confirm</span><span class="key">K</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="right-stack">
+        <div class="box">
+          <div class="title"><b>Session</b><span>cleo-cleo-codex-payment-webhook-race</span></div>
+          <div class="content meta-grid">
+            <div class="meta"><span>agent</span><b><span class="badge cx">cx</span> codex</b></div>
+            <div class="meta"><span>state</span><b class="yellow">waiting_for_input</b></div>
+            <div class="meta"><span>project</span><b>cleo</b></div>
+            <div class="meta"><span>runtime</span><b>42m</b></div>
+            <div class="meta"><span>tools</span><b>31</b></div>
+            <div class="meta"><span>last</span><b>18s ago</b></div>
+          </div>
+        </div>
+        <div class="box">
+          <div class="title"><b>Events</b><span>tail events/cleo-cleo-codex-payment-webhook-race.jsonl</span></div>
+          <div class="content">
+            <div class="row event-row"><span class="dim">14:22:01</span><span class="green">PostToolUse</span><span class="truncate">go test ./internal/events passed</span><span>1.8s</span></div>
+            <div class="row event-row"><span class="dim">14:22:04</span><span class="yellow">PreToolUse</span><span class="truncate">rg -n "webhook" internal</span><span></span></div>
+            <div class="row event-row"><span class="dim">14:24:17</span><span class="green">PostToolUse</span><span class="truncate">patched retry window in handler_test.go</span><span>0.4s</span></div>
+            <div class="row event-row selected"><span class="dim">14:25:03</span><span class="yellow">Notification</span><span class="truncate">needs decision: preserve duplicate events or coalesce?</span><span>now</span></div>
+            <div class="row event-row"><span class="dim">14:25:08</span><span class="orange">Stop</span><span class="truncate">agent waiting for user input</span><span></span></div>
+          </div>
+        </div>
+        <div class="box">
+          <div class="title"><b>Terminal Preview</b><span>tmux capture-pane -p</span></div>
+          <div class="content">
+<pre>$ go test ./...
+ok github.com/dhruvsaxena1998/cleo/internal/events
+ok github.com/dhruvsaxena1998/cleo/internal/state
+
+Question:
+Duplicate hook events currently create two log rows.
+
+  [1] keep raw event stream
+  [2] coalesce duplicate events within 500ms
+
+Recommendation: keep raw stream, derive compact display in TUI.</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen dash" data-screen="dash">
+      <div class="topline">
+        <span><b class="cyan">cleo</b> <span class="muted">ai-agent sessions</span></span>
+        <span class="truncate"><span class="key">/</span> auth hook waiting</span>
+        <span><span class="green">4 running</span> <span class="yellow">2 waiting</span> <span class="red">1 error</span></span>
+      </div>
+      <div class="dash-body">
+        <div class="box project-list">
+          <div class="title"><b>Projects</b><span>j/k</span></div>
+          <div class="content">
+            <div class="row selected"><span>▾</span><span class="truncate">core-api</span><span class="yellow">1 wait</span><span>4</span></div>
+            <div class="row"><span>▾</span><span class="truncate">cleo</span><span class="green">2 run</span><span>8</span></div>
+            <div class="row"><span>▸</span><span class="truncate">billing</span><span class="red">1 err</span><span>5</span></div>
+            <div class="row"><span>▸</span><span class="truncate">website</span><span class="blue">idle</span><span>2</span></div>
+            <div class="row"><span>▸</span><span class="truncate">mobile-app</span><span class="muted">done</span><span>9</span></div>
+          </div>
+        </div>
+        <div class="box session-list">
+          <div class="title"><b>Sessions</b><span>core-api</span></div>
+          <div class="content">
+            <div class="row selected"><span class="badge cl">cl</span><span class="truncate">migrate-auth-hooks</span><span class="yellow">wait</span></div>
+            <div class="row"><span class="badge cx">cx</span><span class="truncate">payment-race</span><span class="green">run</span></div>
+            <div class="row"><span class="badge oc">oc</span><span class="truncate">schema-cleanup</span><span class="blue">idle</span></div>
+            <div class="row"><span class="badge pi">pi</span><span class="truncate">docs-indexing</span><span class="muted">done</span></div>
+          </div>
+        </div>
+        <div class="info-stack">
+          <div class="box">
+            <div class="title"><b>Metadata</b><span>migrate-auth-hooks</span></div>
+            <div class="content meta-grid">
+              <div class="meta"><span>session</span><b>cleo-core-api-claude-auth-hooks</b></div>
+              <div class="meta"><span>agent</span><b><span class="badge cl">cl</span> claude</b></div>
+              <div class="meta"><span>branch</span><b>auth/session-hooks</b></div>
+              <div class="meta"><span>state</span><b class="yellow">waiting</b></div>
+              <div class="meta"><span>tools</span><b>24</b></div>
+              <div class="meta"><span>last message</span><b>unknown event keys?</b></div>
+            </div>
+          </div>
+          <div class="box">
+            <div class="title"><b>Event Log</b><span>compact</span></div>
+            <div class="content">
+              <div class="row event-row"><span class="dim">15:02</span><span class="cyan">SessionStart</span><span class="truncate">spawned claude in core-api</span><span></span></div>
+              <div class="row event-row"><span class="dim">15:08</span><span class="yellow">PreToolUse</span><span class="truncate">Read internal/hooks/handler.go</span><span></span></div>
+              <div class="row event-row"><span class="dim">15:14</span><span class="green">PostToolUse</span><span class="truncate">added migration-safe hook parser</span><span>0.7s</span></div>
+              <div class="row event-row selected"><span class="dim">15:16</span><span class="yellow">Ask</span><span class="truncate">archive unknown event keys or drop?</span><span>now</span></div>
+            </div>
+          </div>
+          <div class="box">
+            <div class="title"><b>Preview</b><span>read-only</span></div>
+            <div class="content"><pre>? Unknown hook event: PreCompact
+Choose behavior:
+  archive raw
+  ignore
+  fail fast</pre></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen tmux" data-screen="tmux">
+      <div class="tmux-tabs">
+        <div class="tmux-tab active">1: all agents</div>
+        <div class="tmux-tab">2: waiting</div>
+        <div class="tmux-tab">3: running</div>
+        <div class="tmux-tab">4: finished</div>
+        <div class="tmux-tab">5: errors</div>
+        <div class="tmux-tab muted">filter=/codex</div>
+      </div>
+      <div class="monitor">
+        <div class="box">
+          <div class="title"><b>Tree</b><span>18 sessions</span></div>
+          <div class="content">
+            <div class="filter"><span class="key">/</span><span class="truncate">agent:codex status:live</span></div>
+            <div class="row project-row selected"><span>▾</span><span class="truncate">cleo</span><span class="green">8</span></div>
+            <div class="row project-row"><span>▾</span><span class="truncate">billing</span><span class="red">4</span></div>
+            <div class="row project-row"><span>▾</span><span class="truncate">web</span><span class="yellow">3</span></div>
+            <div class="row project-row"><span>▸</span><span class="truncate">infra</span><span class="muted">3</span></div>
+          </div>
+        </div>
+        <div class="monitor-right">
+          <div class="box stream">
+            <div class="title"><b>Live Stream</b><span>sorted by last event</span></div>
+            <div class="content">
+              <div class="row selected"><span class="dim">16:44:17</span><span class="yellow">ASK</span><span class="truncate"><span class="badge cx">cx</span> cleo/ui-polish: should filter search project path?</span><span>now</span></div>
+              <div class="row"><span class="dim">16:44:13</span><span class="green">OK</span><span class="truncate"><span class="badge cx">cx</span> cleo/ui-polish: go test ./internal/tui/...</span><span>2.5s</span></div>
+              <div class="row"><span class="dim">16:43:50</span><span class="green">RUN</span><span class="truncate"><span class="badge cl">cl</span> web/fix-pricing-copy: editing hero copy</span><span>4m</span></div>
+              <div class="row"><span class="dim">16:41:22</span><span class="red">ERR</span><span class="truncate"><span class="badge cx">cx</span> billing/retry-policy: failing TestRetryIdempotent</span><span>8m</span></div>
+              <div class="row"><span class="dim">16:39:18</span><span class="blue">IDL</span><span class="truncate"><span class="badge oc">oc</span> cleo/tmux-smoke: idle timeout completed</span><span>12m</span></div>
+            </div>
+          </div>
+          <div class="box">
+            <div class="title"><b>Inspector</b><span>selected event</span></div>
+            <div class="content">
+              <div class="inspector-line"><span class="muted">session</span><span class="truncate">cleo-cleo-codex-ui-polish</span></div>
+              <div class="inspector-line"><span class="muted">agent</span><span><span class="badge cx">cx</span> codex</span></div>
+              <div class="inspector-line"><span class="muted">project</span><span>cleo</span></div>
+              <div class="inspector-line"><span class="muted">state</span><span class="yellow">waiting_for_input</span></div>
+              <div class="inspector-line"><span class="muted">message</span><span class="truncate">Should filter mode search project path?</span></div>
+              <br>
+<pre class="muted">$ tmux capture-pane -p -t cleo-cleo-codex-ui-polish
+Question:
+Should filter mode search project path as well as id?
+
+Recommended: yes, but rank id/name matches above path matches.</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <span><span class="key">n</span> New session</span>
+      <span><span class="key">enter</span> Attach</span>
+      <span><span class="key">v</span> View details</span>
+      <span><span class="key">space</span> Expand/collapse</span>
+      <span><span class="key">/</span> Filter sessions</span>
+      <span><span class="key">m</span> Mute</span>
+      <span><span class="key">K</span> Kill</span>
+      <span><span class="key">?</span> Help</span>
+      <span><span class="key">q</span> Quit</span>
+    </footer>
+  </main>
+
+  <script>
+    function activate(target) {
+      document.querySelectorAll(".screen").forEach((screen) => {
+        screen.classList.toggle("active", screen.dataset.screen === target);
+      });
+      document.querySelectorAll(".switcher button").forEach((button) => {
+        button.classList.toggle("active", button.dataset.target === target);
+      });
+      history.replaceState(null, "", "#" + target);
+    }
+
+    document.querySelectorAll(".switcher button").forEach((button) => {
+      button.addEventListener("click", () => activate(button.dataset.target));
+    });
+
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "1") activate("lg");
+      if (event.key === "2") activate("dash");
+      if (event.key === "3") activate("tmux");
+      if (event.key === "n") document.getElementById("newSessionModal").classList.add("active");
+      if (event.key === "Escape") document.getElementById("newSessionModal").classList.remove("active");
+    });
+
+    const initial = location.hash.replace("#", "");
+    if (["lg", "dash", "tmux"].includes(initial)) activate(initial);
+  </script>
+</body>
+</html>

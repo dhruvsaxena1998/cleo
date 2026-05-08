@@ -10,7 +10,19 @@ type TmuxLs interface {
 	LsPrefix(prefix string) ([]string, error)
 }
 
+type Options struct {
+	IdleTimeout     time.Duration
+	SpawningTimeout time.Duration
+}
+
 func Run(st *state.Store, tx TmuxLs, idleTimeout time.Duration) error {
+	return RunOpts(st, tx, Options{
+		IdleTimeout:     idleTimeout,
+		SpawningTimeout: 30 * time.Second,
+	})
+}
+
+func RunOpts(st *state.Store, tx TmuxLs, opts Options) error {
 	live, err := tx.LsPrefix("cleo-")
 	if err != nil {
 		return err
@@ -28,7 +40,16 @@ func Run(st *state.Store, tx TmuxLs, idleTimeout time.Duration) error {
 			_, _ = st.Apply(s.ID, state.EvDead, "")
 			continue
 		}
-		if s.State == state.Idle && time.Since(s.LastEventAt) > idleTimeout {
+		// If the agent has been spawning for longer than SpawningTimeout and
+		// the tmux session is still alive, the hooks likely didn't fire.
+		// Advance to Running so the TUI shows meaningful state.
+		if s.State == state.Spawning && liveSet[s.ID] &&
+			opts.SpawningTimeout > 0 && time.Since(s.StartedAt) > opts.SpawningTimeout {
+			_, _ = st.Apply(s.ID, state.EvSessionStart, "")
+			continue
+		}
+		if (s.State == state.Idle || s.State == state.WaitingForInput) &&
+			time.Since(s.LastEventAt) > opts.IdleTimeout {
 			_, _ = st.Apply(s.ID, state.EvIdleTimeout, "")
 		}
 	}

@@ -23,10 +23,12 @@ func (p Paths) ConfigFile() string   { return filepath.Join(p.root, "config.toml
 func (p Paths) ProjectsFile() string { return filepath.Join(p.root, "projects.json") }
 func (p Paths) StateFile() string    { return filepath.Join(p.root, "state.json") }
 func (p Paths) StateLock() string    { return filepath.Join(p.root, "state.json.lock") }
+func (p Paths) FocusFile() string    { return filepath.Join(p.root, "focus.json") }
 func (p Paths) EventsDir() string    { return filepath.Join(p.root, "events") }
 func (p Paths) ArchiveDir() string   { return filepath.Join(p.root, "events", "archive") }
 func (p Paths) SoundsDir() string    { return filepath.Join(p.root, "sounds") }
 func (p Paths) HookErrLog() string   { return filepath.Join(p.root, "hook-errors.log") }
+func (p Paths) HookTraceLog() string { return filepath.Join(p.root, "hook-trace.log") }
 func (p Paths) EventsLog(sid string) string {
 	return filepath.Join(p.root, "events", sid+".jsonl")
 }

@@ -21,6 +21,9 @@ func TestLoadDefaults(t *testing.T) {
 	if c.Sound.Volume != 0.7 {
 		t.Errorf("volume: %f", c.Sound.Volume)
 	}
+	if !c.Sound.EventEnabled["session_completed"] {
+		t.Errorf("session_completed sound should default enabled")
+	}
 	if c.Agents["claude"].Label != "cl" {
 		t.Errorf("claude label: %q", c.Agents["claude"].Label)
 	}
@@ -32,6 +35,36 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if c.Retention.HintThreshold != 6 {
 		t.Errorf("hint threshold: %d", c.Retention.HintThreshold)
+	}
+}
+
+func TestPartialSoundEventEnabledMergesDefaults(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	if err := Save(path, Config{
+		Sound: Sound{
+			Enabled: true,
+			Volume:  0.5,
+			Events: map[string]string{
+				"session_completed": "done.wav",
+			},
+			EventEnabled: map[string]bool{
+				"session_completed": false,
+			},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	c, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.SoundEventEnabled("session_completed") {
+		t.Errorf("session_completed should remain disabled")
+	}
+	if !c.SoundEventEnabled("session_start") {
+		t.Errorf("missing event toggle should default enabled")
 	}
 }
 

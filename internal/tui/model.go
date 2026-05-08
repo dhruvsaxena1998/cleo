@@ -17,6 +17,7 @@ type Model struct {
 	expanded      map[string]bool   // project id → expanded
 	paneCache     map[string]string // session id → last captured pane content
 	selected      string            // session id selected for "v" view; "" = none
+	status        string
 	filter        string
 	mode          Mode
 	popup         tea.Model

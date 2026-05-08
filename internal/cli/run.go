@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -22,6 +23,7 @@ func newRunCmd(getCtx func() *Ctx) *cobra.Command {
 	var name string
 	var cwdFlag string
 	var yes bool
+	var noAttach bool
 
 	cmd := &cobra.Command{
 		Use:   "run <agent>",
@@ -64,13 +66,13 @@ func newRunCmd(getCtx func() *Ctx) *cobra.Command {
 				return err
 			}
 
-			// Compute slug: user name (slugified) or counter
+			// Compute slug: user name (slugified) or generated label.
 			existing := existingSlugs(c, proj.ID, agentName)
 			var slug string
 			if name != "" {
 				slug = ids.DedupeSlug(ids.Slugify(name), existing)
 			} else {
-				slug = nextCounterSlug(existing)
+				slug = ids.RandomName(existing)
 			}
 			sid := ids.MakeSessionID(proj.ID, agentName, slug)
 
@@ -95,13 +97,36 @@ func newRunCmd(getCtx func() *Ctx) *cobra.Command {
 				_ = c.State.Delete(sid)
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "spawned %s — attach with `cleo attach %s`\n", sid, sid)
+			installFocusHooks(c)
+			// Wire the configured detach key into the tmux server (global binding).
+			if dk := c.Config.Defaults.DetachKey; dk != "" {
+				parts := strings.Fields(dk)
+				if len(parts) >= 2 {
+					_ = exec.Command("tmux", "bind-key", parts[len(parts)-1], "detach-client").Run()
+				}
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "spawned %s\n", sid)
+			if !noAttach {
+				markFocused(c, sid, true)
+				var attachCmd *exec.Cmd
+				if os.Getenv("TMUX") != "" {
+					attachCmd = exec.Command("tmux", "switch-client", "-t", sid)
+				} else {
+					attachCmd = exec.Command("tmux", "attach-session", "-t", sid)
+				}
+				attachCmd.Stdin = os.Stdin
+				attachCmd.Stdout = os.Stdout
+				attachCmd.Stderr = os.Stderr
+				_ = attachCmd.Run()
+				markFocused(c, sid, false)
+			}
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "session name (slugified)")
 	cmd.Flags().StringVar(&cwdFlag, "cwd", "", "override working directory")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip auto-register confirmation")
+	cmd.Flags().BoolVar(&noAttach, "no-attach", false, "spawn without attaching to the session")
 	return cmd
 }
 
@@ -123,13 +148,4 @@ func existingSlugs(c *Ctx, project, agent string) map[string]bool {
 		}
 	}
 	return out
-}
-
-func nextCounterSlug(existing map[string]bool) string {
-	for i := 1; ; i++ {
-		c := fmt.Sprintf("%d", i)
-		if !existing[c] {
-			return c
-		}
-	}
 }

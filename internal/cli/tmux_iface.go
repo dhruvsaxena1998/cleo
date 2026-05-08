@@ -10,3 +10,7 @@ type TmuxClient interface {
 	CapturePane(name string, lines int) (string, error)
 	RenameSession(from, to string) error
 }
+
+type TmuxFocusInstaller interface {
+	InstallFocusHooks(cleoBin string) error
+}

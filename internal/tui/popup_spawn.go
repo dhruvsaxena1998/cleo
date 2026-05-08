@@ -22,7 +22,7 @@ func NewSpawnPopup(projectID string, agents []string) SpawnPopup {
 	sorted := append([]string(nil), agents...)
 	sort.Strings(sorted)
 	ti := textinput.New()
-	ti.Placeholder = "(optional)"
+	ti.Placeholder = "optional — auto-generated if empty"
 	ti.CharLimit = 64
 	return SpawnPopup{agents: sorted, nameInput: ti, projectID: projectID}
 }
@@ -37,20 +37,85 @@ type SpawnCancelled struct{}
 func (p SpawnPopup) Init() tea.Cmd { return textinput.Blink }
 
 func (p SpawnPopup) View() string {
+	const popW = 52
+	bdr := lipgloss.NewStyle().Foreground(clrSurf1)
+	cyn := lipgloss.NewStyle().Foreground(clrBlue).Bold(true)
+	iw := popW - 2
+	cw := iw - 2 // 1 space pad each side
+
 	var b strings.Builder
-	fmt.Fprintf(&b, "Spawn agent in '%s'\n\n", p.projectID)
-	b.WriteString("Agent:\n")
-	for i, a := range p.agents {
-		marker := "  "
-		if i == p.cursor && !p.focusName {
-			marker = "▸ "
-		}
-		b.WriteString(marker + a + "\n")
+
+	// ── Title bar ─────────────────────────────────────────
+	hbar := strings.Repeat("─", iw)
+	b.WriteString(bdr.Render("┌"+hbar+"┐") + "\n")
+	titleLeft := cyn.Render("New Session")
+	titleRight := styleFaint.Render("spawn tmux-backed agent")
+	gap := cw - lipgloss.Width(titleLeft) - lipgloss.Width(titleRight)
+	if gap < 0 {
+		gap = 0
 	}
-	b.WriteString("\nName: ")
-	b.WriteString(p.nameInput.View())
-	b.WriteString("\n\ntab switch field   ↵ spawn   esc cancel")
-	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(1, 2).Render(b.String())
+	b.WriteString(bdr.Render("│") + " " + titleLeft + strings.Repeat(" ", gap) + titleRight + " " + bdr.Render("│") + "\n")
+	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
+
+	blank := func() { b.WriteString(bdr.Render("│") + " " + strings.Repeat(" ", cw) + " " + bdr.Render("│") + "\n") }
+	row := func(s string) {
+		b.WriteString(bdr.Render("│") + " " + padRight(truncateWidth(s, cw), cw) + " " + bdr.Render("│") + "\n")
+	}
+
+	// ── Project ───────────────────────────────────────────
+	blank()
+	row(styleFaint.Render("project  ") + styleID.Render(p.projectID))
+	blank()
+	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
+
+	// ── Label field ───────────────────────────────────────
+	blank()
+	row(styleFaint.Render("1. label ") + styleFaint.Render("(optional)"))
+	row("   " + styleKey.Render("›") + " " + p.nameInput.View())
+	blank()
+	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
+
+	// ── Agent list ────────────────────────────────────────
+	blank()
+	row(styleFaint.Render("2. ai-agent"))
+	for i, a := range p.agents {
+		active := i == p.cursor && !p.focusName
+		var line string
+		if active {
+			line = styleSelected.Width(cw).Render(fmt.Sprintf("  ● %s", a))
+		} else {
+			line = styleDimmed.Render(fmt.Sprintf("  ○ %s", a))
+		}
+		row(line)
+	}
+	blank()
+	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
+
+	// ── Preview ───────────────────────────────────────────
+	blank()
+	sessID := "—"
+	agentCmd := "—"
+	if p.cursor < len(p.agents) {
+		a := p.agents[p.cursor]
+		name := strings.TrimSpace(p.nameInput.Value())
+		if name == "" {
+			name = "1"
+		}
+		sessID = fmt.Sprintf("cleo-%s-%s-%s", p.projectID, a, name)
+		agentCmd = a
+	}
+	row(styleFaint.Render("will create  ") + styleID.Render(truncateWidth(sessID, cw-14)))
+	row(styleFaint.Render(fmt.Sprintf("$ tmux new-session -d -s %s %s",
+		truncateWidth(sessID, 22), agentCmd)))
+	blank()
+	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
+
+	// ── Footer ────────────────────────────────────────────
+	foot := keyHint("tab", "switch") + "  " + keyHint("j/k", "move") + "  " + keyHint("enter", "spawn") + "  " + keyHint("esc", "cancel")
+	row(foot)
+	b.WriteString(bdr.Render("└" + hbar + "┘"))
+
+	return b.String()
 }
 
 func (p SpawnPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

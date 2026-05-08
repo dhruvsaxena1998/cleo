@@ -15,6 +15,13 @@ func Defaults_() Config {
 				"session_completed": "done.wav",
 				"session_error":     "error.wav",
 			},
+			EventEnabled: map[string]bool{
+				"session_start":     true,
+				"needs_input":       true,
+				"session_idle":      true,
+				"session_completed": true,
+				"session_error":     true,
+			},
 		},
 		Agents: map[string]Agent{
 			"claude":   {Command: "claude", Label: "cl", Color: "#CC785C", Hooks: "claude"},
@@ -33,6 +40,7 @@ func Defaults_() Config {
 			HintThreshold:          6,
 			PruneKeepDefault:       5,
 			IdleToCompletedTimeout: 10 * time.Minute,
+			SpawningTimeout:        30 * time.Second,
 		},
 	}
 }
@@ -52,6 +60,15 @@ func mergeDefaults(c *Config) {
 	if c.Sound.Events == nil {
 		c.Sound.Events = d.Sound.Events
 	}
+	if c.Sound.EventEnabled == nil {
+		c.Sound.EventEnabled = d.Sound.EventEnabled
+	} else {
+		for ev, enabled := range d.Sound.EventEnabled {
+			if _, ok := c.Sound.EventEnabled[ev]; !ok {
+				c.Sound.EventEnabled[ev] = enabled
+			}
+		}
+	}
 	if c.Agents == nil {
 		c.Agents = d.Agents
 	}
@@ -60,5 +77,8 @@ func mergeDefaults(c *Config) {
 	}
 	if c.Retention.HintThreshold == 0 {
 		c.Retention = d.Retention
+	}
+	if c.Retention.SpawningTimeout == 0 {
+		c.Retention.SpawningTimeout = d.Retention.SpawningTimeout
 	}
 }

@@ -3,6 +3,7 @@ package cli
 import (
 	"github.com/dhruvsaxena1998/cleo/internal/config"
 	"github.com/dhruvsaxena1998/cleo/internal/events"
+	"github.com/dhruvsaxena1998/cleo/internal/focus"
 	"github.com/dhruvsaxena1998/cleo/internal/paths"
 	"github.com/dhruvsaxena1998/cleo/internal/projects"
 	"github.com/dhruvsaxena1998/cleo/internal/sound"
@@ -15,6 +16,7 @@ type Ctx struct {
 	Config   config.Config
 	Projects *projects.Store
 	State    *state.Store
+	Focus    *focus.Store
 	Tmux     TmuxClient
 	Player   *sound.Player
 	Events   func(sid string) *events.Log
@@ -33,6 +35,7 @@ func NewCtxWithRoot(root string) (*Ctx, error) {
 		Config:   cfg,
 		Projects: projects.NewStore(p.ProjectsFile()),
 		State:    state.NewStore(p.StateFile(), p.StateLock()),
+		Focus:    focus.NewStore(p.FocusFile()),
 		Tmux:     tmux.NewClient(""),
 		Player:   sound.NewPlayer(cfg.Sound.Volume),
 		Events:   func(sid string) *events.Log { return events.NewLog(p.EventsLog(sid)) },

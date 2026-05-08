@@ -9,6 +9,10 @@ func NextState(from State, ev Event) State {
 	case EvSessionEnd:
 		return Completed
 	case EvIdleTimeout:
+		if from == WaitingForInput {
+			// Downgrade to idle first; another timeout cycle will complete it.
+			return Idle
+		}
 		if from == Idle {
 			return Completed
 		}

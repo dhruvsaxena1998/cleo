@@ -22,10 +22,31 @@ type ConfirmNo struct{}
 func (p ConfirmPopup) Init() tea.Cmd { return nil }
 
 func (p ConfirmPopup) View() string {
+	const popW = 44
+	bdr := lipgloss.NewStyle().Foreground(clrBorder)
+	iw := popW - 2
+
 	var b strings.Builder
-	b.WriteString(p.prompt + "\n\n")
-	b.WriteString("y to confirm   esc/n to cancel")
-	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).Padding(1, 2).Render(b.String())
+	b.WriteString(bdr.Render("┌"+strings.Repeat("─", iw)+"┐") + "\n")
+	titleLeft := styleError.Render("Confirm Kill")
+	titleRight := styleFaint.Render("destructive")
+	gap := iw - lipgloss.Width(titleLeft) - lipgloss.Width(titleRight) - 2
+	if gap < 1 {
+		gap = 1
+	}
+	b.WriteString(bdr.Render("│") + " " + titleLeft + strings.Repeat(" ", gap) + titleRight + " " + bdr.Render("│") + "\n")
+	b.WriteString(bdr.Render("├"+strings.Repeat("─", iw)+"┤") + "\n")
+
+	cw := iw - 2
+	b.WriteString(bdr.Render("│") + " " + strings.Repeat(" ", cw) + " " + bdr.Render("│") + "\n")
+	prompt := truncateWidth(p.prompt, cw)
+	b.WriteString(bdr.Render("│") + " " + padRight(styleDimmed.Render(prompt), cw) + " " + bdr.Render("│") + "\n")
+	b.WriteString(bdr.Render("│") + " " + strings.Repeat(" ", cw) + " " + bdr.Render("│") + "\n")
+	b.WriteString(bdr.Render("├"+strings.Repeat("─", iw)+"┤") + "\n")
+	foot := keyHint("y", "confirm kill") + "   " + keyHint("esc", "cancel") + styleDimmed.Render(" / ") + keyHint("n", "cancel")
+	b.WriteString(bdr.Render("│") + " " + padRight(truncateWidth(foot, cw), cw) + " " + bdr.Render("│") + "\n")
+	b.WriteString(bdr.Render("└" + strings.Repeat("─", iw) + "┘"))
+	return b.String()
 }
 
 func (p ConfirmPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

@@ -3,7 +3,7 @@ package tui
 import "github.com/charmbracelet/bubbles/key"
 
 type Keymap struct {
-	Up, Down, Enter, New, View, Kill, Filter, Mute, Help, Quit, Esc key.Binding
+	Up, Down, Enter, New, View, Kill, Rename, Filter, Mute, Help, Quit, Esc key.Binding
 }
 
 func DefaultKeymap() Keymap {
@@ -14,6 +14,7 @@ func DefaultKeymap() Keymap {
 		New:    key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "new")),
 		View:   key.NewBinding(key.WithKeys("v"), key.WithHelp("v", "view")),
 		Kill:   key.NewBinding(key.WithKeys("K", "ctrl+k"), key.WithHelp("K", "kill")),
+		Rename: key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "rename")),
 		Filter: key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter")),
 		Mute:   key.NewBinding(key.WithKeys("m"), key.WithHelp("m", "mute")),
 		Help:   key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),

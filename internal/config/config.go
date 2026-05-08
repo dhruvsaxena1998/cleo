@@ -22,9 +22,10 @@ type Defaults struct {
 }
 
 type Sound struct {
-	Enabled bool              `toml:"enabled"`
-	Volume  float64           `toml:"volume"`
-	Events  map[string]string `toml:"events"`
+	Enabled      bool              `toml:"enabled"`
+	Volume       float64           `toml:"volume"`
+	Events       map[string]string `toml:"events"`
+	EventEnabled map[string]bool   `toml:"event_enabled"`
 }
 
 type Agent struct {
@@ -46,6 +47,7 @@ type Retention struct {
 	HintThreshold          int           `toml:"hint_threshold"`
 	PruneKeepDefault       int           `toml:"prune_keep_default"`
 	IdleToCompletedTimeout time.Duration `toml:"idle_to_completed_timeout"`
+	SpawningTimeout        time.Duration `toml:"spawning_timeout"`
 }
 
 // Load reads from path; if not present, writes defaults and returns them.
@@ -75,6 +77,20 @@ func Save(path string, c Config) error {
 	}
 	defer f.Close()
 	return toml.NewEncoder(f).Encode(c)
+}
+
+func (c Config) SoundEventEnabled(event string) bool {
+	if !c.Sound.Enabled {
+		return false
+	}
+	if c.Sound.EventEnabled == nil {
+		return true
+	}
+	enabled, ok := c.Sound.EventEnabled[event]
+	if !ok {
+		return true
+	}
+	return enabled
 }
 
 func dir(p string) string {

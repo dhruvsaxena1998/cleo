@@ -41,7 +41,10 @@ func NewRootCmd(tuiRun func(*Ctx) error) *cobra.Command {
 		newKillCmd(getCtx),
 		newPruneCmd(getCtx),
 		newInitCmd(getCtx),
+		newCleanupCmd(getCtx),
+		newDoctorCmd(getCtx),
 		newHookCmd(getCtx),
+		newFocusCmd(getCtx),
 	)
 	return root
 }

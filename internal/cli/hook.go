@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/dhruvsaxena1998/cleo/internal/hooks"
+	"github.com/dhruvsaxena1998/cleo/internal/state"
 )
 
 func newHookCmd(getCtx func() *Ctx) *cobra.Command {
@@ -22,7 +23,33 @@ func newHookCmd(getCtx func() *Ctx) *cobra.Command {
 				Config: c.Config,
 				Events: c.Events,
 				Sound:  c.Player,
-				Now:    hooks.DefaultNow,
+				Focused: func(sid string) bool {
+					return c.Focus.IsFocused(sid)
+				},
+				Now: hooks.DefaultNow,
+				FindByCwd: func(cwd, agent string) (string, error) {
+					proj, err := c.Projects.ResolveFromCwd(cwd)
+					if err != nil {
+						return "", err
+					}
+					sessions, err := c.State.List()
+					if err != nil {
+						return "", err
+					}
+					// Pick the most recently started active session for this project+agent.
+					var best state.Session
+					for _, s := range sessions {
+						if s.ProjectID == proj.ID && s.Agent == agent && !s.State.IsFinished() {
+							if best.ID == "" || s.StartedAt.After(best.StartedAt) {
+								best = s
+							}
+						}
+					}
+					if best.ID == "" {
+						return "", nil
+					}
+					return best.ID, nil
+				},
 			}
 			return hooks.Handle(deps, args[0], args[1], os.Stdin, cmd.OutOrStdout())
 		},

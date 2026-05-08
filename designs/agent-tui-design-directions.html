@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cleo TUI Design Directions</title>
+  <style>
+    :root {
+      --ink: #e7edf1;
+      --muted: #8c98a4;
+      --dim: #53606b;
+      --line: #25313b;
+      --gold: #e3c46f;
+      --teal: #73d6c7;
+      --green: #8bd67f;
+      --red: #ef6b78;
+      --amber: #efbd5d;
+      --blue: #86a8ff;
+      --mono: "SFMono-Regular", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+      --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; }
+    body {
+      background: #080b0f;
+      color: var(--ink);
+      font-family: var(--mono);
+      overflow: hidden;
+    }
+
+    .canvas {
+      height: 100vh;
+      display: grid;
+      grid-template-rows: 42px minmax(0, 1fr);
+      background:
+        radial-gradient(circle at 18% 12%, rgba(115, 214, 199, 0.08), transparent 28%),
+        linear-gradient(180deg, #0b0f14 0%, #07090d 100%);
+    }
+
+    .switcher {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 0 16px;
+      border-bottom: 1px solid #18222b;
+      background: rgba(8, 12, 16, 0.94);
+      font-family: var(--sans);
+    }
+
+    .switcher strong {
+      font-size: 13px;
+      letter-spacing: 0.02em;
+      color: #dce5e9;
+    }
+
+    .tabs { display: flex; gap: 6px; }
+    .tab {
+      border: 1px solid #263440;
+      background: #101820;
+      color: #9aa6ad;
+      font: 12px var(--sans);
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .tab.active {
+      background: #173238;
+      color: #e9fffb;
+      border-color: #38646b;
+    }
+
+    .stage { min-height: 0; padding: 14px; }
+    .screen {
+      display: none;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      border: 1px solid var(--line);
+      overflow: hidden;
+    }
+    .screen.active { display: grid; }
+
+    .kbd { color: var(--gold); }
+    .faint { color: var(--dim); }
+    .muted { color: var(--muted); }
+    .teal { color: var(--teal); }
+    .green { color: var(--green); }
+    .amber { color: var(--amber); }
+    .red { color: var(--red); }
+    .blue { color: var(--blue); }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 20px;
+      padding: 0 8px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+      border-radius: 999px;
+      color: #c7d1d6;
+      white-space: nowrap;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+      display: inline-block;
+    }
+
+    .tree-row {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      min-height: 26px;
+      padding: 0 8px;
+      color: #cbd5da;
+    }
+    .tree-row.selected {
+      background: #17343b;
+      color: #f3fffd;
+      font-weight: 700;
+    }
+    .tree-row .name,
+    .event .detail,
+    .session-line .sid {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .agent {
+      display: inline-flex;
+      width: 28px;
+      justify-content: center;
+      color: #071014;
+      font-weight: 800;
+      border-radius: 3px;
+      font-size: 11px;
+      line-height: 18px;
+    }
+    .cl { background: #cc785c; }
+    .cx { background: #10a37f; }
+    .oc { background: #ffb86b; }
+
+    /* Direction A */
+    .ops {
+      grid-template-rows: 34px minmax(0, 1fr) 30px;
+      background: #0b1117;
+    }
+    .ops-top {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 14px;
+      padding: 0 12px;
+      border-bottom: 1px solid #24303a;
+      background: #101922;
+    }
+    .ops-body {
+      display: grid;
+      grid-template-columns: 310px minmax(0, 1fr);
+      min-height: 0;
+    }
+    .ops-side {
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr);
+      border-right: 1px solid #24303a;
+      background: #0f171f;
+      min-height: 0;
+    }
+    .side-title { padding: 14px 14px 8px; }
+    .filter {
+      margin: 0 12px 12px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 10px;
+      border: 1px solid #32424e;
+      background: #0a1016;
+      color: #d6e2e5;
+    }
+    .tree { overflow: hidden; padding: 0 8px 16px; }
+    .project-label {
+      color: #f0f5f6;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+    }
+    .ops-main {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      min-width: 0;
+      min-height: 0;
+    }
+    .detail-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      padding: 16px 18px;
+      border-bottom: 1px solid #24303a;
+      background: #0d141b;
+    }
+    .detail-head h1 {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.35;
+      color: #f1f7f8;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(118px, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .metric {
+      border: 1px solid #263642;
+      background: #101a22;
+      padding: 8px 10px;
+      min-height: 48px;
+    }
+    .metric span { display: block; font-size: 11px; color: var(--dim); }
+    .metric strong { display: block; margin-top: 4px; font-size: 13px; }
+    .log-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 360px;
+      min-height: 0;
+    }
+    .events {
+      min-width: 0;
+      padding: 14px 18px;
+      overflow: hidden;
+    }
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      color: #d9e3e6;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+    .event {
+      display: grid;
+      grid-template-columns: 74px 132px minmax(0, 1fr) 70px;
+      gap: 10px;
+      align-items: center;
+      min-height: 30px;
+      border-bottom: 1px solid rgba(255,255,255,0.045);
+      font-size: 12px;
+    }
+    .preview {
+      border-left: 1px solid #24303a;
+      background: #090e13;
+      padding: 14px;
+      overflow: hidden;
+    }
+    .terminal {
+      height: calc(100% - 28px);
+      padding: 12px;
+      background: #05080b;
+      border: 1px solid #1f2b33;
+      color: #aebbc1;
+      line-height: 1.55;
+      font-size: 12px;
+      overflow: hidden;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .ops-footer {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 0 12px;
+      border-top: 1px solid #24303a;
+      background: #0c1218;
+      color: #87949c;
+      font-size: 12px;
+    }
+
+    /* Direction B */
+    .signal {
+      grid-template-columns: 340px minmax(0, 1fr);
+      background: #060807;
+      border-color: #283028;
+    }
+    .signal-side {
+      display: grid;
+      grid-template-rows: auto auto minmax(0, 1fr) auto;
+      background: #10120d;
+      border-right: 1px solid #303425;
+      min-height: 0;
+    }
+    .signal-brand {
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid #303425;
+    }
+    .signal-brand h2 {
+      margin: 0;
+      color: #eff3df;
+      font-size: 22px;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      font-family: "Times New Roman", Georgia, serif;
+    }
+    .signal .filter {
+      background: #070907;
+      border-color: #39402b;
+      color: #e9edd8;
+    }
+    .signal-tree { overflow: hidden; padding: 4px 12px; }
+    .signal .tree-row {
+      border-left: 2px solid transparent;
+      color: #d7ddc8;
+      margin-bottom: 2px;
+    }
+    .signal .tree-row.selected {
+      border-left-color: #e3c46f;
+      background: #1f2519;
+      color: #fff7cf;
+    }
+    .signal-main {
+      display: grid;
+      grid-template-rows: 86px minmax(0, 1fr);
+      min-width: 0;
+      min-height: 0;
+      background:
+        linear-gradient(90deg, rgba(227,196,111,0.035) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(227,196,111,0.028) 1px, transparent 1px),
+        #090b09;
+      background-size: 34px 34px;
+    }
+    .signal-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 22px;
+      align-items: center;
+      padding: 0 22px;
+      border-bottom: 1px solid #303425;
+      background: rgba(12,15,11,0.88);
+    }
+    .signal-head h1 {
+      margin: 0 0 8px;
+      font-family: "Times New Roman", Georgia, serif;
+      font-size: 24px;
+      font-weight: 500;
+      color: #fbf4dc;
+    }
+    .signal-content {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 330px;
+      min-height: 0;
+    }
+    .timeline {
+      padding: 20px 24px;
+      overflow: hidden;
+      min-width: 0;
+    }
+    .line-event {
+      display: grid;
+      grid-template-columns: 62px 18px minmax(0, 1fr);
+      gap: 12px;
+      min-height: 58px;
+    }
+    .line-event .rail {
+      position: relative;
+      color: #e3c46f;
+    }
+    .line-event .rail::after {
+      content: "";
+      position: absolute;
+      left: 3px;
+      top: 16px;
+      bottom: -8px;
+      width: 1px;
+      background: #3a402b;
+    }
+    .line-card {
+      border-bottom: 1px solid rgba(227,196,111,0.12);
+      padding-bottom: 12px;
+    }
+    .line-card strong { color: #f3edd2; }
+    .line-card p { margin: 5px 0 0; color: #9aa287; font-size: 12px; line-height: 1.45; }
+    .context-panel {
+      border-left: 1px solid #303425;
+      background: rgba(12,15,11,0.86);
+      padding: 18px;
+      overflow: hidden;
+    }
+    .context-block {
+      border: 1px solid #333a28;
+      padding: 12px;
+      margin-bottom: 12px;
+      background: #0b0e0a;
+    }
+    .context-block h3 {
+      margin: 0 0 10px;
+      font-size: 12px;
+      color: #e7d68f;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    /* Direction C */
+    .matrix {
+      grid-template-rows: 42px minmax(0, 1fr);
+      background: #05090d;
+      border-color: #1b3650;
+    }
+    .matrix-top {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 18px;
+      align-items: center;
+      padding: 0 14px;
+      background: #07101a;
+      border-bottom: 1px solid #1b3650;
+      color: #c9e8ff;
+    }
+    .matrix-body {
+      display: grid;
+      grid-template-columns: 300px minmax(0, 1fr) 280px;
+      min-height: 0;
+    }
+    .matrix-side {
+      border-right: 1px solid #1b3650;
+      background: #06101a;
+      min-height: 0;
+      padding: 14px 10px;
+      overflow: hidden;
+    }
+    .matrix .filter {
+      margin: 10px 0 14px;
+      border-color: #255171;
+      background: #03080d;
+    }
+    .heat {
+      display: grid;
+      grid-template-columns: repeat(16, 1fr);
+      gap: 3px;
+      margin: 12px 2px 16px;
+    }
+    .cell {
+      height: 9px;
+      background: #102438;
+      border: 1px solid #17354e;
+    }
+    .cell.on { background: #55d6ff; box-shadow: 0 0 9px rgba(85,214,255,.35); }
+    .matrix-main {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      min-width: 0;
+      min-height: 0;
+      background: #050b11;
+    }
+    .matrix-session {
+      padding: 16px 18px;
+      border-bottom: 1px solid #1b3650;
+      background: #08131f;
+    }
+    .matrix-session h1 {
+      margin: 0 0 10px;
+      color: #eaf7ff;
+      font-size: 17px;
+    }
+    .session-lines {
+      overflow: hidden;
+      padding: 12px 18px;
+    }
+    .session-line {
+      display: grid;
+      grid-template-columns: 72px 32px minmax(0, 1fr) 92px;
+      gap: 10px;
+      align-items: center;
+      min-height: 28px;
+      border-bottom: 1px solid rgba(85,214,255,0.08);
+      font-size: 12px;
+    }
+    .matrix-inspector {
+      border-left: 1px solid #1b3650;
+      background: #06101a;
+      padding: 14px;
+      overflow: hidden;
+    }
+    .json {
+      white-space: pre-wrap;
+      line-height: 1.55;
+      color: #93a8b8;
+      font-size: 12px;
+    }
+
+    @media (max-width: 980px) {
+      .ops-body, .signal, .matrix-body { grid-template-columns: 260px minmax(0, 1fr); }
+      .matrix-inspector, .context-panel, .preview { display: none; }
+      .log-grid, .signal-content { grid-template-columns: minmax(0, 1fr); }
+      .meta-grid { grid-template-columns: repeat(2, minmax(100px, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <!--
+    Assumptions:
+    - Cleo is a terminal-first manager for long-running AI agent sessions.
+    - Primary UX task is ambient awareness: see which agent needs attention, inspect logs, attach only when necessary.
+    - These are visual directions for translation into Charm/Lipgloss, so every layout avoids browser-only constructs that cannot map back to a TUI.
+
+    Reasoning:
+    - Direction A is the safest production TUI: clear panels, status-first, dense but calm.
+    - Direction B is a more editorial operations log: excellent if events are the core product experience.
+    - Direction C is an advanced monitoring console: useful for power users managing many parallel agents.
+  -->
+  <main class="canvas">
+    <div class="switcher">
+      <strong>Cleo TUI design directions</strong>
+      <div class="tabs">
+        <button class="tab active" data-target="ops">A · Operations Deck</button>
+        <button class="tab" data-target="signal">B · Signal Log</button>
+        <button class="tab" data-target="matrix">C · Agent Matrix</button>
+      </div>
+    </div>
+
+    <section class="stage">
+      <div class="screen ops active" data-screen="ops">
+        <div class="ops-top">
+          <div><strong>cleo</strong> <span class="faint">agent sessions</span></div>
+          <div class="muted">filter: <span class="kbd">/payment</span></div>
+          <div>
+            <span class="pill"><span class="dot green"></span>4 live</span>
+            <span class="pill"><span class="dot amber"></span>2 waiting</span>
+            <span class="pill">sound on</span>
+          </div>
+        </div>
+
+        <div class="ops-body">
+          <aside class="ops-side">
+            <div class="side-title">
+              <div class="faint">workspace</div>
+              <div class="project-label">Projects</div>
+            </div>
+            <div class="filter"><span class="kbd">/</span><span>payment</span><span class="faint">ctrl-u clear</span></div>
+            <div class="tree">
+              <div class="tree-row"><span>▼</span><span class="name project-label">cleo</span><span class="green">3</span></div>
+              <div class="tree-row selected"><span></span><span class="name"><span class="agent cx">cx</span> payment-webhook-race</span><span class="amber">◑</span></div>
+              <div class="tree-row"><span></span><span class="name"><span class="agent cl">cl</span> redesign-terminal-ui</span><span class="green">●</span></div>
+              <div class="tree-row"><span></span><span class="name"><span class="agent oc">oc</span> tmux-reconcile-tests</span><span class="blue">○</span></div>
+              <div class="tree-row"><span>▼</span><span class="name project-label">website</span><span class="amber">1</span></div>
+              <div class="tree-row"><span></span><span class="name"><span class="agent cl">cl</span> fix-pricing-copy</span><span class="amber">◑</span></div>
+              <div class="tree-row"><span>▶</span><span class="name project-label">mobile-app</span><span class="muted">5</span></div>
+              <div class="tree-row"><span>▶</span><span class="name project-label">infra</span><span class="red">1</span></div>
+            </div>
+          </aside>
+
+          <section class="ops-main">
+            <header class="detail-head">
+              <div>
+                <h1>cleo-cleo-codex-payment-webhook-race</h1>
+                <div class="muted">Codex is waiting for input after reproducing an intermittent webhook failure.</div>
+                <div class="meta-grid">
+                  <div class="metric"><span>state</span><strong class="amber">waiting_for_input</strong></div>
+                  <div class="metric"><span>runtime</span><strong>42m</strong></div>
+                  <div class="metric"><span>tools</span><strong>31 calls</strong></div>
+                  <div class="metric"><span>last event</span><strong>18s ago</strong></div>
+                </div>
+              </div>
+              <div>
+                <span class="pill"><span class="kbd">enter</span> attach</span>
+                <span class="pill"><span class="kbd">K</span> kill</span>
+              </div>
+            </header>
+            <div class="log-grid">
+              <div class="events">
+                <div class="section-title"><span>Recent events</span><span class="faint">tail -n 200</span></div>
+                <div class="event"><span class="faint">14:22:01</span><span class="green">PostToolUse</span><span class="detail">go test ./internal/events passed</span><span>1.8s</span></div>
+                <div class="event"><span class="faint">14:22:04</span><span class="amber">PreToolUse</span><span class="detail">rg -n "webhook" internal</span><span></span></div>
+                <div class="event"><span class="faint">14:24:17</span><span class="green">PostToolUse</span><span class="detail">patched retry window in handler_test.go</span><span>0.4s</span></div>
+                <div class="event"><span class="faint">14:25:03</span><span class="amber">Notification</span><span class="detail">needs decision: preserve duplicate events or coalesce?</span><span></span></div>
+                <div class="event"><span class="faint">14:25:08</span><span class="amber">Stop</span><span class="detail">agent waiting for user input</span><span></span></div>
+              </div>
+              <aside class="preview">
+                <div class="section-title"><span>Pane preview</span><span class="faint">live</span></div>
+                <pre class="terminal">$ go test ./...
+ok internal/events
+ok internal/state
+
+Question:
+Duplicate hook events currently create two log rows.
+Should I:
+  1. keep raw event stream
+  2. coalesce within 500ms
+
+Recommended: keep raw stream, derive compact view in TUI.</pre>
+              </aside>
+            </div>
+          </section>
+        </div>
+        <footer class="ops-footer"><span class="kbd">n</span> new <span class="kbd">j/k</span> move <span class="kbd">space</span> expand <span class="kbd">v</span> view <span class="kbd">/</span> filter <span class="kbd">q</span> quit</footer>
+      </div>
+
+      <div class="screen signal" data-screen="signal">
+        <aside class="signal-side">
+          <div class="signal-brand">
+            <h2>Cleo</h2>
+            <div class="muted">session ledger for coding agents</div>
+          </div>
+          <div class="filter"><span class="kbd">/</span><span>state:waiting payment</span></div>
+          <div class="signal-tree">
+            <div class="tree-row"><span>▼</span><span class="name project-label">core-api</span><span class="green">2</span></div>
+            <div class="tree-row selected"><span></span><span class="name"><span class="agent cl">cl</span> migrate-auth-hooks</span><span class="amber">needs</span></div>
+            <div class="tree-row"><span></span><span class="name"><span class="agent cx">cx</span> payment-race</span><span class="green">run</span></div>
+            <div class="tree-row"><span>▼</span><span class="name project-label">cleo</span><span class="muted">7</span></div>
+            <div class="tree-row"><span></span><span class="name"><span class="agent oc">oc</span> design-tui-shell</span><span class="blue">idle</span></div>
+            <div class="tree-row"><span></span><span class="name"><span class="agent cx">cx</span> event-archive</span><span class="green">done</span></div>
+          </div>
+          <div style="padding:14px 18px;border-top:1px solid #303425;color:#9aa287;">Finished sessions are visible, but visually quiet.</div>
+        </aside>
+        <section class="signal-main">
+          <header class="signal-head">
+            <div>
+              <h1>migrate-auth-hooks</h1>
+              <div class="muted">Claude is paused at a schema decision. The event timeline is the primary surface.</div>
+            </div>
+            <div><span class="pill">waiting 6m</span> <span class="pill">24 tools</span> <span class="pill">core-api</span></div>
+          </header>
+          <div class="signal-content">
+            <div class="timeline">
+              <div class="line-event"><span class="faint">15:02</span><span class="rail">●</span><div class="line-card"><strong>SessionStart</strong><p>spawned claude in core-api with branch auth/session-hooks</p></div></div>
+              <div class="line-event"><span class="faint">15:08</span><span class="rail">●</span><div class="line-card"><strong>PreToolUse · Read</strong><p>loaded internal/hooks/handler.go and state/transitions.go</p></div></div>
+              <div class="line-event"><span class="faint">15:14</span><span class="rail">●</span><div class="line-card"><strong>PostToolUse · Edit</strong><p>added migration-safe hook parser and legacy payload fallback</p></div></div>
+              <div class="line-event"><span class="faint">15:16</span><span class="rail">●</span><div class="line-card"><strong>Notification</strong><p>needs decision: should unknown event keys be archived or dropped?</p></div></div>
+              <div class="line-event"><span class="faint">15:18</span><span class="rail">●</span><div class="line-card"><strong>Stop</strong><p>agent is waiting for input; terminal preview available on the right</p></div></div>
+            </div>
+            <aside class="context-panel">
+              <div class="context-block"><h3>Metadata</h3><div class="muted">project</div><div>core-api</div><br><div class="muted">session</div><div>cleo-core-api-claude-auth-hooks</div></div>
+              <div class="context-block"><h3>Decision</h3><div class="amber">Archive unknown event keys as raw JSONL, then surface a dim warning in detail view.</div></div>
+              <div class="context-block"><h3>Preview</h3><pre class="terminal" style="height:170px;margin:0;">? Unknown hook event: PreCompact
+Choose behavior:
+  archive raw
+  ignore
+  fail fast</pre></div>
+            </aside>
+          </div>
+        </section>
+      </div>
+
+      <div class="screen matrix" data-screen="matrix">
+        <div class="matrix-top">
+          <strong>cleo://agent-matrix</strong>
+          <span class="muted">dense mode for many parallel sessions</span>
+          <div><span class="pill">18 sessions</span> <span class="pill"><span class="dot amber"></span>3 need input</span></div>
+        </div>
+        <div class="matrix-body">
+          <aside class="matrix-side">
+            <div class="project-label">Projects</div>
+            <div class="filter"><span class="kbd">/</span><span>agent:codex status:live</span></div>
+            <div class="heat">
+              <i class="cell on"></i><i class="cell"></i><i class="cell on"></i><i class="cell on"></i><i class="cell"></i><i class="cell on"></i><i class="cell"></i><i class="cell"></i>
+              <i class="cell on"></i><i class="cell on"></i><i class="cell"></i><i class="cell"></i><i class="cell on"></i><i class="cell"></i><i class="cell on"></i><i class="cell"></i>
+            </div>
+            <div class="tree-row selected"><span>▼</span><span class="name project-label">cleo</span><span>8</span></div>
+            <div class="tree-row"><span></span><span class="name"><span class="agent cx">cx</span> ui-polish</span><span class="green">●</span></div>
+            <div class="tree-row"><span></span><span class="name"><span class="agent cl">cl</span> hooks-docs</span><span class="amber">◑</span></div>
+            <div class="tree-row"><span></span><span class="name"><span class="agent oc">oc</span> tmux-smoke</span><span class="blue">○</span></div>
+            <div class="tree-row"><span>▼</span><span class="name project-label">billing</span><span>4</span></div>
+            <div class="tree-row"><span></span><span class="name"><span class="agent cx">cx</span> retry-policy</span><span class="red">✕</span></div>
+          </aside>
+          <section class="matrix-main">
+            <header class="matrix-session">
+              <h1>cleo-cleo-codex-ui-polish</h1>
+              <div><span class="pill">running</span> <span class="pill">branch tui/rewrite</span> <span class="pill">last tool 4s</span> <span class="pill">48 calls</span></div>
+            </header>
+            <div class="session-lines">
+              <div class="session-line"><span class="faint">16:44:02</span><span class="green">OK</span><span class="sid">Read internal/tui/view.go</span><span>12ms</span></div>
+              <div class="session-line"><span class="faint">16:44:04</span><span class="green">OK</span><span class="sid">Edit styles.go: add neutral palette and selected row treatment</span><span>44ms</span></div>
+              <div class="session-line"><span class="faint">16:44:09</span><span class="blue">RUN</span><span class="sid">gofmt internal/tui/*.go</span><span>active</span></div>
+              <div class="session-line"><span class="faint">16:44:13</span><span class="green">OK</span><span class="sid">go test ./internal/tui/...</span><span>2.5s</span></div>
+              <div class="session-line"><span class="faint">16:44:17</span><span class="amber">ASK</span><span class="sid">Should filter mode search project path as well as id?</span><span>now</span></div>
+              <div class="session-line"><span class="faint">16:44:21</span><span class="faint">LOG</span><span class="sid">pane capture updated</span><span>1.5s</span></div>
+            </div>
+          </section>
+          <aside class="matrix-inspector">
+            <div class="section-title"><span>Inspector</span><span class="faint">raw</span></div>
+            <div class="json">{
+  "agent": "codex",
+  "state": "running",
+  "project": "cleo",
+  "session": "ui-polish",
+  "selected_event": {
+    "type": "ask",
+    "message": "Should filter mode search project path?"
+  },
+  "actions": ["attach", "copy id", "kill", "mute"]
+}</div>
+          </aside>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function activateDesign(target) {
+      document.querySelectorAll(".tab").forEach((tab) => tab.classList.toggle("active", tab.dataset.target === target));
+      document.querySelectorAll(".screen").forEach((screen) => screen.classList.toggle("active", screen.dataset.screen === target));
+    }
+
+    document.querySelectorAll(".tab").forEach((button) => {
+      button.addEventListener("click", () => {
+        const target = button.dataset.target;
+        activateDesign(target);
+        history.replaceState(null, "", "#" + target);
+      });
+    });
+
+    const initial = location.hash.replace("#", "");
+    if (["ops", "signal", "matrix"].includes(initial)) {
+      activateDesign(initial);
+    }
+  </script>
+</body>
+</html>

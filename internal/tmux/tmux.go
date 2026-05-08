@@ -96,12 +96,11 @@ func (c *Client) KillServer() error {
 	return c.cmd("kill-server").Run()
 }
 
-func (c *Client) CapturePane(name string, lines int) (string, error) {
-	args := []string{"capture-pane", "-p", "-t", name + ":."}
-	if lines > 0 {
-		args = append(args, "-S", fmt.Sprintf("-%d", lines))
-	}
-	out, err := c.cmd(args...).Output()
+func (c *Client) CapturePane(name string, _ int) (string, error) {
+	// No -S: capture the current visible pane content only (not scrollback).
+	// Full-screen TUIs like Claude Code fill the whole pane, so this gives us
+	// the actual rendered interface rather than a slice of raw history.
+	out, err := c.cmd("capture-pane", "-p", "-t", name+":.").Output()
 	return string(out), err
 }
 
