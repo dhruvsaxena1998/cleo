@@ -34,18 +34,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case SpawnSubmitted:
 		return m.performSpawn(msg)
 	case SpawnCancelled:
+		m.status = ""
 		m.mode = ModeNormal
 		m.popup = nil
 		return m, nil
 	case ConfirmYes:
 		return m.performKill(msg.Target)
 	case ConfirmNo:
+		m.status = ""
 		m.mode = ModeNormal
 		m.popup = nil
 		return m, nil
 	case RenameSubmitted:
 		return m.performRename(msg)
 	case RenameCancelled:
+		m.status = ""
 		m.mode = ModeNormal
 		m.popup = nil
 		return m, nil

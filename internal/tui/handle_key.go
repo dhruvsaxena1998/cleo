@@ -91,6 +91,7 @@ func (m Model) sessionAtCursor() (state.Session, bool) {
 }
 
 func (m Model) toggleExpand() (Model, tea.Cmd) {
+	m.status = ""
 	pid, ok := m.projectAtCursor()
 	if !ok {
 		return m, nil
@@ -100,6 +101,7 @@ func (m Model) toggleExpand() (Model, tea.Cmd) {
 }
 
 func (m Model) cursorUp() (Model, tea.Cmd) {
+	m.status = ""
 	if m.cursor.agentIdx >= 0 {
 		m.cursor.agentIdx--
 		if m.cursor.agentIdx < 0 {
@@ -114,6 +116,7 @@ func (m Model) cursorUp() (Model, tea.Cmd) {
 }
 
 func (m Model) cursorDown() (Model, tea.Cmd) {
+	m.status = ""
 	pid, ok := m.projectAtCursor()
 	if !ok {
 		return m, nil
