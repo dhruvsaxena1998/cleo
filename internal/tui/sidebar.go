@@ -33,6 +33,7 @@ func (m Model) renderSidebar(width int) string {
 // ── Filter panel ──────────────────────────────────────────────────────────────
 
 func (m Model) renderFilterPanel(w, h int) string {
+	faint := lipgloss.NewStyle().Foreground(m.theme.Overlay0)
 	hint := "inactive"
 	if m.mode == ModeFilter {
 		hint = "active"
@@ -46,12 +47,13 @@ func (m Model) renderFilterPanel(w, h int) string {
 		if m.mode == ModeFilter {
 			cur = m.filter + "▌"
 		}
-		line = styleKey.Render("/") + " " + styleBright.Render(cur)
+		line = lipgloss.NewStyle().Foreground(m.theme.Gold).Bold(true).Render("/") + " " +
+			lipgloss.NewStyle().Foreground(m.theme.Text).Bold(true).Render(cur)
 	} else {
-		line = styleFaint.Render("/ type to filter sessions and projects")
+		line = faint.Render("/ type to filter sessions and projects")
 	}
 
-	return panelBox("Filter", hint, []string{line, ""}, w, h)
+	return m.theme.PanelBox("Filter", hint, []string{line, ""}, w, h)
 }
 
 // ── Tree panel ────────────────────────────────────────────────────────────────
@@ -61,7 +63,7 @@ func (m Model) renderTreePanel(w, h int) string {
 	stats := m.sessionStats()
 	hint := fmt.Sprintf("%d sessions", total)
 	lines := m.renderTreeContent(w - 4)
-	return panelBox("Projects / Sessions", hint, splitLines(lines, stats.live, stats.waiting), w, h)
+	return m.theme.PanelBox("Projects / Sessions", hint, splitLines(lines, stats.live, stats.waiting), w, h)
 }
 
 func (m Model) renderTreeContent(innerW int) string {
@@ -69,16 +71,20 @@ func (m Model) renderTreeContent(innerW int) string {
 
 	projs := m.visibleProjects()
 	if len(projs) == 0 {
-		b.WriteString(styleFaint.Render("no matching projects"))
+		b.WriteString(lipgloss.NewStyle().Foreground(m.theme.Overlay0).Render("no matching projects"))
 		return b.String()
 	}
+
+	faint := lipgloss.NewStyle().Foreground(m.theme.Overlay0)
+	dimmed := lipgloss.NewStyle().Foreground(m.theme.Subtext0)
+	selectedSt := lipgloss.NewStyle().Background(m.theme.Surf0).Foreground(m.theme.Text).Bold(true)
+	projectSt := lipgloss.NewStyle().Foreground(m.theme.Text).Bold(true)
 
 	for pi, p := range projs {
 		expanded := m.expanded[p.ID]
 		ss := m.sessionsFor(p.ID)
 		onProject := pi == m.cursor.projectIdx && m.cursor.agentIdx == -1
 
-		// Count active
 		active := 0
 		for _, s := range ss {
 			if !s.State.IsFinished() {
@@ -86,16 +92,14 @@ func (m Model) renderTreeContent(innerW int) string {
 			}
 		}
 
-		// Caret
-		caret := styleFaint.Render("▸")
+		caret := faint.Render("▸")
 		if expanded {
-			caret = styleDimmed.Render("▾")
+			caret = dimmed.Render("▾")
 		}
 
-		// Count badge colour
-		countColor := clrSubtext
+		countColor := m.theme.Subtext0
 		if active > 0 {
-			countColor = clrGreen
+			countColor = m.theme.Green
 		}
 
 		var projLine string
@@ -105,9 +109,9 @@ func (m Model) renderTreeContent(innerW int) string {
 				arrow = "▾"
 			}
 			inner := fmt.Sprintf("%s %s", arrow, p.ID)
-			projLine = styleSelected.Width(innerW).Render(inner)
+			projLine = selectedSt.Width(innerW).Render(inner)
 		} else {
-			name := styleProject.Render(truncateWidth(p.ID, innerW-6))
+			name := projectSt.Render(truncateWidth(p.ID, innerW-6))
 			countStr := lipgloss.NewStyle().Foreground(countColor).Render(fmt.Sprintf("%d", len(ss)))
 			projLine = caret + " " + padRight(name, innerW-4) + countStr
 		}
@@ -128,16 +132,15 @@ func (m Model) renderTreeContent(innerW int) string {
 
 			ageStr := sessionAge(s)
 			shortSt := shortStateLabel(s.State)
-			stColor := stateColor(string(s.State))
+			stColor := m.theme.StateColor(string(s.State))
 			ageW := lipgloss.Width(ageStr)
 
 			bracketed := "[" + cfgAgent.Label + "]"
 			agentLbl := lipgloss.NewStyle().
 				Foreground(lipgloss.Color(cfgAgent.Color)).Bold(true).
 				Render(bracketed)
-			labelW := len(bracketed) // visual width (ANSI has zero width)
+			labelW := len(bracketed)
 
-			// Layout: conn(1) sp label sp name(flex) gap stLabel(4) sp age
 			overhead := 1 + 1 + labelW + 1 + 4 + 1 + ageW
 			nameW := innerW - overhead
 			if nameW < 3 {
@@ -155,13 +158,13 @@ func (m Model) renderTreeContent(innerW int) string {
 			var row string
 			if onAgent {
 				plain := lPart + strings.Repeat(" ", gap) + rPart
-				row = styleSelected.Width(innerW).Render(plain)
+				row = selectedSt.Width(innerW).Render(plain)
 			} else {
 				stLabel := lipgloss.NewStyle().Foreground(stColor).Render(fmt.Sprintf("%-4s", shortSt))
-				left := styleFaint.Render(connector) + " " +
+				left := faint.Render(connector) + " " +
 					agentLbl + " " +
-					styleDimmed.Render(truncName)
-				right := stLabel + " " + styleFaint.Render(ageStr)
+					dimmed.Render(truncName)
+				right := stLabel + " " + faint.Render(ageStr)
 				row = left + strings.Repeat(" ", gap) + right
 			}
 			b.WriteString(row + "\n")
@@ -204,16 +207,18 @@ func (m Model) renderActionsPanel(w, h int) string {
 		hint = "no session selected"
 	}
 
-	cw := w - 4 // usable content width (panel inner - 2 padding)
+	cw := w - 4
+	dimmed := lipgloss.NewStyle().Foreground(m.theme.Subtext0)
+	bright := lipgloss.NewStyle().Foreground(m.theme.Text).Bold(true)
 	lines := make([]string, 0, len(actions))
 	for _, a := range actions {
 		marker := "  "
-		labelStyle := styleDimmed
+		labelStyle := dimmed
 		if a.primary {
-			marker = styleKey.Render("›") + " "
-			labelStyle = styleBright
+			marker = lipgloss.NewStyle().Foreground(m.theme.Gold).Bold(true).Render("›") + " "
+			labelStyle = bright
 		}
-		keyStr := styleKey.Render(a.key)
+		keyStr := lipgloss.NewStyle().Foreground(m.theme.Gold).Bold(true).Render(a.key)
 		label := labelStyle.Render(a.label)
 		gap := cw - lipgloss.Width(marker) - lipgloss.Width(label) - lipgloss.Width(keyStr) - 1
 		if gap < 1 {
@@ -222,7 +227,7 @@ func (m Model) renderActionsPanel(w, h int) string {
 		lines = append(lines, marker+label+strings.Repeat(" ", gap)+keyStr)
 	}
 
-	return panelBox("Actions", hint, lines, w, h)
+	return m.theme.PanelBox("Actions", hint, lines, w, h)
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
