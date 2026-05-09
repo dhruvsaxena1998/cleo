@@ -2,7 +2,11 @@
 
 Terminal session manager for AI coding agents.
 
+> **Status:** v0.1 alpha. Expect rough edges and breaking changes between minor releases. Bug reports and feedback welcome.
+
 Cleo lets you run Claude Code, Codex, opencode, pi, or any other terminal-based agent in named tmux sessions, then watch and manage those sessions from one TUI dashboard. Sessions live in tmux, so you can close Cleo, reopen it later, and keep long-running agent work intact.
+
+In v0.1, hook-based lifecycle tracking is implemented for **Claude Code** and **Codex**. **opencode** and **pi** are supported as managed tmux sessions (you can spawn, attach, kill, prune them) but Cleo cannot observe their fine-grained state — they remain `running` until the underlying tmux session ends.
 
 ## What Cleo Does
 
@@ -18,10 +22,10 @@ Cleo is intentionally local-first. It stores its state in your config directory,
 
 ## Requirements
 
-- Go. The module currently targets Go `1.25.5`.
+- Go `1.25.5` (only required if building from source; prebuilt releases are available via Homebrew or the Releases page).
 - `tmux` `3.0+` at runtime.
 - The agent CLIs you want to use, such as `claude`, `codex`, `opencode`, or `pi`.
-- macOS sound playback uses `afplay`. On other platforms, sound behavior depends on the local player implementation.
+- Sound playback uses `afplay` on macOS and the first of `paplay`, `aplay`, or `play` available on Linux. Windows is not supported in v0.1.
 
 ## Install
 
@@ -648,4 +652,4 @@ Useful design notes live in:
 
 ## License
 
-TBD.
+MIT. See [LICENSE](LICENSE).
