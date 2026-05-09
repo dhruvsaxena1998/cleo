@@ -233,6 +233,16 @@ cleo attach cleo-myapp-claude-fix-auth-bug
 
 Detach with the configured tmux detach key, usually `Ctrl-b d`.
 
+### `cleo rename <session-id> <new-name>`
+
+Renames the Cleo-side session label. The underlying tmux session ID is **not** changed, so attach commands and hook attribution keep working unchanged.
+
+```bash
+cleo rename cleo-myapp-claude-fix-auth-bug fix-auth-take-2
+```
+
+The new name is slugified the same way `--name` is on `cleo run`. To rename interactively in the dashboard, select a session and press `r`.
+
 ### `cleo kill <session-id>`
 
 Kills a running tmux session and removes it from Cleo state.
@@ -342,6 +352,7 @@ pane_preview_lines = 30
 pane_preview_interval = "1.5s"
 event_log_lines = 200
 sidebar_width = 32
+theme = "catppuccin-mocha"
 
 [retention]
 hint_threshold = 6
@@ -364,7 +375,7 @@ Durations use Go duration strings such as `"500ms"`, `"1.5s"`, `"30s"`, `"10m"`,
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `enabled` | `true` | Enables sound playback for hook-triggered state transitions. |
-| `volume` | `0.7` | Playback volume passed to Cleo's sound player. |
+| `volume` | `0.7` | Playback volume in `0.0`–`1.0`. Applied on macOS via `afplay -v`; Linux players (`paplay`/`aplay`/`play`) ignore this value, so use system mixer there. |
 
 ### `[sound.events]`
 
@@ -459,6 +470,21 @@ Agents with `hooks = "none"` can still be spawned and managed through tmux, but 
 | `pane_preview_interval` | `"1.5s"` | How often the preview refreshes. |
 | `event_log_lines` | `200` | Number of recent event log rows available in the UI. |
 | `sidebar_width` | `32` | Configured sidebar width value. |
+| `theme` | `"catppuccin-mocha"` | Color theme used by the TUI. See list below. |
+
+#### Themes
+
+`theme` accepts one of:
+
+| Name | Style | Preview |
+| --- | --- | --- |
+| `catppuccin-mocha` | Default. Warm, low-contrast pastel dark theme. | ![catppuccin-mocha](screenshots/theme-catppuccin-mocha.png) |
+| `gruvbox-dark` | Retro warm dark theme. | ![gruvbox-dark](screenshots/theme-gruvbox-dark.png) |
+| `onedark` | Atom-style cool dark theme. | ![onedark](screenshots/theme-onedark.png) |
+| `void` | High-contrast minimal monochrome. | ![void](screenshots/theme-void.png) |
+| `synthwave` | Vivid magenta/cyan neon dark theme. | ![synthwave](screenshots/theme-synthwave.png) |
+
+Unknown values fall back silently to `catppuccin-mocha`. To preview a theme without committing to it, edit `theme` and restart `cleo`.
 
 ### `[retention]`
 
@@ -468,6 +494,142 @@ Agents with `hooks = "none"` can still be spawned and managed through tmux, but 
 | `prune_keep_default` | `5` | Default number of finished sessions to keep per project during `cleo prune`. |
 | `idle_to_completed_timeout` | `"10m"` | Reconciler timeout that moves idle sessions toward completed. |
 | `spawning_timeout` | `"30s"` | Timeout used to detect sessions that never finish startup. |
+
+### Editing the config
+
+Cleo reads the config on startup. After editing `config.toml`, quit the dashboard (`q`) and relaunch `cleo` to pick up changes. Hook handlers also re-read the config on each invocation, so sound and event toggles take effect on the next hook event without restarting anything.
+
+If you delete or corrupt the file, the next `cleo` run rewrites it from defaults — your projects and session state are kept in separate files (`projects.json`, `state.json`) and are not affected.
+
+Partial configs are supported: any unspecified key is filled in from defaults at load time. You can keep your `config.toml` minimal and only override what you actually want to change.
+
+### Configuration recipes
+
+The defaults are reasonable, so most users only need a few overrides. Here are common patterns.
+
+#### Silent mode
+
+Disable all sound playback without removing the event mappings:
+
+```toml
+[sound]
+enabled = false
+```
+
+#### Only attention-worthy sounds
+
+Mute routine start/idle/completion sounds, keep the ones that signal you should look at the terminal:
+
+```toml
+[sound.event_enabled]
+session_start = false
+needs_input = true
+session_idle = false
+session_completed = false
+session_error = true
+```
+
+#### Lower default volume (macOS)
+
+```toml
+[sound]
+enabled = true
+volume = 0.3
+```
+
+On Linux, set the system mixer instead — the `volume` value is ignored.
+
+#### Custom sound files
+
+Drop your own `.wav` files into `~/.config/cleo/sounds/` and reference them by basename, or use absolute paths:
+
+```toml
+[sound.events]
+needs_input = "my-attention.wav"
+session_error = "/Users/me/sounds/error-loud.wav"
+```
+
+#### Switch theme
+
+```toml
+[ui]
+theme = "synthwave"
+```
+
+#### Add a new agent
+
+Cleo can manage any tmux-runnable command. Without a hook protocol, Cleo can spawn / attach / kill / prune the session but cannot observe fine-grained lifecycle (it stays `running` until tmux exits). Example for [`aider`](https://aider.chat):
+
+```toml
+[agents.aider]
+command = "aider"
+label = "ai"
+color = "#9333EA"
+hooks = "none"
+```
+
+Then:
+
+```bash
+cleo run aider --name refactor-payments
+```
+
+#### Override an existing agent's command
+
+To run Claude Code with extra flags, override the `command`:
+
+```toml
+[agents.claude]
+command = "claude --dangerously-skip-permissions"
+label = "cl"
+color = "#CC785C"
+hooks = "claude"
+```
+
+The whole string is passed to tmux's `new-session`, so flags and arguments are preserved.
+
+#### Larger preview pane / more UI breathing room
+
+```toml
+[ui]
+pane_preview_lines = 60
+pane_preview_interval = "0.75s"
+sidebar_width = 40
+event_log_lines = 500
+```
+
+Increasing `pane_preview_interval` reduces tmux pipe-pane traffic; decreasing it makes the preview feel snappier at the cost of a few more `capture-pane` calls per second.
+
+#### Tighter retention
+
+Auto-promote idle sessions to `completed` faster, and keep fewer finished sessions per project after `cleo prune`:
+
+```toml
+[retention]
+hint_threshold = 3
+prune_keep_default = 2
+idle_to_completed_timeout = "2m"
+spawning_timeout = "15s"
+```
+
+#### Change the default agent
+
+Used by flows that need an agent but don't get one explicitly:
+
+```toml
+[defaults]
+default_agent = "codex"
+```
+
+## Environment Variables
+
+Cleo reads a small number of environment variables:
+
+| Variable | Effect |
+| --- | --- |
+| `XDG_CONFIG_HOME` | Overrides the config root. When set, Cleo uses `$XDG_CONFIG_HOME/cleo/` instead of `~/.config/cleo/`. |
+| `CLEO_SESSION_ID` | Set automatically by `cleo run` inside the spawned tmux session. Hook handlers read this to attribute events to the correct Cleo session. You normally do not set this yourself. |
+| `TMUX` | Standard tmux variable. Cleo checks it to detect that you are already inside tmux when running `cleo run`, so it can `switch-client` rather than nest a new server. |
 
 ## Hooks And State Tracking
 
