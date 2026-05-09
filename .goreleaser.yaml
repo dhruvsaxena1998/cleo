@@ -1,4 +1,7 @@
+version: 2
+
 project_name: cleo
+
 builds:
   - main: ./cmd/cleo
     binary: cleo
@@ -7,13 +10,43 @@ builds:
     flags: [-trimpath]
     ldflags:
       - -s -w -X github.com/dhruvsaxena1998/cleo/internal/cli.Version={{.Version}}
+
 archives:
-  - format: tar.gz
+  - formats: [tar.gz]
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: '{{ incpatch .Version }}-next'
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^chore:'
+      - '^test:'
+      - 'merge conflict'
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+
+release:
+  prerelease: auto
+  draft: false
+
 brews:
   - repository:
       owner: dhruvsaxena1998
       name: homebrew-tap
+      token: '{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}'
     homepage: https://github.com/dhruvsaxena1998/cleo
     description: Terminal session manager for AI coding agents
+    license: MIT
+    install: |
+      bin.install "cleo"
+    test: |
+      system "#{bin}/cleo", "--version"
