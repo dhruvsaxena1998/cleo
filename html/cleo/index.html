@@ -1,0 +1,1629 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>cleo · a session manager for AI coding agents</title>
+<meta name="description" content="Cleo runs Claude Code, Codex, opencode, pi, and other terminal agents in named tmux sessions, with a single TUI dashboard to watch and manage them all.">
+<meta name="theme-color" content="#f4ecdf" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1d1e20" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="website">
+<meta property="og:title" content="cleo · a session manager for AI coding agents">
+<meta property="og:description" content="Spawn Claude Code, Codex, opencode, and other terminal agents in named tmux sessions. One TUI dashboard. Local-first, no daemon.">
+<meta property="og:url" content="https://github.com/dhruvsaxena1998/cleo">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="cleo · terminal sessions for AI agents">
+<meta name="twitter:description" content="Spawn Claude Code, Codex, opencode in named tmux sessions. One TUI dashboard, nine lives in tmux.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231d1e20'/%3E%3Cpath d='M8 11 L11 6 L14 11 Z' fill='%23d4a850'/%3E%3Cpath d='M18 11 L21 6 L24 11 Z' fill='%23d4a850'/%3E%3Ccircle cx='16' cy='19' r='8' fill='%23d4a850'/%3E%3Ccircle cx='13' cy='18.5' r='1.4' fill='%231d1e20'/%3E%3Ccircle cx='19' cy='18.5' r='1.4' fill='%231d1e20'/%3E%3Cpath d='M14.6 22 Q16 23 17.4 22' stroke='%231d1e20' stroke-width='1.4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+/* ─── papyrus & ink, light (default) ─── */
+:root {
+  --bg:        oklch(96% 0.014 88);   /* warm papyrus */
+  --surface:   oklch(99% 0.006 88);
+  --paper:     oklch(93% 0.018 88);
+  --fg:        oklch(22% 0.075 270);  /* deep indigo ink */
+  --muted:     oklch(46% 0.045 270);
+  --quiet:     oklch(62% 0.025 270);
+  --hairline:  oklch(86% 0.014 88);
+  --border:    oklch(78% 0.018 88);
+  --rule:      oklch(22% 0.075 270 / 0.18);
+  --accent:    oklch(70% 0.135 80);   /* brass */
+  --accent-strong: oklch(60% 0.16 70); /* deeper brass for hover/text */
+  --accent-bg: oklch(70% 0.135 80 / 0.14);
+  --shadow:    oklch(22% 0.06 270 / 0.10);
+  --shadow-soft: oklch(22% 0.06 270 / 0.06);
+
+  --term-bg:   oklch(19% 0.005 250);  /* neutral dark-grey terminal */
+  --term-fg:   oklch(94% 0.008 250);
+  --term-mute: oklch(62% 0.012 250);
+  --success:   oklch(74% 0.14 150);
+  --warn:      oklch(78% 0.14 75);
+  --info:      oklch(76% 0.09 240);
+
+  --font-display: 'Iowan Old Style', 'Charter', 'Tiempos Headline', Georgia, serif;
+  --font-body:    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Söhne', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+
+  color-scheme: light;
+}
+
+/* ─── midnight & brass, dark ─── */
+[data-theme="dark"] {
+  --bg:        oklch(16% 0.004 250);  /* near-black neutral */
+  --surface:   oklch(20% 0.005 250);
+  --paper:     oklch(13% 0.004 250);
+  --fg:        oklch(95% 0.008 250);  /* near-white, faint cool */
+  --muted:     oklch(70% 0.012 250);
+  --quiet:     oklch(54% 0.012 250);
+  --hairline:  oklch(26% 0.006 250);
+  --border:    oklch(34% 0.006 250);
+  --rule:      oklch(95% 0.008 250 / 0.16);
+  --accent:    oklch(78% 0.135 80);   /* brighter brass on dark */
+  --accent-strong: oklch(82% 0.14 80);
+  --accent-bg: oklch(78% 0.135 80 / 0.20);
+  --shadow:    oklch(0% 0 0 / 0.55);
+  --shadow-soft: oklch(0% 0 0 / 0.30);
+
+  --term-bg:   oklch(11% 0.003 250);  /* deepest in dark mode, reads as a recessed window */
+  --term-fg:   oklch(95% 0.008 250);
+  --term-mute: oklch(58% 0.010 250);
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:        oklch(16% 0.004 250);
+    --surface:   oklch(20% 0.005 250);
+    --paper:     oklch(13% 0.004 250);
+    --fg:        oklch(95% 0.008 250);
+    --muted:     oklch(70% 0.012 250);
+    --quiet:     oklch(54% 0.012 250);
+    --hairline:  oklch(26% 0.006 250);
+    --border:    oklch(34% 0.006 250);
+    --rule:      oklch(95% 0.008 250 / 0.16);
+    --accent:    oklch(78% 0.135 80);
+    --accent-strong: oklch(82% 0.14 80);
+    --accent-bg: oklch(78% 0.135 80 / 0.20);
+    --shadow:    oklch(0% 0 0 / 0.55);
+    --shadow-soft: oklch(0% 0 0 / 0.30);
+
+    --term-bg:   oklch(11% 0.003 250);
+    --term-fg:   oklch(95% 0.008 250);
+    --term-mute: oklch(58% 0.010 250);
+
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+a { color: inherit; text-decoration: none; }
+::selection { background: var(--accent-bg); color: var(--fg); }
+
+.container { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  display: inline-flex; align-items: center; gap: 10px;
+}
+.eyebrow .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-bg);
+}
+
+/* ---------- Nav ---------- */
+.nav {
+  position: sticky; top: 0; z-index: 20;
+  background: color-mix(in oklch, var(--bg), transparent 6%);
+  backdrop-filter: saturate(140%) blur(8px);
+  -webkit-backdrop-filter: saturate(140%) blur(8px);
+  border-bottom: 1px solid var(--hairline);
+}
+.nav-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 32px;
+  max-width: 1200px; margin: 0 auto;
+}
+.wordmark {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--font-display);
+  font-size: 25px; font-weight: 500; letter-spacing: -0.01em;
+  line-height: 1;
+}
+.wordmark span:not(.nav-version) { display: inline-block; transform: translateY(1px); }
+.cat-mark {
+  width: 28px; height: 28px;
+  color: var(--accent);
+  flex: 0 0 auto;
+  display: block;
+}
+.nav-links {
+  display: flex; align-items: center; gap: 26px;
+  font-family: var(--font-mono); font-size: 13px;
+}
+.nav-links a {
+  color: var(--muted); padding: 6px 0;
+  border-bottom: 1px solid transparent;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.nav-links a:hover { color: var(--fg); border-bottom-color: var(--accent); }
+.nav-links .gh {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid var(--border); padding: 7px 14px; border-radius: 999px;
+  color: var(--fg); background: var(--surface);
+}
+.nav-links .gh:hover { border-color: var(--fg); }
+.nav-links .gh svg { width: 14px; height: 14px; }
+.nav-version {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--quiet); margin-left: 10px;
+  padding: 3px 7px; border: 1px solid var(--hairline); border-radius: 4px;
+}
+.theme-toggle {
+  appearance: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 999px;
+  cursor: pointer;
+  padding: 0;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+.theme-toggle:hover { color: var(--fg); border-color: var(--fg); }
+.theme-toggle svg { width: 15px; height: 15px; display: block; }
+.theme-toggle .icon-sun { display: none; }
+.theme-toggle .icon-moon { display: block; }
+[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-toggle .icon-sun { display: block; }
+  :root:not([data-theme="light"]) .theme-toggle .icon-moon { display: none; }
+}
+
+/* ---------- Hero ---------- */
+.hero { padding: 104px 0 56px; }
+.hero-text { max-width: 780px; }
+.hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(48px, 6.6vw, 96px);
+  line-height: 1.02;
+  letter-spacing: -0.022em;
+  font-weight: 500;
+  margin: 22px 0 28px;
+}
+.hero h1 em { font-style: italic; color: var(--accent); }
+.hero p.lede {
+  font-size: 19px;
+  color: var(--muted);
+  max-width: 620px;
+  line-height: 1.55;
+  margin: 0 0 36px;
+}
+.hero p.lede strong { color: var(--fg); font-weight: 500; }
+
+.install-pill {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  box-shadow: 0 1px 0 color-mix(in oklch, var(--surface), white 30%) inset, 0 1px 2px var(--shadow-soft);
+}
+.install-pill .prompt {
+  padding: 14px 14px 14px 18px;
+  color: var(--quiet);
+  border-right: 1px solid var(--hairline);
+  user-select: none;
+}
+.install-pill code {
+  padding: 14px 18px;
+  color: var(--fg);
+  white-space: nowrap;
+}
+.install-pill code .pkg { color: var(--accent); }
+.install-pill button {
+  border: none;
+  border-left: 1px solid var(--hairline);
+  background: transparent;
+  padding: 0 18px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 120ms ease, background 120ms ease;
+}
+.install-pill button:hover { color: var(--accent); background: var(--paper); }
+.install-pill button.copied { color: var(--success); }
+
+.hero-meta {
+  display: flex; gap: 22px;
+  margin-top: 18px;
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--muted);
+  flex-wrap: wrap;
+}
+.hero-meta span { display: inline-flex; align-items: center; gap: 8px; }
+.hero-meta .sep { color: var(--quiet); }
+
+/* ---------- Terminal showcase ---------- */
+.term-showcase { padding: 16px 0 110px; }
+.term-showcase .container { max-width: 1320px; }
+.term-showcase .term-caption {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 22px; flex-wrap: wrap;
+  margin: 0 4px 22px;
+}
+.term-showcase .term-caption .lhs {
+  font-family: var(--font-mono); font-size: 11.5px;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--muted);
+  display: inline-flex; align-items: center; gap: 10px;
+}
+.term-showcase .term-caption .lhs .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-bg);
+}
+.term-showcase .term-caption .rhs {
+  font-size: 14px; color: var(--muted);
+  max-width: 520px; line-height: 1.55;
+  text-align: right;
+}
+.term-showcase .term-caption .rhs em { font-style: italic; color: var(--fg); }
+
+/* ---------- Terminal demo ---------- */
+.term-frame { position: relative; }
+.term-frame::before {
+  content: ""; position: absolute;
+  inset: 22px -22px -22px 22px;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  z-index: 0;
+}
+.term {
+  position: relative; z-index: 1;
+  background: var(--term-bg);
+  color: var(--term-fg);
+  border-radius: 14px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.65;
+  box-shadow:
+    0 40px 100px -40px var(--shadow),
+    0 12px 28px -16px var(--shadow-soft),
+    0 1px 0 oklch(100% 0 0 / 0.05) inset;
+  border: 1px solid color-mix(in oklch, var(--term-bg), white 8%);
+  overflow: hidden;
+}
+.term-bar {
+  display: flex; align-items: center;
+  padding: 13px 18px;
+  background: color-mix(in oklch, var(--term-bg), white 4%);
+  border-bottom: 1px solid color-mix(in oklch, var(--term-bg), white 8%);
+  gap: 10px;
+}
+.term-bar .lights { display: flex; gap: 6px; }
+.term-bar .lights span {
+  width: 11px; height: 11px; border-radius: 50%;
+  background: oklch(60% 0.05 60 / 0.45);
+}
+.term-bar .lights span:first-child { background: oklch(70% 0.18 25 / 0.6); }
+.term-bar .lights span:nth-child(2) { background: oklch(78% 0.16 75 / 0.6); }
+.term-bar .lights span:nth-child(3) { background: oklch(72% 0.16 145 / 0.55); }
+.term-bar .title {
+  margin-left: auto; margin-right: auto;
+  font-size: 10.5px; letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--term-mute);
+}
+/* status header (matches real TUI) */
+.term-status {
+  display: flex; align-items: center;
+  padding: 12px 22px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  border-bottom: 1px solid color-mix(in oklch, var(--term-bg), white 8%);
+  color: var(--term-mute);
+  gap: 14px;
+}
+.term-status .brand {
+  color: var(--accent);
+  font-weight: 500;
+}
+.term-status .brand-sub { color: var(--term-fg); }
+.term-status .stats {
+  margin-left: auto;
+  display: flex; gap: 18px;
+  font-size: 12px;
+}
+.term-status .stat { display: inline-flex; align-items: center; gap: 6px; }
+.term-status .stat b { color: var(--term-fg); font-weight: 600; }
+.term-status .stat.live b { color: var(--success); }
+.term-status .stat.wait b { color: var(--warn); }
+.term-status .stat.sound { color: var(--term-mute); }
+
+.term-body {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  min-height: 460px;
+}
+.term-pane {
+  padding: 22px 26px 22px;
+  border-right: 1px solid color-mix(in oklch, var(--term-bg), white 8%);
+}
+.term-pane:last-child { border-right: none; }
+.pane-head {
+  font-size: 11px; letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--term-mute);
+  display: flex; justify-content: space-between;
+  margin: 2px 0 14px;
+  padding-bottom: 9px;
+  border-bottom: 1px dashed color-mix(in oklch, var(--term-bg), white 12%);
+}
+.pane-head .meta-r { color: var(--term-mute); }
+
+/* Projects / Sessions tree */
+.tree-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 14px;
+  align-items: center;
+  padding: 5px 0;
+  font-size: 13.5px;
+}
+.tree-row .ct  { color: var(--term-mute); font-size: 12px; min-width: 14px; text-align: right; }
+.tree-row.project { color: var(--term-fg); }
+.tree-row.project .marker { color: var(--accent); margin-right: 4px; }
+.tree-row.session { color: var(--term-fg); padding-left: 18px; }
+.tree-row.session.selected {
+  background: color-mix(in oklch, var(--accent), transparent 80%);
+  margin: 0 -26px;
+  padding-left: 44px;
+  padding-right: 26px;
+  border-inline-start: 2px solid var(--accent);
+}
+.tree-row .label {
+  font-size: 11px;
+  font-weight: 500;
+  color: oklch(82% 0.05 60);
+  background: color-mix(in oklch, var(--term-bg), white 10%);
+  padding: 2px 6px;
+  border-radius: 2px;
+  margin-right: 8px;
+  letter-spacing: 0.04em;
+}
+.tree-row .label.cl { color: var(--tui-peach, oklch(74% 0.13 35)); }
+.tree-row .label.cx { color: var(--tui-mauve, oklch(74% 0.12 165)); }
+.tree-row .state-tag { font-size: 12px; }
+.tree-row .state-tag.run  { color: var(--success); }
+.tree-row .state-tag.done { color: var(--info); }
+.tree-row .state-tag.wait { color: var(--warn); }
+.tree-row .age { color: var(--term-mute); font-size: 11.5px; min-width: 30px; text-align: right; }
+
+/* session detail card (right top) */
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 26px;
+  font-size: 13px;
+  padding: 6px 0 18px;
+  border-bottom: 1px dashed color-mix(in oklch, var(--term-bg), white 12%);
+  margin-bottom: 14px;
+}
+.detail-grid div { display: flex; flex-direction: column; gap: 4px; }
+.detail-grid .k {
+  font-size: 10px; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--term-mute);
+}
+.detail-grid .v { color: var(--term-fg); }
+.detail-grid .v.run { color: var(--success); display: inline-flex; align-items: center; gap: 7px; }
+.detail-grid .v.run::before {
+  content: ""; width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+/* events list (right bottom) */
+.event-row {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 14px;
+  padding: 4px 0;
+  font-size: 12.5px;
+  align-items: baseline;
+}
+.event-row .t { color: var(--term-mute); font-variant-numeric: tabular-nums; }
+.event-row .e { color: var(--term-fg); }
+.event-row .e.warn { color: var(--warn); }
+.event-row .e.ok   { color: var(--success); }
+.event-row .e.info { color: var(--info); }
+
+/* state pulse helper used elsewhere */
+.pulse {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor;
+}
+.pulse.live { animation: pulse 1.6s ease-in-out infinite; }
+
+.term .footer-line {
+  padding: 14px 22px;
+  border-top: 1px solid color-mix(in oklch, var(--term-bg), white 8%);
+  background: color-mix(in oklch, var(--term-bg), white 3%);
+  color: var(--term-mute);
+  font-size: 12.5px;
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 6px 22px;
+}
+.term .footer-line .key {
+  color: var(--accent);
+  padding: 0 6px;
+  margin-right: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.term .cursor {
+  display: inline-block;
+  width: 7px; height: 12px;
+  vertical-align: -2px;
+  background: var(--term-fg);
+  margin-left: 6px;
+  animation: blink 1.05s steps(1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.30; transform: scale(0.7); }
+}
+@keyframes blink {
+  0%, 50%       { opacity: 1; }
+  50.01%, 100%  { opacity: 0; }
+}
+
+/* ---------- Section ---------- */
+.section { padding: 110px 0; border-top: 1px solid var(--hairline); }
+.section-head {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  gap: 72px;
+  align-items: baseline;
+  margin-bottom: 64px;
+}
+.section h2 {
+  font-family: var(--font-display);
+  font-size: clamp(34px, 3.9vw, 54px);
+  line-height: 1.04;
+  letter-spacing: -0.018em;
+  font-weight: 500;
+  margin: 0;
+  max-width: 760px;
+}
+.section h2 em { font-style: italic; color: var(--accent); }
+.section .head-side { padding-top: 4px; }
+.section .head-side p {
+  font-size: 14.5px; color: var(--muted);
+  margin: 14px 0 0;
+  max-width: 240px;
+  line-height: 1.55;
+}
+
+/* accordion: grid-template-rows trick, no JS height measurement */
+.accordion {
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.acc-item { border-top: 1px solid var(--hairline); transition: background 160ms ease; }
+.acc-item:first-child { border-top: none; }
+.acc-item:hover { background: color-mix(in oklch, var(--surface), var(--accent) 6%); }
+.acc-summary {
+  display: grid;
+  grid-template-columns: 144px 1fr auto;
+  gap: 28px;
+  align-items: center;
+  width: 100%;
+  padding: 26px 32px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+.acc-num {
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--quiet);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  line-height: 1.4;
+}
+.acc-num b { color: var(--accent); font-weight: 600; letter-spacing: 0.18em; }
+.acc-num > span { white-space: nowrap; }
+.acc-title {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 2.4vw, 30px);
+  line-height: 1.18;
+  font-weight: 500;
+  color: var(--fg);
+  letter-spacing: -0.012em;
+}
+.acc-icon {
+  width: 32px; height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--muted);
+  transition: transform 380ms cubic-bezier(.22,.61,.36,1), color 160ms ease, border-color 160ms ease, background 160ms ease;
+  flex: 0 0 auto;
+}
+.acc-icon::before {
+  content: ""; display: block;
+  width: 10px; height: 10px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translate(-2px, -2px);
+}
+.acc-item.is-open .acc-icon { transform: rotate(180deg); color: var(--accent); border-color: var(--accent); background: var(--accent-bg); }
+.acc-item:hover .acc-icon { color: var(--fg); border-color: var(--fg); }
+
+.acc-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 420ms cubic-bezier(.22,.61,.36,1);
+}
+.acc-wrap > .acc-body {
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 220ms ease, transform 280ms cubic-bezier(.22,.61,.36,1);
+}
+.acc-item.is-open .acc-wrap { grid-template-rows: 1fr; }
+.acc-item.is-open .acc-wrap > .acc-body {
+  opacity: 1;
+  transform: none;
+  transition: opacity 360ms ease 120ms, transform 380ms cubic-bezier(.22,.61,.36,1) 120ms;
+}
+
+.acc-body {
+  padding: 0 32px 30px 204px;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 36px;
+  align-items: start;
+}
+.acc-body p {
+  font-size: 15px; color: var(--muted);
+  margin: 0;
+  line-height: 1.6;
+  max-width: 50ch;
+}
+.acc-body p code {
+  font-family: var(--font-mono); font-size: 13.5px; color: var(--fg);
+  background: var(--paper);
+  padding: 1px 6px; border-radius: 4px;
+  border: 1px solid var(--hairline);
+}
+.acc-body .ascii {
+  padding: 16px 18px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  white-space: pre;
+  line-height: 1.85;
+  overflow: hidden;
+}
+.acc-body .ascii .ok { color: var(--success); }
+.acc-body .ascii .ac { color: var(--accent); }
+.acc-body .ascii .warn { color: var(--warn); }
+.acc-body .ascii .info { color: var(--info); }
+.acc-body .ascii .p { color: var(--quiet); }
+
+/* ---------- Features ---------- */
+.features {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  border-radius: 14px; overflow: hidden;
+}
+.feature {
+  padding: 32px 36px;
+  border-right: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+.feature:nth-child(2n) { border-right: none; }
+.feature:nth-last-child(-n+2) { border-bottom: none; }
+.feature .num {
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.16em; color: var(--accent);
+  padding-top: 5px;
+}
+.feature h3 {
+  font-family: var(--font-display);
+  font-size: 22px; line-height: 1.22;
+  margin: 0 0 8px; font-weight: 500;
+}
+.feature p {
+  font-size: 14.5px; color: var(--muted);
+  margin: 0; line-height: 1.55;
+}
+
+/* ---------- Install section ---------- */
+.install-block {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 72px;
+  align-items: start;
+}
+.install-block .copy h2 { margin-bottom: 18px; }
+.install-block .copy p {
+  font-size: 16px; color: var(--muted);
+  max-width: 460px; line-height: 1.6;
+  margin: 0 0 28px;
+}
+.install-block .cta-row {
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  margin-top: 8px;
+}
+.btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 12px 22px; border-radius: 999px;
+  font-family: var(--font-mono); font-size: 12.5px;
+  letter-spacing: 0.06em;
+  border: 1px solid var(--fg);
+  background: var(--fg);
+  color: var(--bg);
+  cursor: pointer;
+  transition: transform 120ms ease, background 120ms ease;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn.ghost {
+  background: transparent;
+  color: var(--fg);
+  border-color: var(--border);
+}
+.btn.ghost:hover { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.btn svg { width: 14px; height: 14px; }
+
+.install-shell {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  box-shadow: 0 1px 0 oklch(100% 0 0 / 0.5) inset;
+}
+.install-shell .step-h {
+  padding: 14px 22px 10px;
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--quiet);
+  border-bottom: 1px solid var(--hairline);
+  background: var(--paper);
+}
+.install-shell pre {
+  margin: 0;
+  padding: 18px 22px;
+  background: var(--surface);
+  color: var(--fg);
+  line-height: 1.85;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+.install-shell pre + .step-h { border-top: 1px solid var(--hairline); }
+.install-shell .c { color: var(--quiet); }
+.install-shell .a { color: var(--accent); }
+.install-shell .ok { color: var(--success); }
+.install-shell .p { color: var(--muted); }
+
+/* ---------- Footer ---------- */
+footer {
+  border-top: 1px solid var(--hairline);
+  padding: 64px 0 56px;
+  background: var(--surface);
+}
+.footer-grid {
+  display: grid;
+  grid-template-columns: 2.2fr 1fr 1fr 1fr;
+  gap: 48px;
+}
+.footer-brand .wordmark { margin-bottom: 16px; }
+.footer-brand p {
+  font-size: 14px; color: var(--muted);
+  max-width: 360px; line-height: 1.6;
+  margin: 0 0 20px;
+}
+.footer-brand .pawprint {
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--quiet);
+  display: inline-flex; align-items: center; gap: 10px;
+}
+.footer-brand .pawprint svg { width: 14px; height: 14px; color: var(--accent); }
+footer h4 {
+  font-family: var(--font-mono);
+  font-size: 11px; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--muted);
+  font-weight: 500; margin: 4px 0 18px;
+}
+footer ul {
+  list-style: none; padding: 0; margin: 0;
+  font-family: var(--font-mono); font-size: 13px;
+  line-height: 2.1;
+}
+footer ul a {
+  color: var(--fg);
+  border-bottom: 1px solid transparent;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+footer ul a:hover { border-bottom-color: var(--accent); color: var(--accent); }
+.footer-tail {
+  margin-top: 48px; padding-top: 22px;
+  border-top: 1px solid var(--hairline);
+  display: flex; justify-content: space-between;
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--quiet);
+  flex-wrap: wrap; gap: 14px;
+}
+
+/* ---------- TUI theme switcher ---------- */
+.tui-switcher {
+  display: inline-flex; gap: 4px; flex-wrap: wrap;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+}
+.tui-pick {
+  appearance: none; border: none; background: transparent;
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 7px 13px 7px 9px; border-radius: 999px;
+  font-family: var(--font-mono); font-size: 11.5px;
+  letter-spacing: 0.04em; line-height: 1; white-space: nowrap;
+  color: var(--muted); cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+.tui-pick .sw {
+  position: relative; display: inline-block;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--sw-bg, var(--paper));
+  border: 1px solid color-mix(in oklch, var(--sw-bg, var(--paper)), white 35%);
+  flex: 0 0 auto;
+}
+.tui-pick .sw::after {
+  content: ""; position: absolute; inset: 3px;
+  border-radius: 50%;
+  background: var(--sw-accent, var(--accent));
+}
+.tui-pick:hover { color: var(--fg); background: var(--paper); }
+.tui-pick:focus-visible { outline-offset: 2px; }
+.tui-pick.is-active {
+  background: var(--fg); color: var(--bg);
+}
+.tui-pick.is-active .sw { border-color: color-mix(in oklch, var(--bg), white 25%); }
+.term-showcase .term-caption .help {
+  font-size: 13px; color: var(--muted);
+  margin-left: auto;
+  font-style: italic;
+}
+
+/* ---------- TUI theme palettes ----------
+ * Each block overrides scoped CSS vars on the term-frame so the entire
+ * terminal demo (text, accents, state tags, borders, label colors)
+ * recolors live when the user picks a theme.
+ */
+.term-frame[data-tui-theme="catppuccin-mocha"] {
+  --term-bg: #1e1e2e; --term-fg: #cdd6f4; --term-mute: #7f849c;
+  --accent: #89b4fa; --accent-bg: rgba(137, 180, 250, 0.18);
+  --success: #a6e3a1; --warn: #f9e2af; --info: #89b4fa;
+  --tui-peach: #fab387; --tui-mauve: #cba6f7;
+}
+.term-frame[data-tui-theme="gruvbox-dark"] {
+  --term-bg: #282828; --term-fg: #ebdbb2; --term-mute: #928374;
+  --accent: #d79921; --accent-bg: rgba(215, 153, 33, 0.20);
+  --success: #98971a; --warn: #d79921; --info: #458588;
+  --tui-peach: #d65d0e; --tui-mauve: #b16286;
+}
+.term-frame[data-tui-theme="onedark"] {
+  --term-bg: #282c34; --term-fg: #abb2bf; --term-mute: #7f848e;
+  --accent: #61afef; --accent-bg: rgba(97, 175, 239, 0.18);
+  --success: #98c379; --warn: #e5c07b; --info: #61afef;
+  --tui-peach: #d19a66; --tui-mauve: #c678dd;
+}
+.term-frame[data-tui-theme="void"] {
+  --term-bg: #000000; --term-fg: #ffffff; --term-mute: #888888;
+  --accent: #0070f3; --accent-bg: rgba(0, 112, 243, 0.22);
+  --success: #50e3c2; --warn: #f5a623; --info: #0070f3;
+  --tui-peach: #f5a623; --tui-mauve: #7928ca;
+}
+.term-frame[data-tui-theme="synthwave"] {
+  --term-bg: #262335; --term-fg: #ffffff; --term-mute: #848bbd;
+  --accent: #ff7edb; --accent-bg: rgba(255, 126, 219, 0.18);
+  --success: #72f1b8; --warn: #fede5d; --info: #36f9f6;
+  --tui-peach: #ff8b39; --tui-mauve: #9d8bca;
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 980px) {
+  .hero { padding: 64px 0 32px; }
+  .hero h1 { font-size: clamp(40px, 8vw, 60px); }
+  .term-showcase { padding: 8px 0 60px; }
+  .term-showcase .term-caption .rhs { text-align: left; max-width: none; }
+  .term-showcase .term-caption { gap: 14px; }
+  .tui-switcher { width: 100%; }
+  .tui-pick { padding: 6px 11px 6px 8px; font-size: 11px; }
+  .term-frame::before { inset: 14px -10px -14px 10px; }
+  .term-body { min-height: 0; }
+  .term-pane { padding: 16px 18px 14px; }
+  .section { padding: 80px 0; }
+  .section-head { grid-template-columns: 1fr; gap: 22px; }
+  .acc-summary { padding: 22px 22px; grid-template-columns: 60px 1fr 28px; gap: 16px; }
+  .acc-num { font-size: 10.5px; }
+  .acc-num span:not(b) { display: none; }
+  .acc-body { padding: 0 22px 24px 98px; grid-template-columns: 1fr; gap: 18px; }
+  .features { grid-template-columns: 1fr; }
+  .feature { border-right: none !important; border-bottom: 1px solid var(--hairline) !important; padding: 28px 28px; grid-template-columns: 44px 1fr; gap: 18px; }
+  .feature:last-child { border-bottom: none !important; }
+  .install-block { grid-template-columns: 1fr; gap: 36px; }
+  .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
+  .footer-brand { grid-column: 1 / -1; }
+}
+@media (max-width: 600px) {
+  .container { padding: 0 22px; }
+  .nav-inner { padding: 14px 22px; }
+  .nav-links { gap: 14px; }
+  .nav-links a:not(.gh) { display: none; }
+  .install-pill { font-size: 13px; }
+  .install-pill .prompt { padding: 12px 12px 12px 14px; }
+  .install-pill code { padding: 12px 14px; }
+  .install-pill button { padding: 0 14px; }
+  .term-body { grid-template-columns: 1fr; }
+  .term-pane { border-right: none; border-bottom: 1px solid color-mix(in oklch, var(--term-bg), white 8%); padding: 14px 16px; }
+  .term-pane:last-child { border-bottom: none; }
+  .term-status { padding: 10px 14px; font-size: 11px; flex-wrap: wrap; gap: 8px; }
+  .term-status .stats { gap: 12px; font-size: 11px; }
+  .term .footer-line { padding: 10px 14px; font-size: 11px; gap: 3px 12px; }
+  .tree-row { font-size: 12.5px; }
+  .tree-row.session.selected { margin: 0 -16px; padding-left: 30px; padding-right: 16px; }
+  .acc-summary { padding: 18px 18px; grid-template-columns: 1fr 24px; gap: 12px; }
+  .acc-num { display: none; }
+  .acc-body { padding: 0 18px 22px 18px; }
+  .acc-body .ascii { font-size: 11px; }
+  .feature { grid-template-columns: 1fr; gap: 6px; }
+  .footer-grid { grid-template-columns: 1fr; }
+}
+
+/* ─── motion · respects prefers-reduced-motion ─── */
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+.btn:focus-visible, .nav-links a:focus-visible, .install-pill button:focus-visible, .theme-toggle:focus-visible { outline-offset: 4px; }
+.acc-summary:focus-visible { background: color-mix(in oklch, var(--surface), var(--accent) 8%); outline-offset: -2px; }
+
+.skip-link {
+  position: absolute; top: -64px; left: 12px; z-index: 100;
+  background: var(--fg); color: var(--bg);
+  padding: 10px 18px; border-radius: 8px;
+  font-family: var(--font-mono); font-size: 12px;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  text-decoration: none;
+  transition: top 200ms ease;
+}
+.skip-link:focus { top: 12px; }
+
+/* scroll reveal: only active when html[data-anim] is set (no FOUC, motion-aware) */
+html[data-anim] :is(.section-head, .accordion, .features, .install-block, .term-frame, .term-caption, footer .footer-grid) {
+  opacity: 0; transform: translateY(14px);
+  transition: opacity 720ms ease, transform 720ms cubic-bezier(.2,.7,.2,1);
+  will-change: opacity, transform;
+}
+html[data-anim] :is(.section-head, .accordion, .features, .install-block, .term-frame, .term-caption, footer .footer-grid).is-revealed {
+  opacity: 1; transform: none;
+}
+
+/* hero load: staggered */
+html[data-anim] .hero-text > * { opacity: 0; transform: translateY(10px); transition: opacity 600ms ease, transform 600ms cubic-bezier(.2,.7,.2,1); }
+html[data-anim] body.is-loaded .hero-text > * { opacity: 1; transform: none; }
+html[data-anim] body.is-loaded .hero-text > *:nth-child(1) { transition-delay: 60ms; }
+html[data-anim] body.is-loaded .hero-text > *:nth-child(2) { transition-delay: 140ms; }
+html[data-anim] body.is-loaded .hero-text > *:nth-child(3) { transition-delay: 240ms; }
+html[data-anim] body.is-loaded .hero-text > *:nth-child(4) { transition-delay: 360ms; }
+html[data-anim] body.is-loaded .hero-text > *:nth-child(5) { transition-delay: 460ms; }
+
+/* terminal event-list stagger when terminal is in view */
+html[data-anim] .term-frame .event-list .event-row { opacity: 0; }
+html[data-anim] .term-frame.is-revealed .event-list .event-row { animation: eventIn 420ms cubic-bezier(.2,.7,.2,1) both; }
+html[data-anim] .term-frame.is-revealed .event-list .event-row:nth-child(1) { animation-delay: 240ms; }
+html[data-anim] .term-frame.is-revealed .event-list .event-row:nth-child(2) { animation-delay: 380ms; }
+html[data-anim] .term-frame.is-revealed .event-list .event-row:nth-child(3) { animation-delay: 520ms; }
+html[data-anim] .term-frame.is-revealed .event-list .event-row:nth-child(4) { animation-delay: 660ms; }
+html[data-anim] .term-frame.is-revealed .event-list .event-row:nth-child(5) { animation-delay: 800ms; }
+@keyframes eventIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* live-tail: newly appended event flashes in then settles */
+html[data-anim] .event-row.is-fresh { animation: eventLive 700ms cubic-bezier(.2,.7,.2,1) both; }
+@keyframes eventLive {
+  0%   { opacity: 0; transform: translateX(-6px); background: color-mix(in oklch, var(--accent), transparent 75%); }
+  18%  { opacity: 1; transform: none; }
+  100% { opacity: 1; background: transparent; }
+}
+
+/* live indicator dot next to "tail · jsonl" */
+.pane-head .meta-r.is-live::before {
+  content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--success); margin-right: 7px; vertical-align: 1px;
+  animation: tailPulse 1.6s ease-in-out infinite;
+}
+@keyframes tailPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+/* nav active link */
+.nav-links a.is-active { color: var(--fg); border-bottom-color: var(--accent); }
+
+/* install-pill copy: subtle bounce on success */
+@keyframes copyPulse { 0% { transform: scale(1); } 40% { transform: scale(0.94); } 100% { transform: scale(1); } }
+html[data-anim] .install-pill button.copied { animation: copyPulse 320ms ease-out; }
+</style>
+<script>
+  // theme + motion init: runs before paint to avoid flash and enable scroll-reveal CSS
+  (function () {
+    try {
+      var saved = localStorage.getItem('cleo-theme');
+      if (saved === 'light' || saved === 'dark') {
+        document.documentElement.setAttribute('data-theme', saved);
+      }
+    } catch (e) {}
+    try {
+      var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (!reduced) document.documentElement.setAttribute('data-anim', '');
+    } catch (e) {}
+  })();
+</script>
+</head>
+<body>
+
+<a href="#main" class="skip-link">Skip to content</a>
+
+<!-- ============ NAV ============ -->
+<nav class="nav" data-od-id="nav">
+  <div class="nav-inner">
+    <a href="/" class="wordmark">
+      <svg class="cat-mark" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+        <path d="M9 12 L7.5 6 L12 9.5 Z" fill="currentColor" stroke="none"/>
+        <path d="M23 12 L24.5 6 L20 9.5 Z" fill="currentColor" stroke="none"/>
+        <path d="M16 9 C9.5 9 5.5 13.5 5.5 19 C5.5 24.5 10 28 16 28 C22 28 26.5 24.5 26.5 19 C26.5 13.5 22.5 9 16 9 Z" fill="currentColor" fill-opacity="0.14"/>
+        <ellipse cx="12.2" cy="18" rx="1.05" ry="1.7" fill="currentColor" stroke="none"/>
+        <ellipse cx="19.8" cy="18" rx="1.05" ry="1.7" fill="currentColor" stroke="none"/>
+        <path d="M15.2 21.3 L16.8 21.3 L16 22.5 Z" fill="currentColor" stroke="none"/>
+        <path d="M14 23.4 Q16 24.7 18 23.4" stroke-width="1.2"/>
+        <line x1="2.5" y1="20" x2="8" y2="19.6" stroke-width="0.7" opacity="0.55"/>
+        <line x1="2.5" y1="22.5" x2="8" y2="21.6" stroke-width="0.7" opacity="0.55"/>
+        <line x1="29.5" y1="20" x2="24" y2="19.6" stroke-width="0.7" opacity="0.55"/>
+        <line x1="29.5" y1="22.5" x2="24" y2="21.6" stroke-width="0.7" opacity="0.55"/>
+      </svg>
+      <span>cleo</span>
+      <span class="nav-version">v0.1.0-alpha.1</span>
+    </a>
+    <div class="nav-links">
+      <a href="docs.html">docs</a>
+      <a href="#how-it-works">how it works</a>
+      <a href="#install">install</a>
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle theme" title="Toggle light / dark">
+        <svg class="icon-moon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6 1c-.7 1.4-1 2.7-1 4 0 3.3 2.7 6 6 6 .8 0 1.6-.2 2.3-.5C12.4 13.1 9.9 15 7 15c-3.9 0-7-3.1-7-7S3.1 1 6 1z"/></svg>
+        <svg class="icon-sun" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="8" r="3.4"/><g stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><line x1="8" y1=".8" x2="8" y2="2.6"/><line x1="8" y1="13.4" x2="8" y2="15.2"/><line x1=".8" y1="8" x2="2.6" y2="8"/><line x1="13.4" y1="8" x2="15.2" y2="8"/><line x1="2.9" y1="2.9" x2="4.2" y2="4.2"/><line x1="11.8" y1="11.8" x2="13.1" y2="13.1"/><line x1="2.9" y1="13.1" x2="4.2" y2="11.8"/><line x1="11.8" y1="4.2" x2="13.1" y2="2.9"/></g></svg>
+      </button>
+      <a class="gh" href="https://github.com/dhruvsaxena1998/cleo" rel="noopener">
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+        github
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<section class="hero" id="main" data-od-id="hero">
+  <div class="container">
+    <div class="hero-text">
+      <div class="eyebrow"><span class="dot"></span> early access · v0.1.0-alpha.1</div>
+      <h1>A session manager for <em>terminal-based AI agents.</em></h1>
+      <p class="lede">
+        Cleo runs <strong>Claude Code, Codex, opencode, pi</strong>, and any other terminal agent in named tmux sessions. One TUI dashboard to herd them. <strong>Nine lives in tmux</strong>, so the work keeps going whether you're watching or not.
+      </p>
+
+      <div class="install-pill" role="group" aria-label="Install command">
+        <span class="prompt">$</span>
+        <code>brew install <span class="pkg">dhruvsaxena1998/tap/cleo</span></code>
+        <button id="copyInstall" type="button" data-copy="brew tap dhruvsaxena1998/tap && brew install cleo">copy</button>
+      </div>
+
+      <div class="hero-meta">
+        <span>MIT licensed</span>
+        <span class="sep">/</span>
+        <span>macOS · Linux</span>
+        <span class="sep">/</span>
+        <span>requires tmux 3.0+</span>
+        <span class="sep">/</span>
+        <span>local-first · no daemon</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TERMINAL SHOWCASE ============ -->
+<section class="term-showcase" data-od-id="terminal-showcase">
+  <div class="container">
+    <div class="term-caption">
+      <span class="lhs"><span class="dot"></span> the dashboard · preview a theme</span>
+      <div class="tui-switcher" role="tablist" aria-label="TUI theme">
+        <button class="tui-pick is-active" type="button" role="tab" data-tui="catppuccin-mocha" style="--sw-bg:#1e1e2e;--sw-accent:#89b4fa;" aria-label="Catppuccin Mocha">
+          <span class="sw" aria-hidden="true"></span>catppuccin
+        </button>
+        <button class="tui-pick" type="button" role="tab" data-tui="gruvbox-dark" style="--sw-bg:#282828;--sw-accent:#d79921;" aria-label="Gruvbox Dark">
+          <span class="sw" aria-hidden="true"></span>gruvbox
+        </button>
+        <button class="tui-pick" type="button" role="tab" data-tui="onedark" style="--sw-bg:#282c34;--sw-accent:#61afef;" aria-label="One Dark">
+          <span class="sw" aria-hidden="true"></span>onedark
+        </button>
+        <button class="tui-pick" type="button" role="tab" data-tui="void" style="--sw-bg:#000000;--sw-accent:#0070f3;" aria-label="Void">
+          <span class="sw" aria-hidden="true"></span>void
+        </button>
+        <button class="tui-pick" type="button" role="tab" data-tui="synthwave" style="--sw-bg:#262335;--sw-accent:#ff7edb;" aria-label="Synthwave">
+          <span class="sw" aria-hidden="true"></span>synthwave
+        </button>
+      </div>
+    </div>
+    <div class="term-frame" data-od-id="terminal-demo" data-tui-theme="catppuccin-mocha">
+        <div class="term" role="img" aria-label="Cleo TUI dashboard showing two projects, four sessions, and a live event tail">
+          <div class="term-bar">
+            <div class="lights"><span></span><span></span><span></span></div>
+            <div class="title">./bin/cleo</div>
+          </div>
+
+          <div class="term-status">
+            <span class="brand">cleo</span>
+            <span class="brand-sub">ai agents</span>
+            <div class="stats">
+              <span class="stat"><b>2</b> projects</span>
+              <span class="stat live"><b>2</b> live</span>
+              <span class="stat wait"><b>1</b> waiting</span>
+              <span class="stat sound">sound on</span>
+            </div>
+          </div>
+
+          <div class="term-body">
+
+            <!-- Projects / Sessions -->
+            <div class="term-pane">
+              <div class="pane-head"><span>Projects · Sessions</span><span class="meta-r">4 sessions</span></div>
+
+              <div class="tree-row project"><span><span class="marker">▾</span> cleo</span><span></span><span class="ct">3</span></div>
+              <div class="tree-row session"><span><span class="label cl">cl</span>wise-galileo</span><span class="state-tag done">done</span><span class="age">16h</span></div>
+              <div class="tree-row session"><span><span class="label cl">cl</span>focused-yonath</span><span class="state-tag done">done</span><span class="age">16h</span></div>
+              <div class="tree-row session"><span><span class="label cx">cx</span>sharp-ramanujan</span><span class="state-tag run">run</span><span class="age">17h</span></div>
+
+              <div class="tree-row project" style="margin-top:6px;"><span><span class="marker">▾</span> pickup-api</span><span></span><span class="ct">1</span></div>
+              <div class="tree-row session selected"><span><span class="label cl">cl</span>trusting-hypatia</span><span class="state-tag run">run</span><span class="age">18h</span></div>
+            </div>
+
+            <!-- Session detail + events -->
+            <div class="term-pane">
+              <div class="pane-head"><span>Session</span><span class="meta-r">trusting-hypatia</span></div>
+
+              <div class="detail-grid">
+                <div><span class="k">agent</span><span class="v"><span class="label cl" style="margin-right:4px;">cl</span>claude</span></div>
+                <div><span class="k">state</span><span class="v run">running</span></div>
+                <div><span class="k">project</span><span class="v">pickup-api</span></div>
+                <div><span class="k">runtime</span><span class="v">18h ago</span></div>
+              </div>
+
+              <div class="pane-head" style="margin-top:0;"><span>Events</span><span class="meta-r is-live">tail · jsonl</span></div>
+
+              <div class="event-list">
+                <div class="event-row"><span class="t">17:02:14</span><span class="e info">SessionStart</span></div>
+                <div class="event-row"><span class="t">17:08:31</span><span class="e">UserPromptSubmit</span></div>
+                <div class="event-row"><span class="t">17:09:05</span><span class="e">PreToolUse · Edit</span></div>
+                <div class="event-row"><span class="t">17:18:47</span><span class="e warn">Notification · awaiting input</span></div>
+                <div class="event-row"><span class="t">17:34:02</span><span class="e ok">Stop · turn complete</span></div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="footer-line">
+            <span><span class="key">↵</span>attach</span>
+            <span><span class="key">v</span>view</span>
+            <span><span class="key">r</span>rename</span>
+            <span><span class="key">K</span>kill</span>
+            <span><span class="key">n</span>new sibling</span>
+            <span><span class="key">/</span>filter</span>
+            <span><span class="key">m</span>mute</span>
+            <span><span class="key">q</span>quit</span>
+            <span class="cursor"></span>
+          </div>
+        </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HOW IT WORKS ============ -->
+<section class="section" id="how-it-works" data-od-id="how-it-works">
+  <div class="container">
+    <div class="section-head">
+      <div class="head-side">
+        <div class="eyebrow"><span class="dot"></span> how it works</div>
+        <p>Three steps, one local-first loop. No daemon. No service process. No babysitting.</p>
+      </div>
+      <h2>You spawn the agents. <em>Cleo stalks them.</em> They've got nine lives in tmux.</h2>
+    </div>
+
+    <div class="accordion">
+      <div class="acc-item is-open">
+        <button class="acc-summary" type="button" aria-expanded="true" aria-controls="acc-1">
+          <span class="acc-num"><b>01</b><span>register &amp; spawn</span></span>
+          <span class="acc-title">Add a project, set the cat loose</span>
+          <span class="acc-icon" aria-hidden="true"></span>
+        </button>
+        <div class="acc-wrap" id="acc-1" role="region">
+          <div class="acc-body">
+            <p>Cleo creates a tmux session with a stable ID like <code>cleo-pickup-api-claude-fix-auth</code> and launches the agent inside it. No <code>--name</code>? You get a Docker-style label like <em>brave-curie</em> instead.</p>
+            <pre class="ascii">$ cleo add ~/Dev/pickup-api
+<span class="ok">✓</span> registered     pickup-api
+
+$ cleo run <span class="ac">claude</span> --name fix-auth
+<span class="ok">✓</span> tmux session   cleo-pickup-api…
+<span class="ok">✓</span> hooks attached
+<span class="ok">↳</span> attaching…</pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="acc-item">
+        <button class="acc-summary" type="button" aria-expanded="false" aria-controls="acc-2">
+          <span class="acc-num"><b>02</b><span>watch</span></span>
+          <span class="acc-title">Hooks fire, Cleo perks her ears up</span>
+          <span class="acc-icon" aria-hidden="true"></span>
+        </button>
+        <div class="acc-wrap" id="acc-2" role="region">
+          <div class="acc-body">
+            <p>Claude Code and Codex emit hook events on start, prompt, tool use, and stop. Cleo logs each one to <code>events/&lt;id&gt;.jsonl</code> and chimes for the moments worth interrupting for. Mute with <code>m</code> when she gets too needy.</p>
+            <pre class="ascii">17:02:14  <span class="info">⏵</span> SessionStart
+17:09:05  <span class="info">⌥</span> PreToolUse · Edit
+17:18:47  <span class="warn">⌫</span> Notification · awaiting input
+17:34:02  <span class="ok">✓</span> Stop · turn complete
+17:34:02  <span class="ok">♪</span> chime → done.wav</pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="acc-item">
+        <button class="acc-summary" type="button" aria-expanded="false" aria-controls="acc-3">
+          <span class="acc-num"><b>03</b><span>resume</span></span>
+          <span class="acc-title">Close the lid, she'll be napping when you're back</span>
+          <span class="acc-icon" aria-hidden="true"></span>
+        </button>
+        <div class="acc-wrap" id="acc-3" role="region">
+          <div class="acc-body">
+            <p>Sessions live in tmux, so closing Cleo doesn't end them. Patient as a cat. The agents keep working, the events keep logging. Reopen the dashboard whenever, attach when you're ready, prune when you're done.</p>
+            <pre class="ascii">$ cleo
+<span class="p">4 sessions</span> · 2 live · 1 waiting
+▸ cleo                 <span class="p">3 sessions</span>
+▸ pickup-api           <span class="p">1 session</span>
+  <span class="ac">[cl]</span> trusting-hypatia  <span class="ok">run 18h</span></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FEATURES ============ -->
+<section class="section" data-od-id="features">
+  <div class="container">
+    <div class="section-head">
+      <div class="head-side">
+        <div class="eyebrow"><span class="dot"></span> what's in the basket</div>
+        <p>Six things Cleo does so you don't have to remember tmux or your last six terminal tabs.</p>
+      </div>
+      <h2>Built around a simple idea: <em>agent sessions deserve nine lives.</em></h2>
+    </div>
+
+    <div class="features">
+      <div class="feature">
+        <div class="num">01</div>
+        <div>
+          <h3>Named tmux sessions</h3>
+          <p>Spawn agents into stable, readable session IDs like <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">cleo-myapp-claude-fix-auth</code>. If you don't pass <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">--name</code>, you get a Docker-style label like <em>brave-curie</em>.</p>
+        </div>
+      </div>
+
+      <div class="feature">
+        <div class="num">02</div>
+        <div>
+          <h3>One dashboard, every session</h3>
+          <p>All registered projects and their sessions in a single TUI. Filter with <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">/</code>, attach with <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">↵</code>, view without attaching with <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">v</code>, kill with <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">K</code>.</p>
+        </div>
+      </div>
+
+      <div class="feature">
+        <div class="num">03</div>
+        <div>
+          <h3>Hook-aware state</h3>
+          <p>Reads <strong>Claude Code</strong> and <strong>Codex</strong> hooks to track <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">spawning · running · waiting_for_input · idle · completed · error · dead</code>. Opencode and pi run as managed tmux sessions.</p>
+        </div>
+      </div>
+
+      <div class="feature">
+        <div class="num">04</div>
+        <div>
+          <h3>Audible transitions</h3>
+          <p>Plays a local WAV for the moments worth interrupting for: <em>session start, needs input, idle, completed, error</em>. Mute with <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">m</code>; auto-suppresses while you're focused on the session.</p>
+        </div>
+      </div>
+
+      <div class="feature">
+        <div class="num">05</div>
+        <div>
+          <h3>Per-session event log</h3>
+          <p>Every hook event is timestamped and written to <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">~/.config/cleo/events/&lt;id&gt;.jsonl</code>. <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">cleo prune</code> archives finished sessions; the logs survive.</p>
+        </div>
+      </div>
+
+      <div class="feature">
+        <div class="num">06</div>
+        <div>
+          <h3>Local-first, no daemon</h3>
+          <p>State lives in <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">~/.config/cleo/</code> (or <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">$XDG_CONFIG_HOME/cleo/</code>). No background service, no cloud, no telemetry. Just a TUI you open when you want it.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ INSTALL ============ -->
+<section class="section" id="install" data-od-id="install">
+  <div class="container">
+    <div class="install-block">
+      <div class="copy">
+        <div class="eyebrow"><span class="dot"></span> install</div>
+        <h2 style="margin-top: 14px;">One tap. <em>One install.</em></h2>
+        <p>
+          Cleo is distributed via a Homebrew tap. Install on macOS or Linux with Homebrew installed; you'll also need <code style="font-family:var(--font-mono);font-size:14px;color:var(--fg)">tmux</code> available on your <code style="font-family:var(--font-mono);font-size:14px;color:var(--fg)">PATH</code>.
+        </p>
+        <div class="cta-row">
+          <a class="btn" href="docs.html">read the docs &nbsp;→</a>
+          <a class="btn ghost" href="https://github.com/dhruvsaxena1998/cleo" rel="noopener">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+            view source
+          </a>
+        </div>
+      </div>
+
+      <div class="install-shell">
+        <div class="step-h">1 · tap & install</div>
+<pre><span class="c"># add the homebrew tap, then install cleo</span>
+$ brew tap <span class="a">dhruvsaxena1998/tap</span>
+$ brew install <span class="a">cleo</span></pre>
+
+        <div class="step-h">2 · verify</div>
+<pre>$ cleo --version
+<span class="ok">0.1.0-alpha.1</span></pre>
+
+        <div class="step-h">3 · install hooks for claude code & codex</div>
+<pre><span class="c"># writes ~/.claude/settings.json + ~/.codex/hooks.json</span>
+$ cleo <span class="a">init</span>
+<span class="ok">✓</span> claude code hooks
+<span class="ok">✓</span> codex hooks
+<span class="ok">✓</span> sound assets extracted</pre>
+
+        <div class="step-h">4 · register a project & spawn an agent</div>
+<pre>$ cd ~/Dev/myapp
+$ cleo <span class="a">add</span>
+$ cleo <span class="a">run</span> claude --name fix-auth-bug
+$ cleo                 <span class="c"># open the dashboard</span></pre>
+
+        <div class="step-h">cleanup (when you're done)</div>
+<pre>$ brew uninstall <span class="a">cleo</span>
+$ brew untap <span class="a">dhruvsaxena1998/tap</span></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer data-od-id="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="wordmark">
+          <svg class="cat-mark" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+            <path d="M9 12 L7.5 6 L12 9.5 Z" fill="currentColor" stroke="none"/>
+            <path d="M23 12 L24.5 6 L20 9.5 Z" fill="currentColor" stroke="none"/>
+            <path d="M16 9 C9.5 9 5.5 13.5 5.5 19 C5.5 24.5 10 28 16 28 C22 28 26.5 24.5 26.5 19 C26.5 13.5 22.5 9 16 9 Z" fill="currentColor" fill-opacity="0.14"/>
+            <ellipse cx="12.2" cy="18" rx="1.05" ry="1.7" fill="currentColor" stroke="none"/>
+            <ellipse cx="19.8" cy="18" rx="1.05" ry="1.7" fill="currentColor" stroke="none"/>
+            <path d="M15.2 21.3 L16.8 21.3 L16 22.5 Z" fill="currentColor" stroke="none"/>
+            <path d="M14 23.4 Q16 24.7 18 23.4" stroke-width="1.2"/>
+            <line x1="2.5" y1="20" x2="8" y2="19.6" stroke-width="0.7" opacity="0.55"/>
+            <line x1="2.5" y1="22.5" x2="8" y2="21.6" stroke-width="0.7" opacity="0.55"/>
+            <line x1="29.5" y1="20" x2="24" y2="19.6" stroke-width="0.7" opacity="0.55"/>
+            <line x1="29.5" y1="22.5" x2="24" y2="21.6" stroke-width="0.7" opacity="0.55"/>
+          </svg>
+          <span>cleo</span>
+        </div>
+        <p>A local-first terminal session manager for AI coding agents. Spawn them, watch them, resume them, without remembering tmux commands.</p>
+        <span class="pawprint">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <ellipse cx="6" cy="9" rx="2" ry="2.6"/>
+            <ellipse cx="11" cy="6" rx="2" ry="2.6"/>
+            <ellipse cx="16" cy="6" rx="2" ry="2.6"/>
+            <ellipse cx="20.5" cy="9.5" rx="2" ry="2.6"/>
+            <path d="M13 11 C9.5 11 7 13.5 7 16.5 C7 18.5 8.5 19.5 10.5 19.5 C12 19.5 12.5 19 13 19 C13.5 19 14 19.5 15.5 19.5 C17.5 19.5 19 18.5 19 16.5 C19 13.5 16.5 11 13 11 Z"/>
+          </svg>
+          named for an orange Persian mix with a small terror's enthusiasm
+        </span>
+      </div>
+
+      <div>
+        <h4>Project</h4>
+        <ul>
+          <li><a href="docs.html">Documentation</a></li>
+          <li><a href="#install">Install</a></li>
+          <li><a href="https://github.com/dhruvsaxena1998/cleo/releases" rel="noopener">Releases</a></li>
+          <li><a href="https://github.com/dhruvsaxena1998/cleo/blob/main/CHANGELOG.md" rel="noopener">Changelog</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4>Get help</h4>
+        <ul>
+          <li><a href="https://github.com/dhruvsaxena1998/cleo/issues" rel="noopener">Report a bug</a></li>
+          <li><a href="https://github.com/dhruvsaxena1998/cleo/discussions" rel="noopener">Discussions</a></li>
+          <li><a href="docs.html#troubleshooting">Troubleshooting</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4>Source</h4>
+        <ul>
+          <li><a href="https://github.com/dhruvsaxena1998/cleo" rel="noopener">GitHub</a></li>
+          <li><a href="https://github.com/dhruvsaxena1998/homebrew-tap" rel="noopener">Homebrew tap</a></li>
+          <li><a href="https://github.com/dhruvsaxena1998/cleo/blob/main/LICENSE" rel="noopener">MIT license</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer-tail">
+      <span>© 2026 Dhruv Saxena · MIT</span>
+      <span>built on a keyboard occasionally walked across by Cleo</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ── copy install command ── */
+(function () {
+  var btn = document.getElementById('copyInstall');
+  if (!btn) return;
+  btn.addEventListener('click', function () {
+    var text = btn.getAttribute('data-copy');
+    if (!navigator.clipboard) return;
+    navigator.clipboard.writeText(text).then(function () {
+      var prev = btn.textContent;
+      btn.textContent = 'copied';
+      btn.classList.add('copied');
+      setTimeout(function () {
+        btn.textContent = prev;
+        btn.classList.remove('copied');
+      }, 1400);
+    });
+  });
+})();
+
+/* ── theme toggle ── */
+(function () {
+  var toggle = document.getElementById('themeToggle');
+  if (!toggle) return;
+  function currentTheme() {
+    var explicit = document.documentElement.getAttribute('data-theme');
+    if (explicit === 'light' || explicit === 'dark') return explicit;
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  toggle.addEventListener('click', function () {
+    var next = currentTheme() === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('cleo-theme', next); } catch (e) {}
+  });
+})();
+
+/* ── hero load: kick stagger-in once styles + DOM are ready ── */
+(function () {
+  function kick() {
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { document.body.classList.add('is-loaded'); });
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', kick, { once: true });
+  } else { kick(); }
+})();
+
+/* ── scroll reveal: targets fade-rise the first time they enter the viewport ── */
+(function () {
+  if (!document.documentElement.hasAttribute('data-anim')) return;
+  var targets = document.querySelectorAll('.section-head, .accordion, .features, .install-block, .term-frame, .term-caption, footer .footer-grid');
+  if (!('IntersectionObserver' in window)) {
+    targets.forEach(function (el) { el.classList.add('is-revealed'); });
+    return;
+  }
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) {
+        e.target.classList.add('is-revealed');
+        io.unobserve(e.target);
+      }
+    });
+  }, { rootMargin: '0px 0px -8% 0px', threshold: 0.06 });
+  targets.forEach(function (el) { io.observe(el); });
+})();
+
+/* ── live tail: append a fresh event every ~10s while terminal is on screen ── */
+(function () {
+  if (!document.documentElement.hasAttribute('data-anim')) return;
+  var frame = document.querySelector('.term-frame');
+  var list  = document.querySelector('.term-frame .event-list');
+  if (!frame || !list) return;
+
+  var queue = [
+    { t: '17:42:18', cls: 'info', text: 'PreToolUse · Edit'                 },
+    { t: '17:42:31', cls: 'ok',   text: 'PostToolUse · ok'                  },
+    { t: '17:46:09', cls: '',     text: 'UserPromptSubmit'                  },
+    { t: '17:48:54', cls: 'warn', text: 'Notification · awaiting input'    },
+    { t: '17:51:02', cls: 'ok',   text: 'Stop · turn complete'              },
+    { t: '17:53:40', cls: 'info', text: 'PreToolUse · Read'                 },
+    { t: '17:53:51', cls: 'ok',   text: 'PostToolUse · ok'                  }
+  ];
+  var i = 0;
+  var tick = null;
+  var MAX_VISIBLE = 7;
+
+  function appendEvent() {
+    if (!frame.classList.contains('is-revealed')) return;
+    var item = queue[i % queue.length];
+    var row = document.createElement('div');
+    row.className = 'event-row is-fresh';
+    var t = document.createElement('span'); t.className = 't'; t.textContent = item.t;
+    var e = document.createElement('span'); e.className = 'e' + (item.cls ? ' ' + item.cls : ''); e.textContent = item.text;
+    row.appendChild(t); row.appendChild(e);
+    list.appendChild(row);
+    var rows = list.querySelectorAll('.event-row');
+    if (rows.length > MAX_VISIBLE) rows[0].remove();
+    i++;
+  }
+
+  function start() { if (!tick) tick = setInterval(appendEvent, 10000); }
+  function stop()  { if (tick) { clearInterval(tick); tick = null; } }
+
+  if (!('IntersectionObserver' in window)) { start(); return; }
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) { e.isIntersecting ? start() : stop(); });
+  }, { threshold: 0.25 });
+  io.observe(frame);
+})();
+
+/* ── active nav indicator: highlight current section in nav ── */
+(function () {
+  var sectionIds = ['how-it-works', 'install'];
+  var sections = sectionIds.map(function (id) { return document.getElementById(id); }).filter(Boolean);
+  if (!sections.length || !('IntersectionObserver' in window)) return;
+  var links = {};
+  document.querySelectorAll('.nav-links a[href^="#"]').forEach(function (a) {
+    var h = a.getAttribute('href').slice(1);
+    if (h) links[h] = a;
+  });
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      var link = links[entry.target.id];
+      if (!link) return;
+      if (entry.isIntersecting) {
+        Object.keys(links).forEach(function (k) { links[k].classList.remove('is-active'); });
+        link.classList.add('is-active');
+      }
+    });
+  }, { rootMargin: '-40% 0px -50% 0px', threshold: 0 });
+  sections.forEach(function (s) { io.observe(s); });
+})();
+
+/* ---- Exclusive accordion: class toggle, CSS handles animation ---- */
+(function () {
+  var items = document.querySelectorAll('.accordion .acc-item');
+  if (!items.length) return;
+  function setOpen(item, open) {
+    item.classList.toggle('is-open', open);
+    var btn = item.querySelector('.acc-summary');
+    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  items.forEach(function (item) {
+    var btn = item.querySelector('.acc-summary');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      var willOpen = !item.classList.contains('is-open');
+      items.forEach(function (other) { if (other !== item) setOpen(other, false); });
+      setOpen(item, willOpen);
+    });
+  });
+})();
+
+/* ---- TUI theme switcher: recolors the terminal demo on click ---- */
+(function () {
+  var frame = document.querySelector('.term-frame[data-tui-theme]');
+  var picks = document.querySelectorAll('.tui-pick');
+  if (!frame || !picks.length) return;
+  var DEFAULT = frame.getAttribute('data-tui-theme') || 'catppuccin-mocha';
+  var saved = null;
+  try { saved = localStorage.getItem('cleo-tui-theme'); } catch (e) {}
+  var themes = Array.prototype.map.call(picks, function (p) { return p.getAttribute('data-tui'); });
+  var current = (saved && themes.indexOf(saved) > -1) ? saved : DEFAULT;
+  function apply(name) {
+    frame.setAttribute('data-tui-theme', name);
+    picks.forEach(function (p) {
+      var match = p.getAttribute('data-tui') === name;
+      p.classList.toggle('is-active', match);
+      p.setAttribute('aria-selected', match ? 'true' : 'false');
+    });
+  }
+  apply(current);
+  picks.forEach(function (p) {
+    p.addEventListener('click', function () {
+      var name = p.getAttribute('data-tui');
+      if (!name) return;
+      apply(name);
+      try { localStorage.setItem('cleo-tui-theme', name); } catch (e) {}
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

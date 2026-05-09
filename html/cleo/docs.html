@@ -1,0 +1,1037 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>cleo · docs</title>
+<meta name="description" content="Documentation for cleo: install, commands, hooks, and troubleshooting.">
+<meta name="theme-color" content="#f4ecdf" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1d1e20" media="(prefers-color-scheme: dark)">
+<meta property="og:type" content="article">
+<meta property="og:title" content="cleo · docs · install, commands, hooks">
+<meta property="og:description" content="Documentation for cleo: a session manager for terminal-based AI coding agents.">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="cleo · docs">
+<meta name="twitter:description" content="Documentation for cleo: install, commands, hooks, and troubleshooting.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231c1f3a'/%3E%3Cpath d='M8 11 L11 6 L14 11 Z' fill='%23d4a850'/%3E%3Cpath d='M18 11 L21 6 L24 11 Z' fill='%23d4a850'/%3E%3Ccircle cx='16' cy='19' r='8' fill='%23d4a850'/%3E%3Ccircle cx='13' cy='18.5' r='1.4' fill='%231c1f3a'/%3E%3Ccircle cx='19' cy='18.5' r='1.4' fill='%231c1f3a'/%3E%3Cpath d='M14.6 22 Q16 23 17.4 22' stroke='%231c1f3a' stroke-width='1.4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+/* ─── papyrus & ink, light (default) ─── */
+:root {
+  --bg:        oklch(96% 0.014 88);
+  --surface:   oklch(99% 0.006 88);
+  --paper:     oklch(93% 0.018 88);
+  --paper-2:   oklch(91% 0.022 88);
+  --fg:        oklch(22% 0.075 270);
+  --muted:     oklch(46% 0.045 270);
+  --quiet:     oklch(62% 0.025 270);
+  --hairline:  oklch(86% 0.014 88);
+  --border:    oklch(78% 0.018 88);
+  --code-fg:   oklch(28% 0.06 270);
+  --accent:    oklch(70% 0.135 80);
+  --accent-strong: oklch(60% 0.16 70);
+  --accent-bg: oklch(70% 0.135 80 / 0.14);
+  --shadow-soft: oklch(22% 0.06 270 / 0.06);
+  --success:   oklch(64% 0.13 150);
+  --warn:      oklch(72% 0.13 75);
+
+  --font-display: 'Iowan Old Style', 'Charter', 'Tiempos Headline', Georgia, serif;
+  --font-body:    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Söhne', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+
+  color-scheme: light;
+}
+
+/* ─── midnight & brass, dark ─── */
+[data-theme="dark"] {
+  --bg:        oklch(16% 0.004 250);
+  --surface:   oklch(20% 0.005 250);
+  --paper:     oklch(13% 0.004 250);
+  --paper-2:   oklch(11% 0.004 250);
+  --fg:        oklch(95% 0.008 250);
+  --muted:     oklch(70% 0.012 250);
+  --quiet:     oklch(54% 0.012 250);
+  --hairline:  oklch(26% 0.006 250);
+  --border:    oklch(34% 0.006 250);
+  --code-fg:   oklch(94% 0.008 250);
+  --accent:    oklch(78% 0.135 80);
+  --accent-strong: oklch(82% 0.14 80);
+  --accent-bg: oklch(78% 0.135 80 / 0.20);
+  --shadow-soft: oklch(0% 0 0 / 0.30);
+  --success:   oklch(74% 0.14 150);
+  --warn:      oklch(78% 0.14 75);
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg:        oklch(16% 0.004 250);
+    --surface:   oklch(20% 0.005 250);
+    --paper:     oklch(13% 0.004 250);
+    --paper-2:   oklch(11% 0.004 250);
+    --fg:        oklch(95% 0.008 250);
+    --muted:     oklch(70% 0.012 250);
+    --quiet:     oklch(54% 0.012 250);
+    --hairline:  oklch(26% 0.006 250);
+    --border:    oklch(34% 0.006 250);
+    --code-fg:   oklch(94% 0.008 250);
+    --accent:    oklch(78% 0.135 80);
+    --accent-strong: oklch(82% 0.14 80);
+    --accent-bg: oklch(78% 0.135 80 / 0.20);
+    --shadow-soft: oklch(0% 0 0 / 0.30);
+    --success:   oklch(74% 0.14 150);
+    --warn:      oklch(78% 0.14 75);
+
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 16px; line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+a { color: inherit; text-decoration: none; }
+::selection { background: var(--accent-bg); color: var(--fg); }
+.container { max-width: 1200px; margin: 0 auto; padding: 0 32px; }
+
+/* nav (same as index) */
+.nav {
+  position: sticky; top: 0; z-index: 20;
+  background: color-mix(in oklch, var(--bg), transparent 6%);
+  backdrop-filter: saturate(140%) blur(8px);
+  -webkit-backdrop-filter: saturate(140%) blur(8px);
+  border-bottom: 1px solid var(--hairline);
+}
+.nav-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 32px; max-width: 1200px; margin: 0 auto;
+}
+.wordmark {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-family: var(--font-display);
+  font-size: 25px; font-weight: 500; letter-spacing: -0.01em;
+  line-height: 1;
+}
+.wordmark span:not(.nav-version) { display: inline-block; transform: translateY(1px); }
+.cat-mark { width: 28px; height: 28px; color: var(--accent); flex: 0 0 auto; display: block; }
+.theme-toggle {
+  appearance: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 999px;
+  cursor: pointer;
+  padding: 0;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+.theme-toggle:hover { color: var(--fg); border-color: var(--fg); }
+.theme-toggle svg { width: 15px; height: 15px; display: block; }
+.theme-toggle .icon-sun { display: none; }
+.theme-toggle .icon-moon { display: block; }
+[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-toggle .icon-sun { display: block; }
+  :root:not([data-theme="light"]) .theme-toggle .icon-moon { display: none; }
+}
+.nav-version {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--quiet); margin-left: 10px;
+  padding: 3px 7px; border: 1px solid var(--hairline); border-radius: 4px;
+}
+.nav-links {
+  display: flex; align-items: center; gap: 26px;
+  font-family: var(--font-mono); font-size: 13px;
+}
+.nav-links a {
+  color: var(--muted); padding: 6px 0;
+  border-bottom: 1px solid transparent;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+.nav-links a:hover { color: var(--fg); border-bottom-color: var(--accent); }
+.nav-links a.active { color: var(--fg); border-bottom-color: var(--accent); }
+.nav-links .gh {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid var(--border); padding: 7px 14px; border-radius: 999px;
+  color: var(--fg); background: var(--surface);
+}
+.nav-links .gh:hover { border-color: var(--fg); }
+.nav-links .gh svg { width: 14px; height: 14px; }
+
+/* docs hero */
+.docs-hero { padding: 64px 0 36px; }
+.docs-hero .breadcrumb {
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--quiet); display: inline-flex; gap: 10px;
+}
+.docs-hero .breadcrumb a { color: var(--quiet); }
+.docs-hero .breadcrumb a:hover { color: var(--accent); }
+.docs-hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(36px, 4.6vw, 60px);
+  line-height: 1.04; letter-spacing: -0.02em;
+  font-weight: 500;
+  margin: 18px 0 16px;
+}
+.docs-hero h1 em { font-style: italic; color: var(--accent); }
+.docs-hero p {
+  font-size: 17px; color: var(--muted);
+  max-width: 600px; line-height: 1.55; margin: 0;
+}
+
+/* layout */
+.docs-grid {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 72px;
+  padding: 24px 0 96px;
+  align-items: start;
+}
+.toc {
+  position: sticky; top: 92px;
+  font-family: var(--font-mono); font-size: 13px;
+  border-inline-start: 1px solid var(--hairline);
+  padding-inline-start: 22px;
+}
+.toc h4 {
+  font-size: 11px; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--muted);
+  font-weight: 500; margin: 0 0 14px;
+}
+.toc ol { list-style: none; padding: 0; margin: 0; }
+.toc ol > li { margin: 0 0 6px; }
+.toc a {
+  color: var(--muted);
+  display: block; padding: 4px 0;
+  border-bottom: 1px solid transparent;
+}
+.toc a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+.toc ol ol {
+  margin: 4px 0 8px 14px;
+  padding-inline-start: 12px;
+  border-inline-start: 1px solid var(--hairline);
+}
+.toc ol ol a { font-size: 12px; padding: 3px 0; }
+
+/* content */
+.content { max-width: 760px; }
+.content section { margin-bottom: 72px; scroll-margin-top: 92px; }
+.content section:last-child { margin-bottom: 0; }
+.content h2 {
+  font-family: var(--font-display);
+  font-size: 36px; line-height: 1.1;
+  letter-spacing: -0.012em; font-weight: 500;
+  margin: 0 0 8px;
+  position: relative;
+}
+.content h2 .lbl {
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--accent);
+  display: block;
+  margin-bottom: 14px;
+}
+.content h3 {
+  font-family: var(--font-display);
+  font-size: 22px; line-height: 1.2;
+  margin: 36px 0 10px;
+  font-weight: 500;
+  scroll-margin-top: 92px;
+}
+.content p {
+  margin: 0 0 16px;
+  color: var(--fg);
+  font-size: 16px;
+  max-width: 68ch;
+}
+.content p.muted { color: var(--muted); }
+.content code {
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  padding: 1px 6px; border-radius: 4px;
+  color: var(--code-fg);
+}
+.content pre {
+  margin: 16px 0 24px;
+  padding: 18px 22px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.85;
+  color: var(--fg);
+  overflow-x: auto;
+  white-space: pre;
+}
+.content pre code {
+  background: transparent; border: none; padding: 0; color: inherit;
+  font-size: inherit;
+}
+.content pre .c { color: var(--quiet); }
+.content pre .a { color: var(--accent); }
+.content pre .ok { color: var(--success); }
+.content pre .w { color: var(--warn); }
+.content pre .p { color: var(--muted); }
+.content ul {
+  margin: 0 0 20px; padding-inline-start: 22px;
+}
+.content ul li { margin-bottom: 6px; }
+.content blockquote {
+  margin: 24px 0;
+  padding: 14px 22px;
+  border-inline-start: 3px solid var(--accent);
+  background: var(--accent-bg);
+  border-radius: 0 8px 8px 0;
+  color: var(--fg);
+  font-size: 15px;
+}
+.content blockquote p { margin: 0; }
+.content blockquote strong { font-weight: 500; }
+
+/* command table */
+.cmd-table {
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface);
+  margin: 16px 0 24px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.cmd-row {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 24px;
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--hairline);
+}
+.cmd-row:last-child { border-bottom: none; }
+.cmd-row .cmd { color: var(--accent); }
+.cmd-row .desc { color: var(--muted); font-family: var(--font-body); font-size: 14px; }
+
+/* small alert */
+.alert {
+  display: grid; grid-template-columns: 36px 1fr; gap: 16px;
+  padding: 16px 20px;
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  margin: 20px 0;
+  font-size: 14.5px;
+}
+.alert .ico {
+  font-family: var(--font-mono); font-size: 13px;
+  color: var(--accent);
+  width: 24px; height: 24px;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* footer (compact) */
+footer {
+  border-top: 1px solid var(--hairline);
+  padding: 32px 0;
+  background: var(--surface);
+  font-family: var(--font-mono); font-size: 12px;
+  color: var(--quiet);
+}
+.footer-tail-min {
+  display: flex; justify-content: space-between;
+  flex-wrap: wrap; gap: 14px;
+}
+.footer-tail-min a {
+  color: var(--muted);
+  border-bottom: 1px solid transparent;
+}
+.footer-tail-min a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+.footer-links { display: flex; gap: 22px; }
+
+@media (max-width: 980px) {
+  .docs-grid { grid-template-columns: 1fr; gap: 36px; padding: 12px 0 60px; }
+  .toc {
+    position: static; border: 1px solid var(--hairline);
+    border-radius: 10px;
+    padding: 18px 22px;
+    background: var(--surface);
+  }
+  .docs-hero { padding: 40px 0 12px; }
+}
+@media (max-width: 600px) {
+  .container { padding: 0 22px; }
+  .nav-inner { padding: 14px 22px; }
+  .nav-links a:not(.gh):not(.active) { display: none; }
+  .cmd-row { grid-template-columns: 1fr; gap: 4px; padding: 14px 18px; }
+}
+
+/* ─── motion · respects prefers-reduced-motion ─── */
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+.btn:focus-visible, .nav-links a:focus-visible, .theme-toggle:focus-visible { outline-offset: 4px; }
+
+.skip-link {
+  position: absolute; top: -64px; left: 12px; z-index: 100;
+  background: var(--fg); color: var(--bg);
+  padding: 10px 18px; border-radius: 8px;
+  font-family: var(--font-mono); font-size: 12px;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  text-decoration: none;
+  transition: top 200ms ease;
+}
+.skip-link:focus { top: 12px; }
+</style>
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem('cleo-theme');
+      if (saved === 'light' || saved === 'dark') {
+        document.documentElement.setAttribute('data-theme', saved);
+      }
+    } catch (e) {}
+  })();
+</script>
+</head>
+<body>
+
+<a href="#docs-main" class="skip-link">Skip to content</a>
+
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="index.html" class="wordmark">
+      <svg class="cat-mark" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+        <path d="M9 12 L7.5 6 L12 9.5 Z" fill="currentColor" stroke="none"/>
+        <path d="M23 12 L24.5 6 L20 9.5 Z" fill="currentColor" stroke="none"/>
+        <path d="M16 9 C9.5 9 5.5 13.5 5.5 19 C5.5 24.5 10 28 16 28 C22 28 26.5 24.5 26.5 19 C26.5 13.5 22.5 9 16 9 Z" fill="currentColor" fill-opacity="0.14"/>
+        <ellipse cx="12.2" cy="18" rx="1.05" ry="1.7" fill="currentColor" stroke="none"/>
+        <ellipse cx="19.8" cy="18" rx="1.05" ry="1.7" fill="currentColor" stroke="none"/>
+        <path d="M15.2 21.3 L16.8 21.3 L16 22.5 Z" fill="currentColor" stroke="none"/>
+        <path d="M14 23.4 Q16 24.7 18 23.4" stroke-width="1.2"/>
+        <line x1="2.5" y1="20" x2="8" y2="19.6" stroke-width="0.7" opacity="0.55"/>
+        <line x1="2.5" y1="22.5" x2="8" y2="21.6" stroke-width="0.7" opacity="0.55"/>
+        <line x1="29.5" y1="20" x2="24" y2="19.6" stroke-width="0.7" opacity="0.55"/>
+        <line x1="29.5" y1="22.5" x2="24" y2="21.6" stroke-width="0.7" opacity="0.55"/>
+      </svg>
+      <span>cleo</span>
+      <span class="nav-version">v0.1.0-alpha.1</span>
+    </a>
+    <div class="nav-links">
+      <a href="docs.html" class="active">docs</a>
+      <a href="index.html#how-it-works">how it works</a>
+      <a href="index.html#install">install</a>
+      <button id="themeToggle" class="theme-toggle" type="button" aria-label="Toggle theme" title="Toggle light / dark">
+        <svg class="icon-moon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6 1c-.7 1.4-1 2.7-1 4 0 3.3 2.7 6 6 6 .8 0 1.6-.2 2.3-.5C12.4 13.1 9.9 15 7 15c-3.9 0-7-3.1-7-7S3.1 1 6 1z"/></svg>
+        <svg class="icon-sun" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="8" r="3.4"/><g stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><line x1="8" y1=".8" x2="8" y2="2.6"/><line x1="8" y1="13.4" x2="8" y2="15.2"/><line x1=".8" y1="8" x2="2.6" y2="8"/><line x1="13.4" y1="8" x2="15.2" y2="8"/><line x1="2.9" y1="2.9" x2="4.2" y2="4.2"/><line x1="11.8" y1="11.8" x2="13.1" y2="13.1"/><line x1="2.9" y1="13.1" x2="4.2" y2="11.8"/><line x1="11.8" y1="4.2" x2="13.1" y2="2.9"/></g></svg>
+      </button>
+      <a class="gh" href="https://github.com/dhruvsaxena1998/cleo" rel="noopener">
+        <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
+        github
+      </a>
+    </div>
+  </div>
+</nav>
+
+<header class="docs-hero">
+  <div class="container">
+    <div class="breadcrumb">
+      <a href="index.html">cleo</a>
+      <span>/</span>
+      <span>docs</span>
+    </div>
+    <h1>Everything you need to <em>get Cleo running.</em></h1>
+    <p>Install, register a project, spawn a session, set up hooks, and troubleshoot. Cleo is intentionally small. These docs follow.</p>
+  </div>
+</header>
+
+<div class="container">
+<div class="docs-grid">
+
+  <!-- TOC -->
+  <aside class="toc" aria-label="Table of contents">
+    <h4>Contents</h4>
+    <ol>
+      <li><a href="#install">1. Install</a>
+        <ol>
+          <li><a href="#prerequisites">Prerequisites</a></li>
+          <li><a href="#tap-install">Homebrew</a></li>
+          <li><a href="#go-install">Go install</a></li>
+          <li><a href="#verify">Verify</a></li>
+          <li><a href="#uninstall">Uninstall</a></li>
+        </ol>
+      </li>
+      <li><a href="#quick-start">2. Quick start</a></li>
+      <li><a href="#commands">3. Commands</a>
+        <ol>
+          <li><a href="#cmd-init">init / doctor / cleanup</a></li>
+          <li><a href="#cmd-projects">add / rm / ls</a></li>
+          <li><a href="#cmd-sessions">run / attach / rename / kill / prune</a></li>
+          <li><a href="#cmd-keys">TUI keybindings</a></li>
+        </ol>
+      </li>
+      <li><a href="#hooks">4. Hooks & state</a>
+        <ol>
+          <li><a href="#hooks-claude">Claude Code</a></li>
+          <li><a href="#hooks-codex">Codex</a></li>
+          <li><a href="#hooks-states">Session states</a></li>
+        </ol>
+      </li>
+      <li><a href="#config">5. Configuration</a>
+        <ol>
+          <li><a href="#config-files">Files & locations</a></li>
+          <li><a href="#config-defaults">[defaults]</a></li>
+          <li><a href="#config-sound">[sound]</a></li>
+          <li><a href="#config-agents">[agents.&lt;name&gt;]</a></li>
+          <li><a href="#config-ui">[ui] &amp; themes</a></li>
+          <li><a href="#config-retention">[retention]</a></li>
+          <li><a href="#config-recipes">Recipes</a></li>
+          <li><a href="#config-env">Environment variables</a></li>
+        </ol>
+      </li>
+      <li><a href="#troubleshooting">6. Troubleshooting</a></li>
+    </ol>
+  </aside>
+
+  <!-- Content -->
+  <article class="content" id="docs-main">
+
+    <!-- ============ INSTALL ============ -->
+    <section id="install">
+      <h2><span class="lbl">01 / install</span>Install Cleo</h2>
+      <p>Cleo runs on macOS and Linux. Windows is not supported in v0.1. Pick whichever install path matches your toolchain; both produce the same binary.</p>
+
+      <h3 id="prerequisites">Prerequisites</h3>
+      <ul>
+        <li><code>tmux</code> 3.0 or later on your <code>PATH</code> (runtime).</li>
+        <li>Either <code>brew</code> (Homebrew / Linuxbrew) <em>or</em> Go <code>1.25.5</code> for <code>go install</code> / building from source.</li>
+        <li>One or more terminal-based agents: <code>claude</code>, <code>codex</code>, <code>opencode</code>, <code>pi</code>, or any other.</li>
+        <li>Sound playback uses <code>afplay</code> on macOS and the first of <code>paplay</code>, <code>aplay</code>, or <code>play</code> on Linux.</li>
+      </ul>
+
+      <h3 id="tap-install">Homebrew</h3>
+<pre><span class="c"># 1. add the tap</span>
+$ brew tap <span class="a">dhruvsaxena1998/tap</span>
+
+<span class="c"># 2. install cleo</span>
+$ brew install <span class="a">cleo</span></pre>
+
+      <h3 id="go-install">Go install</h3>
+      <p>If you already have Go on your machine, this is the shortest path:</p>
+<pre>$ go install <span class="a">github.com/dhruvsaxena1998/cleo/cmd/cleo@latest</span></pre>
+
+      <p>For local development from a clone of the repo:</p>
+<pre>$ make build
+$ ./bin/cleo --version</pre>
+
+      <h3 id="verify">Verify the install</h3>
+<pre>$ cleo --version
+<span class="ok">0.1.0-alpha.1</span></pre>
+
+      <p class="muted">If <code>cleo --version</code> prints anything else, see <a href="#troubleshooting" class="link">Troubleshooting</a>.</p>
+
+      <h3 id="uninstall">Uninstall</h3>
+<pre><span class="c"># homebrew install</span>
+$ brew uninstall <span class="a">cleo</span>
+$ brew untap <span class="a">dhruvsaxena1998/tap</span>
+
+<span class="c"># go install: remove the binary from $GOBIN / $GOPATH/bin</span>
+$ rm "$(which cleo)"</pre>
+
+      <div class="alert">
+        <div class="ico">i</div>
+        <div>
+          Uninstalling Cleo does not remove your sessions from tmux. Run <code>tmux kill-server</code> if you want to wipe them too. Cleo never owns the underlying tmux server. To also clear hook entries from your agents, run <code>cleo cleanup</code> <em>before</em> removing the binary.
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ QUICK START ============ -->
+    <section id="quick-start">
+      <h2><span class="lbl">02 / quick start</span>From zero to your first session</h2>
+      <p>Four commands to get from "installed" to "watching an agent work".</p>
+
+<pre><span class="c"># 1. install hooks for claude code &amp; codex (once per machine)</span>
+$ cleo <span class="a">init</span>
+
+<span class="c"># 2. register a project</span>
+$ cd ~/Dev/myapp
+$ cleo <span class="a">add</span>
+
+<span class="c"># 3. spawn a claude session inside it</span>
+$ cleo <span class="a">run</span> claude --name fix-auth-bug
+
+<span class="c"># 4. open the dashboard whenever you want it</span>
+$ cleo</pre>
+
+      <p>Cleo creates a tmux session named <code>cleo-myapp-claude-fix-auth-bug</code>, launches <code>claude</code> inside the project's working directory, and attaches the hook listener. Detach with the configured tmux key (default <code>Ctrl-b d</code>); the session keeps running.</p>
+
+      <div class="alert">
+        <div class="ico">i</div>
+        <div>
+          If you don't pass <code>--name</code>, Cleo assigns a Docker-style label like <em>brave-curie</em>. Cleo also auto-registers a project on <code>cleo run</code> if you skipped <code>cleo add</code>; pass <code>--yes</code> to skip the confirmation prompt.
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ COMMANDS ============ -->
+    <section id="commands">
+      <h2><span class="lbl">03 / commands</span>The CLI surface</h2>
+      <p>Cleo's CLI is small on purpose. Most of the work happens inside the dashboard's keybindings.</p>
+
+      <h3 id="cmd-init">Setup &amp; diagnostics</h3>
+      <div class="cmd-table">
+        <div class="cmd-row">
+          <span class="cmd">cleo</span>
+          <span class="desc">Open the TUI dashboard. The default action with no arguments.</span>
+        </div>
+        <div class="cmd-row">
+          <span class="cmd">cleo init [--yes] [--force]</span>
+          <span class="desc">Install Cleo hook entries into <code>~/.claude/settings.json</code> and <code>~/.codex/hooks.json</code>, and extract bundled sound assets.</span>
+        </div>
+        <div class="cmd-row">
+          <span class="cmd">cleo doctor</span>
+          <span class="desc">Verify hook entries, the Codex feature flag, and recent hook-trace activity.</span>
+        </div>
+        <div class="cmd-row">
+          <span class="cmd">cleo cleanup [--yes]</span>
+          <span class="desc">Remove Cleo hook entries from agent config files. Same as <code>cleo uninstall</code>.</span>
+        </div>
+        <div class="cmd-row">
+          <span class="cmd">cleo --version</span>
+          <span class="desc">Print the installed version.</span>
+        </div>
+      </div>
+
+      <h3 id="cmd-projects">Projects</h3>
+      <div class="cmd-table">
+        <div class="cmd-row">
+          <span class="cmd">cleo add [path]</span>
+          <span class="desc">Register a project. Defaults to the current directory. Project IDs are slugified from the directory name.</span>
+        </div>
+        <div class="cmd-row">
+          <span class="cmd">cleo rm &lt;project&gt;</span>
+          <span class="desc">Unregister a project from Cleo. Running tmux sessions keep running; your code is untouched.</span>
+        </div>
+        <div class="cmd-row">
+          <span class="cmd">cleo ls</span>
+          <span class="desc">List registered projects and their known sessions: project ID, agent, name, state, full session ID.</span>
+        </div>
+      </div>
+
+      <h3 id="cmd-sessions">Sessions</h3>
+      <div class="cmd-table">
+        <div class="cmd-row">
+          <span class="cmd">cleo run &lt;agent&gt; [opts]</span>
+          <span class="desc">Spawn an agent in tmux. Options: <code>--name</code>, <code>--cwd</code>, <code>--yes</code>, <code>--no-attach</code>. Session ID format: <code>cleo-&lt;project&gt;-&lt;agent&gt;-&lt;name&gt;</code>. Without <code>--name</code>, Cleo assigns a Docker-style label like <em>brave-curie</em>.</span>
+        </div>
+        <div class="cmd-row">
+          <span class="cmd">cleo attach &lt;session-id&gt;</span>
+          <span class="desc">Attach to an existing tmux session. Detach with the configured tmux detach key.</span>
+        </div>
+        <div class="cmd-row">
+          <span class="cmd">cleo rename &lt;session-id&gt; &lt;name&gt;</span>
+          <span class="desc">Rename the Cleo-side label only. The underlying tmux ID is preserved, so existing <code>cleo attach</code> commands and hook attribution keep working unchanged. Inside the TUI, press <code>r</code>.</span>
+        </div>
+        <div class="cmd-row">
+          <span class="cmd">cleo kill &lt;session-id&gt; [--yes]</span>
+          <span class="desc">Kill a running tmux session and remove it from Cleo state.</span>
+        </div>
+        <div class="cmd-row">
+          <span class="cmd">cleo prune [project] [opts]</span>
+          <span class="desc">Remove finished (<code>completed</code> / <code>error</code> / <code>dead</code>) sessions and archive their event logs. Options: <code>--keep N</code>, <code>--all</code>, <code>--dry-run</code>, <code>--yes</code>.</span>
+        </div>
+      </div>
+
+<pre><span class="c"># a few common shapes of `cleo run`</span>
+$ cleo run claude
+$ cleo run codex --name <span class="a">refactor-auth</span>
+$ cleo run claude --cwd <span class="a">~/Dev/myapp</span> --name <span class="a">fix-tests</span> --no-attach
+$ cleo run codex --yes</pre>
+
+      <h3 id="cmd-keys">Inside the TUI dashboard</h3>
+      <p class="muted">When you run <code>cleo</code> with no arguments, the same operations are one keystroke away. The footer always shows the action list for the selected row, so the live UI is the safest source of truth.</p>
+      <div class="cmd-table">
+        <div class="cmd-row"><span class="cmd">↵ &nbsp;/ enter</span><span class="desc">Attach to the selected session.</span></div>
+        <div class="cmd-row"><span class="cmd">v</span><span class="desc">View the session's tmux output preview without attaching.</span></div>
+        <div class="cmd-row"><span class="cmd">n</span><span class="desc">Start a new session (sibling to the current selection).</span></div>
+        <div class="cmd-row"><span class="cmd">r</span><span class="desc">Rename a session.</span></div>
+        <div class="cmd-row"><span class="cmd">K &nbsp;/ ctrl-k</span><span class="desc">Kill or remove the selected session.</span></div>
+        <div class="cmd-row"><span class="cmd">space</span><span class="desc">Expand or collapse a project.</span></div>
+        <div class="cmd-row"><span class="cmd">/</span><span class="desc">Filter projects and sessions.</span></div>
+        <div class="cmd-row"><span class="cmd">m</span><span class="desc">Toggle sound for the running Cleo process.</span></div>
+        <div class="cmd-row"><span class="cmd">↑ ↓ &nbsp;/ k j</span><span class="desc">Move selection.</span></div>
+        <div class="cmd-row"><span class="cmd">?</span><span class="desc">Show help.</span></div>
+        <div class="cmd-row"><span class="cmd">esc</span><span class="desc">Cancel the current popup or filter mode.</span></div>
+        <div class="cmd-row"><span class="cmd">q</span><span class="desc">Quit the dashboard.</span></div>
+      </div>
+    </section>
+
+    <!-- ============ HOOKS ============ -->
+    <section id="hooks">
+      <h2><span class="lbl">04 / hooks &amp; state</span>How Cleo knows what's happening</h2>
+      <p>
+        Cleo treats sessions as objects with state. It learns that state by listening to the hook events your agent emits. <strong>Claude Code</strong> and <strong>Codex</strong> are first-class: Cleo speaks their hook protocols natively. <strong>opencode</strong> and <strong>pi</strong> can be spawned and managed as tmux sessions, but Cleo can't observe their fine-grained lifecycle, so they read as <code>running</code> until tmux says otherwise.
+      </p>
+      <p>Run <code>cleo init</code> once per machine. Cleo writes hook entries to the agent config files, then writes <code>CLEO_SESSION_ID</code> into each tmux session's environment so hook payloads can be attributed to the right session.</p>
+
+      <h3 id="hooks-claude">Claude Code</h3>
+      <p>Hook entries land in <code>~/.claude/settings.json</code>. Cleo registers itself for these events:</p>
+<pre>SessionStart
+UserPromptSubmit
+PreToolUse
+PostToolUse
+Notification
+Stop
+SessionEnd
+SubagentStop</pre>
+
+      <h3 id="hooks-codex">Codex</h3>
+      <p>Hook entries land in <code>~/.codex/hooks.json</code>, plus <code>cleo init</code> ensures <code>[features].hooks = true</code> exists in <code>~/.codex/config.toml</code>. Cleo registers itself for:</p>
+<pre>SessionStart
+UserPromptSubmit
+PreToolUse
+PostToolUse
+PermissionRequest
+Stop</pre>
+
+      <div class="alert">
+        <div class="ico">!</div>
+        <div>
+          After installing Codex hooks, restart any open Codex sessions and run <code>/hooks</code> inside Codex to approve the Cleo entries if they appear under review. Codex keeps approval state internally; <code>cleo doctor</code> can verify the files but cannot prove approval.
+        </div>
+      </div>
+
+      <h3 id="hooks-states">Session states</h3>
+      <div class="cmd-table">
+        <div class="cmd-row"><span class="cmd">spawning</span><span class="desc">Cleo created state and is starting tmux/agent.</span></div>
+        <div class="cmd-row"><span class="cmd">running</span><span class="desc">The agent is active or has recently resumed work.</span></div>
+        <div class="cmd-row"><span class="cmd">waiting_for_input</span><span class="desc">The agent requested input, approval, or attention.</span></div>
+        <div class="cmd-row"><span class="cmd">idle</span><span class="desc">The agent stopped its current turn but the session is still available.</span></div>
+        <div class="cmd-row"><span class="cmd">completed</span><span class="desc">The session ended cleanly or aged out from idle.</span></div>
+        <div class="cmd-row"><span class="cmd">error</span><span class="desc">Cleo recorded an error state.</span></div>
+        <div class="cmd-row"><span class="cmd">dead</span><span class="desc">The underlying tmux session is gone.</span></div>
+      </div>
+
+      <blockquote>
+        <p><strong>Where events go.</strong> Each hook event is appended to <code>~/.config/cleo/events/&lt;session-id&gt;.jsonl</code>. When you <code>cleo prune</code> a session, its log is moved to <code>~/.config/cleo/events/archive/</code> rather than deleted.</p>
+      </blockquote>
+    </section>
+
+    <!-- ============ CONFIG ============ -->
+    <section id="config">
+      <h2><span class="lbl">05 / configuration</span>State, sounds, and where things live</h2>
+
+      <p>Cleo stores everything in your XDG config dir. No daemon, no service, no remote state. The config file is created on first run with sensible defaults; partial configs are supported, so you can keep <code>config.toml</code> minimal and only override what you actually want to change.</p>
+
+      <h3 id="config-files">Files &amp; locations</h3>
+<pre><span class="c"># default; respects $XDG_CONFIG_HOME if set</span>
+~/.config/cleo/
+├─ <span class="p">config.toml</span>           <span class="c"># user config (created on first run)</span>
+├─ <span class="p">projects.json</span>         <span class="c"># registered projects</span>
+├─ <span class="p">state.json</span>            <span class="c"># current known sessions</span>
+├─ <span class="p">state.json.lock</span>       <span class="c"># state file lock</span>
+├─ <span class="p">focus.json</span>            <span class="c"># tmux focus state for sound suppression</span>
+├─ <span class="p">events/</span>               <span class="c"># &lt;session-id&gt;.jsonl per session</span>
+│   └─ <span class="p">archive/</span>           <span class="c"># pruned session logs</span>
+├─ <span class="p">sounds/</span>               <span class="c"># bundled .wav files (override here)</span>
+├─ <span class="p">hook-errors.log</span>       <span class="c"># hook handler errors</span>
+└─ <span class="p">hook-trace.log</span>        <span class="c"># attribution trace used by `cleo doctor`</span></pre>
+
+      <p class="muted">Hook entries themselves live with the agent: <code>~/.claude/settings.json</code> for Claude Code, and <code>~/.codex/hooks.json</code> + <code>~/.codex/config.toml</code> for Codex.</p>
+
+      <p>Cleo reads <code>config.toml</code> on startup. After editing it, quit the dashboard (<code>q</code>) and relaunch <code>cleo</code> to pick up changes. Hook handlers re-read the config on every invocation, so sound and event toggles take effect on the <em>next</em> hook event without restarting anything. Durations use Go duration strings: <code>"500ms"</code>, <code>"1.5s"</code>, <code>"30s"</code>, <code>"10m"</code>, <code>"1h"</code>.</p>
+
+      <h3 id="config-defaults">[defaults]</h3>
+<pre>[defaults]
+detach_key    = <span class="a">"C-b d"</span>
+default_agent = <span class="a">"claude"</span></pre>
+
+      <div class="cmd-table">
+        <div class="cmd-row"><span class="cmd">detach_key</span><span class="desc">Tmux detach key Cleo tries to bind for spawned sessions. Default <code>C-b d</code>.</span></div>
+        <div class="cmd-row"><span class="cmd">default_agent</span><span class="desc">Default agent name for flows that need one but didn't get one explicitly.</span></div>
+      </div>
+
+      <h3 id="config-sound">[sound]</h3>
+<pre>[sound]
+enabled = <span class="a">true</span>
+volume  = <span class="a">0.7</span>
+
+[sound.events]
+session_start     = <span class="a">"start.wav"</span>
+needs_input       = <span class="a">"attention.wav"</span>
+session_idle      = <span class="a">"done.wav"</span>
+session_completed = <span class="a">"done.wav"</span>
+session_error     = <span class="a">"error.wav"</span>
+
+[sound.event_enabled]
+session_start     = <span class="a">true</span>
+needs_input       = <span class="a">true</span>
+session_idle      = <span class="a">true</span>
+session_completed = <span class="a">true</span>
+session_error     = <span class="a">true</span></pre>
+
+      <div class="cmd-table">
+        <div class="cmd-row"><span class="cmd">enabled</span><span class="desc">Master switch for sound playback on hook-triggered transitions.</span></div>
+        <div class="cmd-row"><span class="cmd">volume</span><span class="desc"><code>0.0</code>–<code>1.0</code>. Applied on macOS via <code>afplay -v</code>; Linux players (<code>paplay</code>/<code>aplay</code>/<code>play</code>) ignore it; use the system mixer there.</span></div>
+        <div class="cmd-row"><span class="cmd">[sound.events]</span><span class="desc">Maps event → audio file. Relative paths resolve under <code>~/.config/cleo/sounds/</code>; absolute paths are used as-is.</span></div>
+        <div class="cmd-row"><span class="cmd">[sound.event_enabled]</span><span class="desc">Per-event toggles that keep the file mappings configured. Missing toggles default to <code>true</code>.</span></div>
+      </div>
+
+      <p class="muted">Custom sounds: drop your own <code>.wav</code> into <code>~/.config/cleo/sounds/</code> and reference it by basename, or use an absolute path. <code>cleo init</code> extracts the bundled defaults <code>start.wav</code>, <code>attention.wav</code>, <code>done.wav</code>, and <code>error.wav</code>.</p>
+
+      <blockquote>
+        <p><strong>Focus-aware suppression.</strong> Cleo enables tmux <code>focus-events</code> and installs client focus hooks when you start or attach to a session. While you're focused on that exact tmux session, its sounds are suppressed to avoid duplicate alerts; switching to another app (VS Code, Chrome) emits focus-out and Cleo resumes notifications. This is best-effort; when focus state can't be determined, Cleo prefers to play sounds rather than risk hiding an alert.</p>
+      </blockquote>
+
+      <h3 id="config-agents">[agents.&lt;name&gt;]</h3>
+      <p>Anything that runs in a terminal can be a Cleo agent. Cleo ships defaults for <code>claude</code>, <code>codex</code>, <code>opencode</code>, and <code>pi</code>; add or override blocks freely.</p>
+<pre>[agents.claude]
+command = <span class="a">"claude"</span>
+label   = <span class="a">"cl"</span>
+color   = <span class="a">"#CC785C"</span>
+hooks   = <span class="a">"claude"</span>
+
+[agents.codex]
+command = <span class="a">"codex"</span>
+label   = <span class="a">"cx"</span>
+color   = <span class="a">"#10A37F"</span>
+hooks   = <span class="a">"codex"</span>
+
+[agents.opencode]
+command = <span class="a">"opencode"</span>
+label   = <span class="a">"oc"</span>
+color   = <span class="a">"#FF6B35"</span>
+hooks   = <span class="a">"none"</span>
+
+[agents.pi]
+command = <span class="a">"pi"</span>
+label   = <span class="a">"pi"</span>
+color   = <span class="a">"#7C3AED"</span>
+hooks   = <span class="a">"none"</span></pre>
+
+      <div class="cmd-table">
+        <div class="cmd-row"><span class="cmd">command</span><span class="desc">Executable command Cleo starts inside tmux. The whole string is passed to <code>tmux new-session</code>, so flags and arguments are preserved.</span></div>
+        <div class="cmd-row"><span class="cmd">label</span><span class="desc">Short label shown in compact UI surfaces.</span></div>
+        <div class="cmd-row"><span class="cmd">color</span><span class="desc">Hex color used by the TUI for that agent.</span></div>
+        <div class="cmd-row"><span class="cmd">hooks</span><span class="desc">Hook protocol: <code>"claude"</code>, <code>"codex"</code>, or <code>"none"</code>. Agents with <code>hooks = "none"</code> stay <code>running</code> until tmux exits; Cleo can't observe their fine-grained lifecycle.</span></div>
+      </div>
+
+      <h3 id="config-ui">[ui] &amp; themes</h3>
+<pre>[ui]
+show_pane_preview     = <span class="a">true</span>
+pane_preview_lines    = <span class="a">30</span>
+pane_preview_interval = <span class="a">"1.5s"</span>
+event_log_lines       = <span class="a">200</span>
+sidebar_width         = <span class="a">32</span>
+theme                 = <span class="a">"catppuccin-mocha"</span></pre>
+
+      <div class="cmd-table">
+        <div class="cmd-row"><span class="cmd">show_pane_preview</span><span class="desc">Show tmux pane output previews in the dashboard.</span></div>
+        <div class="cmd-row"><span class="cmd">pane_preview_lines</span><span class="desc">Number of tmux pane lines to capture for the preview.</span></div>
+        <div class="cmd-row"><span class="cmd">pane_preview_interval</span><span class="desc">How often the preview refreshes. Higher = less tmux traffic; lower = snappier UI.</span></div>
+        <div class="cmd-row"><span class="cmd">event_log_lines</span><span class="desc">Number of recent event log rows available in the UI.</span></div>
+        <div class="cmd-row"><span class="cmd">sidebar_width</span><span class="desc">Configured sidebar width.</span></div>
+        <div class="cmd-row"><span class="cmd">theme</span><span class="desc">TUI color theme. See the table below. Unknown values silently fall back to <code>catppuccin-mocha</code>.</span></div>
+      </div>
+
+      <p>Themes ship with the binary. Pick one in <code>config.toml</code> and restart <code>cleo</code> to preview it:</p>
+
+      <div class="cmd-table">
+        <div class="cmd-row"><span class="cmd">catppuccin-mocha</span><span class="desc">Default. Warm, low-contrast pastel dark theme.</span></div>
+        <div class="cmd-row"><span class="cmd">gruvbox-dark</span><span class="desc">Retro warm dark theme.</span></div>
+        <div class="cmd-row"><span class="cmd">onedark</span><span class="desc">Atom-style cool dark theme.</span></div>
+        <div class="cmd-row"><span class="cmd">void</span><span class="desc">High-contrast minimal monochrome.</span></div>
+        <div class="cmd-row"><span class="cmd">synthwave</span><span class="desc">Vivid magenta/cyan neon dark theme.</span></div>
+      </div>
+
+      <h3 id="config-retention">[retention]</h3>
+<pre>[retention]
+hint_threshold            = <span class="a">6</span>
+prune_keep_default        = <span class="a">5</span>
+idle_to_completed_timeout = <span class="a">"10m"</span>
+spawning_timeout          = <span class="a">"30s"</span></pre>
+
+      <div class="cmd-table">
+        <div class="cmd-row"><span class="cmd">hint_threshold</span><span class="desc">Show a cleanup hint when a project has more than this many finished sessions.</span></div>
+        <div class="cmd-row"><span class="cmd">prune_keep_default</span><span class="desc">Default number of finished sessions to keep per project during <code>cleo prune</code>.</span></div>
+        <div class="cmd-row"><span class="cmd">idle_to_completed_timeout</span><span class="desc">Reconciler timeout that promotes long-idle sessions to <code>completed</code>.</span></div>
+        <div class="cmd-row"><span class="cmd">spawning_timeout</span><span class="desc">Timeout used to detect sessions that never finish startup.</span></div>
+      </div>
+
+      <h3 id="config-recipes">Configuration recipes</h3>
+      <p class="muted">The defaults are reasonable, so most users only need a few overrides. A few common patterns:</p>
+
+      <p><strong>Silent mode:</strong> disable all sound playback without removing event mappings:</p>
+<pre>[sound]
+enabled = <span class="a">false</span></pre>
+
+      <p><strong>Only attention-worthy sounds:</strong> mute routine start / idle / completion, keep the ones that signal you should look at the terminal:</p>
+<pre>[sound.event_enabled]
+session_start     = <span class="a">false</span>
+needs_input       = <span class="a">true</span>
+session_idle      = <span class="a">false</span>
+session_completed = <span class="a">false</span>
+session_error     = <span class="a">true</span></pre>
+
+      <p><strong>Lower default volume (macOS):</strong> Linux uses the system mixer:</p>
+<pre>[sound]
+enabled = <span class="a">true</span>
+volume  = <span class="a">0.3</span></pre>
+
+      <p><strong>Custom sound files</strong>:</p>
+<pre>[sound.events]
+needs_input   = <span class="a">"my-attention.wav"</span>
+session_error = <span class="a">"/Users/me/sounds/error-loud.wav"</span></pre>
+
+      <p><strong>Switch theme</strong>:</p>
+<pre>[ui]
+theme = <span class="a">"synthwave"</span></pre>
+
+      <p><strong>Add a new agent:</strong> example for <a class="link" href="https://aider.chat" rel="noopener">aider</a>:</p>
+<pre>[agents.aider]
+command = <span class="a">"aider"</span>
+label   = <span class="a">"ai"</span>
+color   = <span class="a">"#9333EA"</span>
+hooks   = <span class="a">"none"</span></pre>
+      <p class="muted">Then <code>cleo run aider --name refactor-payments</code>.</p>
+
+      <p><strong>Override an existing agent's command:</strong> flags and arguments are preserved verbatim:</p>
+<pre>[agents.claude]
+command = <span class="a">"claude --dangerously-skip-permissions"</span>
+label   = <span class="a">"cl"</span>
+color   = <span class="a">"#CC785C"</span>
+hooks   = <span class="a">"claude"</span></pre>
+
+      <p><strong>Larger preview pane / more breathing room</strong>:</p>
+<pre>[ui]
+pane_preview_lines    = <span class="a">60</span>
+pane_preview_interval = <span class="a">"0.75s"</span>
+sidebar_width         = <span class="a">40</span>
+event_log_lines       = <span class="a">500</span></pre>
+
+      <p><strong>Tighter retention:</strong> auto-promote idle sessions sooner and keep fewer finished sessions per project:</p>
+<pre>[retention]
+hint_threshold            = <span class="a">3</span>
+prune_keep_default        = <span class="a">2</span>
+idle_to_completed_timeout = <span class="a">"2m"</span>
+spawning_timeout          = <span class="a">"15s"</span></pre>
+
+      <p><strong>Change the default agent</strong>:</p>
+<pre>[defaults]
+default_agent = <span class="a">"codex"</span></pre>
+
+      <h3 id="config-env">Environment variables</h3>
+      <p>Cleo reads only a small set of environment variables.</p>
+      <div class="cmd-table">
+        <div class="cmd-row"><span class="cmd">XDG_CONFIG_HOME</span><span class="desc">Overrides the config root. When set, Cleo uses <code>$XDG_CONFIG_HOME/cleo/</code> instead of <code>~/.config/cleo/</code>.</span></div>
+        <div class="cmd-row"><span class="cmd">CLEO_SESSION_ID</span><span class="desc">Set automatically by <code>cleo run</code> inside the spawned tmux session. Hook handlers read it to attribute events to the correct Cleo session; you normally don't set it yourself.</span></div>
+        <div class="cmd-row"><span class="cmd">TMUX</span><span class="desc">Standard tmux variable. Cleo checks it to detect that you're already inside tmux when running <code>cleo run</code>, so it can <code>switch-client</code> rather than nest a new server.</span></div>
+      </div>
+
+      <div class="alert">
+        <div class="ico">i</div>
+        <div>
+          If you delete or corrupt <code>config.toml</code>, the next <code>cleo</code> run rewrites it from defaults. Your projects and session state live in separate files (<code>projects.json</code>, <code>state.json</code>) and are unaffected.
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ TROUBLESHOOTING ============ -->
+    <section id="troubleshooting">
+      <h2><span class="lbl">06 / troubleshooting</span>Common issues</h2>
+
+      <h3><code>cleo init</code> reports a hook conflict</h3>
+      <p>The target agent config already has a different entry for the same event. Review the file by hand, or rerun with <code>--force</code> to overwrite Cleo-managed events:</p>
+<pre>$ cleo init --force</pre>
+
+      <h3>Codex hooks are installed but nothing updates</h3>
+      <p>Run <code>cleo doctor</code>, then open Codex and run <code>/hooks</code>; approve the Cleo hook names if they're under review. Restart any Codex sessions opened before <code>cleo init</code>; they may not have loaded the updated <code>~/.codex/config.toml</code>.</p>
+
+      <h3>Sessions stay <code>running</code></h3>
+      <p>Expected for agents configured with <code>hooks = "none"</code> (opencode, pi). For Claude Code or Codex, run <code>cleo doctor</code> and check:</p>
+<pre>$ tail -n 50 ~/.config/cleo/hook-trace.log
+$ tail -n 50 ~/.config/cleo/hook-errors.log</pre>
+
+      <h3>A session is <code>dead</code></h3>
+      <p>The tmux session no longer exists: killed externally, exited, or removed by another tool. Clean it up with:</p>
+<pre>$ cleo prune</pre>
+
+      <h3>No sound plays</h3>
+      <ul>
+        <li>Check <code>cleo init</code> ran and <code>~/.config/cleo/sounds/</code> contains the WAV files.</li>
+        <li>On macOS, confirm <code>which afplay</code> resolves.</li>
+        <li>On Linux, Cleo uses the first available of <code>paplay</code>, <code>aplay</code>, or <code>play</code>.</li>
+        <li>Disable entirely with <code>[sound] enabled = false</code> in <code>config.toml</code>.</li>
+      </ul>
+
+      <h3>Cleo binary moved after hooks were installed</h3>
+      <p>Hook entries store the absolute path to the <code>cleo</code> executable. Re-run:</p>
+<pre>$ cleo init</pre>
+      <p>so hook files point at the current binary path.</p>
+
+      <h3>Project was registered with the wrong path</h3>
+      <p>Remove and re-add it:</p>
+<pre>$ cleo rm old-project-id
+$ cleo add /correct/path</pre>
+
+      <h3>"tmux: command not found"</h3>
+      <p>Cleo doesn't ship tmux; it talks to your installed copy. Install tmux 3.0+ via Homebrew:</p>
+<pre>$ brew install tmux</pre>
+
+      <h3>Still stuck?</h3>
+      <p>Open an issue at <a class="link" href="https://github.com/dhruvsaxena1998/cleo/issues" rel="noopener">github.com/dhruvsaxena1998/cleo/issues</a> with the output of <code>cleo --version</code>, <code>tmux -V</code>, <code>cleo doctor</code>, and your platform.</p>
+    </section>
+
+  </article>
+</div>
+</div>
+
+<footer>
+  <div class="container">
+    <div class="footer-tail-min">
+      <span>© 2026 Dhruv Saxena · MIT</span>
+      <div class="footer-links">
+        <a href="index.html">Home</a>
+        <a href="https://github.com/dhruvsaxena1998/cleo" rel="noopener">GitHub</a>
+        <a href="https://github.com/dhruvsaxena1998/cleo/issues" rel="noopener">Issues</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var toggle = document.getElementById('themeToggle');
+  if (!toggle) return;
+  function currentTheme() {
+    var explicit = document.documentElement.getAttribute('data-theme');
+    if (explicit === 'light' || explicit === 'dark') return explicit;
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  toggle.addEventListener('click', function () {
+    var next = currentTheme() === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('cleo-theme', next); } catch (e) {}
+  });
+})();
+</script>
+
+</body>
+</html>
