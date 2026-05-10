@@ -1,0 +1,51 @@
+name: Bug report
+description: Report a bug in cleo
+title: "[bug] "
+labels: ["bug", "triage"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: cleo version
+      description: Output of `cleo --version`
+      placeholder: "cleo version 0.2.0"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS and tmux version
+      description: e.g. macOS 14.4 / `tmux 3.4`
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: What you did, in order. Include the exact `cleo` commands.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+      description: What you expected to happen, and what actually happened.
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: cleo doctor output (optional)
+      description: Output of `cleo doctor`. Helpful for hook-related issues.
+      render: text
+
+  - type: textarea
+    id: errors
+    attributes:
+      label: Hook error log excerpt (optional)
+      description: Last 20 lines of `~/.config/cleo/hook-errors.log` if relevant.
+      render: text
