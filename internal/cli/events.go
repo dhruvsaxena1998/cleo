@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
@@ -216,9 +217,100 @@ func streamJSONL(w io.Writer, path string, follow bool) error {
 	return tailRaw(w, path)
 }
 
-// tailEvents and tailRaw are stubs filled in by sub-task 5C.
 func tailEvents(w io.Writer, path string, opts events.ReadOpts, asJSON bool) error {
-	return nil
+	return tailLoop(w, path, func(line []byte) {
+		if asJSON {
+			fmt.Fprintln(w, string(line))
+			return
+		}
+		var e events.Entry
+		if err := json.Unmarshal(line, &e); err != nil {
+			return
+		}
+		if opts.Type != "" && e.Type != opts.Type {
+			return
+		}
+		if !opts.Since.IsZero() && e.At.Before(opts.Since) {
+			return
+		}
+		printEventsTable(w, []events.Entry{e})
+	})
 }
 
-func tailRaw(w io.Writer, path string) error { return nil }
+func tailRaw(w io.Writer, path string) error {
+	return tailLoop(w, path, func(line []byte) {
+		fmt.Fprintln(w, string(line))
+	})
+}
+
+// tailLoop polls path, calling onLine for each newly appended JSONL line.
+// Reopens the file when the inode changes (so a prune→archive doesn't kill
+// the follow). Caller is responsible for stopping the loop (Ctrl-C / process
+// exit). The poll cadence is 500 ms.
+func tailLoop(w io.Writer, path string, onLine func([]byte)) error {
+	openFile := func() (*os.File, os.FileInfo, error) {
+		f, err := os.Open(path)
+		if err != nil {
+			return nil, nil, err
+		}
+		st, err := f.Stat()
+		if err != nil {
+			f.Close()
+			return nil, nil, err
+		}
+		// Seek to end; we already dumped initial contents in printActiveEvents.
+		if _, err := f.Seek(0, io.SeekEnd); err != nil {
+			f.Close()
+			return nil, nil, err
+		}
+		return f, st, nil
+	}
+
+	f, st, err := openFile()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if f != nil {
+			f.Close()
+		}
+	}()
+
+	buf := make([]byte, 0, 1<<20)
+	tmp := make([]byte, 32*1024)
+	for {
+		n, err := f.Read(tmp)
+		if n > 0 {
+			buf = append(buf, tmp[:n]...)
+			for {
+				idx := bytes.IndexByte(buf, '\n')
+				if idx < 0 {
+					break
+				}
+				onLine(buf[:idx])
+				buf = buf[idx+1:]
+			}
+		}
+		if err != nil && err != io.EOF {
+			return err
+		}
+		// Sleep, then check for inode change
+		time.Sleep(500 * time.Millisecond)
+		newSt, statErr := os.Stat(path)
+		if statErr == nil && !sameFile(st, newSt) {
+			f.Close()
+			f, st, err = openFile()
+			if err != nil {
+				return err
+			}
+			buf = buf[:0]
+		}
+	}
+}
+
+func sameFile(a, b os.FileInfo) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	return os.SameFile(a, b)
+}
