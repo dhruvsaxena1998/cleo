@@ -502,6 +502,7 @@ html { scroll-behavior: smooth; }
       <li><a href="#install">1. Install</a>
         <ol>
           <li><a href="#prerequisites">Prerequisites</a></li>
+          <li><a href="#curl-install">Curl installer</a></li>
           <li><a href="#tap-install">Homebrew</a></li>
           <li><a href="#upgrade">Upgrade</a></li>
           <li><a href="#go-install">Go install</a></li>
@@ -547,15 +548,21 @@ html { scroll-behavior: smooth; }
     <!-- ============ INSTALL ============ -->
     <section id="install">
       <h2><span class="lbl">01 / install</span>Install Cleo</h2>
-      <p>Cleo runs on macOS and Linux. Windows is not supported in v0.1. Pick whichever install path matches your toolchain; both produce the same binary.</p>
+      <p>Cleo runs on macOS and Linux. Windows is not supported in v0.1. Pick whichever install path matches your toolchain; every path installs the same binary.</p>
 
       <h3 id="prerequisites">Prerequisites</h3>
       <ul>
         <li><code>tmux</code> 3.0 or later on your <code>PATH</code> (runtime).</li>
-        <li>Either <code>brew</code> (Homebrew / Linuxbrew) <em>or</em> Go <code>1.25.5</code> for <code>go install</code> / building from source.</li>
+        <li><code>curl</code> for the one-line installer, <code>brew</code> (Homebrew / Linuxbrew), or Go <code>1.25.5</code> for <code>go install</code> / building from source.</li>
         <li>One or more terminal-based agents: <code>claude</code>, <code>codex</code>, <code>opencode</code>, <code>pi</code>, or any other.</li>
         <li>Sound playback uses <code>afplay</code> on macOS and the first of <code>paplay</code>, <code>aplay</code>, or <code>play</code> on Linux.</li>
       </ul>
+
+      <h3 id="curl-install">Curl installer</h3>
+<pre><span class="c"># installs the latest GitHub Release to ~/.local/bin</span>
+$ curl -fsSL <span class="a">https://github.com/dhruvsaxena1998/cleo/raw/main/scripts/install.sh</span> | sh</pre>
+
+      <p>The installer supports <code>CLEO_INSTALL_DIR</code> for a custom install directory and <code>CLEO_VERSION</code> for pinned installs.</p>
 
       <h3 id="tap-install">Homebrew</h3>
 <pre><span class="c"># 1. add the tap</span>
@@ -565,7 +572,10 @@ $ brew tap <span class="a">dhruvsaxena1998/tap</span>
 $ brew install <span class="a">cleo</span></pre>
 
       <h3 id="upgrade">Upgrade</h3>
-<pre><span class="c"># fetch the latest tap and upgrade cleo</span>
+<pre><span class="c"># curl install: re-run the installer</span>
+$ curl -fsSL <span class="a">https://github.com/dhruvsaxena1998/cleo/raw/main/scripts/install.sh</span> | sh
+
+<span class="c"># homebrew install: fetch the latest tap and upgrade cleo</span>
 $ brew update &amp;&amp; brew upgrade <span class="a">cleo</span></pre>
 
       <h3 id="go-install">Go install</h3>
@@ -586,6 +596,9 @@ $ ./bin/cleo --version</pre>
 <pre><span class="c"># homebrew install</span>
 $ brew uninstall <span class="a">cleo</span>
 $ brew untap <span class="a">dhruvsaxena1998/tap</span>
+
+<span class="c"># curl install</span>
+$ rm <span class="a">~/.local/bin/cleo</span>
 
 <span class="c"># go install: remove the binary from $GOBIN / $GOPATH/bin</span>
 $ rm "$(which cleo)"</pre>
