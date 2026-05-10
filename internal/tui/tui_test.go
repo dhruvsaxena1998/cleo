@@ -191,13 +191,36 @@ func TestPreviewTickAlwaysReArms(t *testing.T) {
 	m.cursor.agentIdx = 0
 	m.expanded = map[string]bool{"p": true}
 
-	_, cmd := m.Update(previewTickMsg{})
+	// First tick: dispatches a capture and re-arms. Mirrors first paint after
+	// the user lands on a session.
+	updated, cmd := m.Update(previewTickMsg{})
 	if cmd == nil {
 		t.Fatal("expected non-nil cmd from previewTickMsg")
 	}
 	out := runCmdAndCollect(t, cmd, 200*time.Millisecond)
 	if !containsType(out, previewTickMsg{}) {
-		t.Errorf("expected previewTickMsg in output, got %v", out)
+		t.Fatalf("expected previewTickMsg in first-tick output, got %v", out)
+	}
+	m = updated.(Model)
+	if !m.paneCaptureInFlight {
+		t.Fatal("expected paneCaptureInFlight=true after first tick dispatched capture")
+	}
+
+	// Second tick *while a capture is still in flight* — this is the
+	// navigation-mid-flight scenario that broke v0.1's chain. The new ticker
+	// must still re-arm (no capture dispatched, no deadlock).
+	updated, cmd = m.Update(previewTickMsg{})
+	if cmd == nil {
+		t.Fatal("in-flight tick must still re-arm — got nil cmd (deadlock!)")
+	}
+	out = runCmdAndCollect(t, cmd, 200*time.Millisecond)
+	if !containsType(out, previewTickMsg{}) {
+		t.Errorf("expected previewTickMsg even when capture in-flight, got %v", out)
+	}
+	// Capture response clears the in-flight flag, unblocking future captures.
+	updated, _ = updated.(Model).Update(paneCapturedMsg{sid: "s1", content: "hello"})
+	if updated.(Model).paneCaptureInFlight {
+		t.Error("paneCapturedMsg should clear paneCaptureInFlight")
 	}
 }
 
