@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Hook trace log entries now include a `fallback_reason` field documenting how the session was resolved (`env_present`, `env_missing`, `env_unknown_session`, `no_match`). Surfaced by `cleo doctor` in v0.2.
+
 ### Fixed
 - Sessions in `waiting_for_input` now correctly progress to `completed` after two idle-timeout windows. Previously, the synthetic `idle_timeout` event bumped `last_event_at`, restarting the timer indefinitely.
 

@@ -2,7 +2,10 @@ package hooks
 
 import (
 	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -248,3 +251,83 @@ func TestHandleUnknownProtocolLogsError(t *testing.T) {
 		t.Errorf("expected protocol name in error log, got: %s", string(b))
 	}
 }
+
+func TestFallbackReasonEnvPresent(t *testing.T) {
+	d, _, p := setup(t)
+	d.Now = func() (string, error) { return "cleo-x-claude-1", nil }
+	if err := Handle(d, "claude", "PreToolUse", strings.NewReader(`{}`), io.Discard); err != nil {
+		t.Fatalf("handle: %v", err)
+	}
+	row := lastTraceRow(t, p.HookTraceLog())
+	if row.FallbackReason != "env_present" {
+		t.Errorf("fallback_reason: want env_present, got %q", row.FallbackReason)
+	}
+}
+
+func TestFallbackReasonEnvMissing(t *testing.T) {
+	d, _, p := setup(t)
+	// Now returns errNoSession; FindByCwd is not configured (claude path).
+	d.Now = func() (string, error) { return "", errNoSessionTest }
+	_ = Handle(d, "claude", "PreToolUse", strings.NewReader(`{}`), io.Discard)
+	row := lastTraceRow(t, p.HookTraceLog())
+	if row.FallbackReason != "env_missing" {
+		t.Errorf("fallback_reason: want env_missing, got %q", row.FallbackReason)
+	}
+}
+
+func TestFallbackReasonEnvUnknownSession(t *testing.T) {
+	d, _, p := setup(t)
+	// Now returns a sid that does not exist in the seeded store.
+	d.Now = func() (string, error) { return "stale-sid", nil }
+	_ = Handle(d, "claude", "PreToolUse", strings.NewReader(`{}`), io.Discard)
+	row := lastTraceRow(t, p.HookTraceLog())
+	if row.FallbackReason != "env_unknown_session" {
+		t.Errorf("fallback_reason: want env_unknown_session, got %q", row.FallbackReason)
+	}
+}
+
+func TestFallbackReasonNoMatchCodex(t *testing.T) {
+	d, _, p := setup(t)
+	d.Now = func() (string, error) { return "", errNoSessionTest }
+	d.FindByCwd = func(cwd, agent string) (string, error) {
+		return "", os.ErrNotExist
+	}
+	_ = Handle(d, "codex", "PreToolUse", strings.NewReader(`{"cwd":"/some/path"}`), io.Discard)
+	row := lastTraceRow(t, p.HookTraceLog())
+	if row.FallbackReason != "no_match" {
+		t.Errorf("fallback_reason: want no_match, got %q", row.FallbackReason)
+	}
+}
+
+// traceRowForTest mirrors cli.hookTraceRow; redeclared locally to avoid the
+// import cycle that would otherwise pull cli into a hooks-package test.
+type traceRowForTest struct {
+	At              string `json:"at"`
+	Protocol        string `json:"protocol"`
+	Event           string `json:"event"`
+	Cwd             string `json:"cwd"`
+	EnvSession      bool   `json:"env_session"`
+	ResolvedSession string `json:"resolved_session"`
+	Result          string `json:"result"`
+	FallbackReason  string `json:"fallback_reason"`
+}
+
+// lastTraceRow reads the trace log and returns the last decoded row.
+func lastTraceRow(t *testing.T, path string) traceRowForTest {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read trace: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) == 0 {
+		t.Fatalf("no trace rows at %s", path)
+	}
+	var row traceRowForTest
+	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &row); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	return row
+}
+
+var errNoSessionTest = errors.New("no session")
