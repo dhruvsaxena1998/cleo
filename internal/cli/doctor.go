@@ -19,7 +19,8 @@ import (
 )
 
 func newDoctorCmd(getCtx func() *Ctx) *cobra.Command {
-	return &cobra.Command{
+	var quiet bool
+	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Check Cleo hook setup",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -34,10 +35,18 @@ func newDoctorCmd(getCtx func() *Ctx) *cobra.Command {
 			if exe, err := os.Executable(); err == nil {
 				report.CleoBin = exe
 			}
-			printDoctorReport(cmd.OutOrStdout(), report)
+			printDoctorReportOpts(cmd.OutOrStdout(), report, doctorPrintOpts{Quiet: quiet})
+			if quiet && doctorReportHasFailures(report) {
+				// Suppress cobra's automatic usage / "Error:" prefix.
+				cmd.SilenceUsage = true
+				cmd.SilenceErrors = true
+				os.Exit(1)
+			}
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&quiet, "quiet", false, "only print failures and non-empty diagnostic sections")
+	return cmd
 }
 
 type doctorReport struct {
@@ -367,10 +376,23 @@ var (
 	warnStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#f38ba8"))
 )
 
+type doctorPrintOpts struct {
+	Quiet bool
+}
+
 func printDoctorReport(w io.Writer, report doctorReport) {
-	fmt.Fprintln(w, "Cleo doctor")
-	fmt.Fprintln(w)
+	printDoctorReportOpts(w, report, doctorPrintOpts{})
+}
+
+func printDoctorReportOpts(w io.Writer, report doctorReport, opts doctorPrintOpts) {
+	if !opts.Quiet {
+		fmt.Fprintln(w, "Cleo doctor")
+		fmt.Fprintln(w)
+	}
 	for _, check := range report.Checks {
+		if opts.Quiet && check.OK {
+			continue
+		}
 		var symbol string
 		if check.OK {
 			symbol = okStyle.Render("✓")
@@ -378,7 +400,7 @@ func printDoctorReport(w io.Writer, report doctorReport) {
 			symbol = warnStyle.Render("✗")
 		}
 		fmt.Fprintf(w, "%s %s: %s\n", symbol, check.Label, check.Detail)
-		if strings.Contains(check.Label, "hook activity") && check.Protocol != "" {
+		if !opts.Quiet && strings.Contains(check.Label, "hook activity") && check.Protocol != "" {
 			traces := recentHookTraces(report.HookTracePath, check.Protocol, 3)
 			if len(traces) > 0 {
 				fmt.Fprintln(w, "  Last hook traces:")
@@ -415,17 +437,60 @@ func printDoctorReport(w io.Writer, report doctorReport) {
 		}
 	}
 	if report.CleoBin != "" {
-		fmt.Fprintln(w)
-		printHookDiffSection(w, "Claude hooks", report.ClaudeSettingsPath, hooks.ExpectedClaudeEntries(report.CleoBin), "claude")
-		fmt.Fprintln(w)
-		printHookDiffSection(w, "Codex hooks", report.CodexHooksPath, hooks.ExpectedCodexEntries(report.CleoBin), "codex")
+		claudeDiff := hookConfigDiff(report.ClaudeSettingsPath, hooks.ExpectedClaudeEntries(report.CleoBin))
+		codexDiff := hookConfigDiff(report.CodexHooksPath, hooks.ExpectedCodexEntries(report.CleoBin))
+		claudeSync := len(claudeDiff.toAdd) == 0 && len(claudeDiff.conflicts) == 0
+		codexSync := len(codexDiff.toAdd) == 0 && len(codexDiff.conflicts) == 0
+		if !opts.Quiet {
+			fmt.Fprintln(w)
+			printHookDiffSection(w, "Claude hooks", report.ClaudeSettingsPath, hooks.ExpectedClaudeEntries(report.CleoBin), "claude")
+			fmt.Fprintln(w)
+			printHookDiffSection(w, "Codex hooks", report.CodexHooksPath, hooks.ExpectedCodexEntries(report.CleoBin), "codex")
+		} else {
+			if !claudeSync {
+				fmt.Fprintln(w)
+				printHookDiffSection(w, "Claude hooks", report.ClaudeSettingsPath, hooks.ExpectedClaudeEntries(report.CleoBin), "claude")
+			}
+			if !codexSync {
+				fmt.Fprintln(w)
+				printHookDiffSection(w, "Codex hooks", report.CodexHooksPath, hooks.ExpectedCodexEntries(report.CleoBin), "codex")
+			}
+		}
 	}
-	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Codex approval check:")
-	fmt.Fprintln(w, "  Cleo can verify installed files, but Codex keeps hook approval state internally.")
-	fmt.Fprintln(w, "  If Codex shows hooks under Review, run /hooks inside Codex and approve these hook names:")
-	for _, event := range hooks.CodexEvents() {
-		fmt.Fprintf(w, "    - %s\n", event)
+	if !opts.Quiet {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "Codex approval check:")
+		fmt.Fprintln(w, "  Cleo can verify installed files, but Codex keeps hook approval state internally.")
+		fmt.Fprintln(w, "  If Codex shows hooks under Review, run /hooks inside Codex and approve these hook names:")
+		for _, event := range hooks.CodexEvents() {
+			fmt.Fprintf(w, "    - %s\n", event)
+		}
+		fmt.Fprintln(w, "  Do not run hook commands manually; Codex runs them after approval.")
 	}
-	fmt.Fprintln(w, "  Do not run hook commands manually; Codex runs them after approval.")
+}
+
+// doctorReportHasFailures returns true when the report would warrant a
+// non-zero exit in --quiet mode: any failed check, attribution failures in
+// the last 24h, or any agent's hook config diff containing toAdd/conflicts.
+func doctorReportHasFailures(report doctorReport) bool {
+	for _, check := range report.Checks {
+		if !check.OK {
+			return true
+		}
+	}
+	since := time.Now().Add(-24 * time.Hour)
+	if len(attributionFailures(report.HookTracePath, since)) > 0 {
+		return true
+	}
+	if report.CleoBin != "" {
+		claudeDiff := hookConfigDiff(report.ClaudeSettingsPath, hooks.ExpectedClaudeEntries(report.CleoBin))
+		if len(claudeDiff.toAdd)+len(claudeDiff.conflicts) > 0 {
+			return true
+		}
+		codexDiff := hookConfigDiff(report.CodexHooksPath, hooks.ExpectedCodexEntries(report.CleoBin))
+		if len(codexDiff.toAdd)+len(codexDiff.conflicts) > 0 {
+			return true
+		}
+	}
+	return false
 }

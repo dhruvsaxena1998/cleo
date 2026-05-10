@@ -157,6 +157,24 @@ func contains(xs []string, s string) bool {
 	return false
 }
 
+func TestDoctorQuietSuppressesPassingChecks(t *testing.T) {
+	report := doctorReport{
+		Checks: []doctorCheck{
+			{Label: "Claude hooks", OK: true, Detail: "8 hooks installed"},
+			{Label: "Codex feature flag", OK: false, Detail: "missing"},
+		},
+	}
+	var buf bytes.Buffer
+	printDoctorReportOpts(&buf, report, doctorPrintOpts{Quiet: true})
+	out := buf.String()
+	if strings.Contains(out, "Claude hooks") {
+		t.Errorf("quiet mode should hide passing check, got %q", out)
+	}
+	if !strings.Contains(out, "Codex feature flag") {
+		t.Errorf("quiet mode should still show failure, got %q", out)
+	}
+}
+
 func TestPrintDoctorReportListsCodexApprovalHooks(t *testing.T) {
 	var out bytes.Buffer
 
