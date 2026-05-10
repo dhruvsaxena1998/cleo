@@ -49,6 +49,11 @@ func TestReconcileIdleTimeoutPromotesToCompleted(t *testing.T) {
 	}
 }
 
+// Regression: synthetic EvIdleTimeout used to bump LastEventAt and trap
+// WaitingForInput sessions in an indefinite loop because each reconcile
+// cycle reset the idle clock. The two-cycle assertion below pins the bug
+// shut — first cycle must not bump LastEventAt, second cycle must reach
+// Completed using the same anchor timestamp.
 func TestWaitingForInputProgressesToCompletedAcrossTwoIdleCycles(t *testing.T) {
 	dir := t.TempDir()
 	st := state.NewStore(filepath.Join(dir, "state.json"), filepath.Join(dir, "state.json.lock"))

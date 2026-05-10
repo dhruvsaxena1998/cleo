@@ -35,7 +35,10 @@ func RunOpts(st *state.Store, tx TmuxLs, opts Options) error {
 		}
 		// If the agent has been spawning for longer than SpawningTimeout and
 		// the tmux session is still alive, the hooks likely didn't fire.
-		// Advance to Running so the TUI shows meaningful state.
+		// Advance to Running so the TUI shows meaningful state. This is a
+		// real progression (the agent has been alive long enough to be running),
+		// so use Apply — bumping LastEventAt restarts any subsequent idle clock
+		// from the moment we declared it Running.
 		if s.State == state.Spawning && liveSet[s.ID] &&
 			opts.SpawningTimeout > 0 && time.Since(s.StartedAt) > opts.SpawningTimeout {
 			_, _ = st.Apply(s.ID, state.EvSessionStart,
