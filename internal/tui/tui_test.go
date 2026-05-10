@@ -388,3 +388,35 @@ func TestEscInNormalClearsStatus(t *testing.T) {
 		t.Errorf("status: want empty, got %q", m2.status)
 	}
 }
+
+// TestFilterSurvivesExpandCollapse locks in spec §2.2's filter persistence
+// guarantee: toggling a project's expand/collapse state must not clear the
+// filter query, even though the visible row set re-flows.
+func TestFilterSurvivesExpandCollapse(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	m.projects = []projects.Project{{ID: "p1"}, {ID: "p2"}}
+	m.sessions = []state.Session{{ID: "s1", ProjectID: "p1", Name: "alpha"}}
+	m.filter = "alpha"
+	m.expanded = map[string]bool{"p1": false}
+	m.cursor.projectIdx = 0
+
+	m2, _ := m.toggleExpand()
+	if m2.filter != "alpha" {
+		t.Errorf("filter cleared on expand: got %q", m2.filter)
+	}
+	// Sanity-check that toggleExpand actually flipped the project state, so
+	// a future regression that no-ops the call doesn't pass this test by
+	// accident.
+	if !m2.expanded["p1"] {
+		t.Errorf("expected p1 expanded after toggle, got %v", m2.expanded)
+	}
+
+	m3, _ := m2.toggleExpand()
+	if m3.filter != "alpha" {
+		t.Errorf("filter cleared on collapse: got %q", m3.filter)
+	}
+	if m3.expanded["p1"] {
+		t.Errorf("expected p1 collapsed after second toggle, got %v", m3.expanded)
+	}
+}
