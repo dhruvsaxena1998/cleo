@@ -15,13 +15,6 @@ type Options struct {
 	SpawningTimeout time.Duration
 }
 
-func Run(st *state.Store, tx TmuxLs, idleTimeout time.Duration) error {
-	return RunOpts(st, tx, Options{
-		IdleTimeout:     idleTimeout,
-		SpawningTimeout: 30 * time.Second,
-	})
-}
-
 func RunOpts(st *state.Store, tx TmuxLs, opts Options) error {
 	live, err := tx.LsPrefix("cleo-")
 	if err != nil {
