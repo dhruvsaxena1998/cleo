@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Hook trace log entries now include a `fallback_reason` field documenting how the session was resolved (`env_present`, `env_missing`, `env_unknown_session`, `no_match`). Surfaced by `cleo doctor` in v0.2.
 - `cleo events <session-id> [-f] [--type <kind>] [--since <duration>] [-n <limit>] [--json]` — print or tail per-session event logs. Supports substring matching and archived (`cleo prune`) sessions.
+- `cleo doctor` now prints recent hook traces, an attribution-failure summary (last 24h), and a +/- diff between expected and installed hook entries. New `--quiet` flag suppresses passing checks for cron use.
 
 ### Fixed
 - Sessions in `waiting_for_input` now correctly progress to `completed` after two idle-timeout windows. Previously, the synthetic `idle_timeout` event bumped `last_event_at`, restarting the timer indefinitely.

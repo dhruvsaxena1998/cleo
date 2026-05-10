@@ -14,6 +14,9 @@ $bin add /tmp
 $bin ls
 $bin run claude --name smoke --cwd /tmp --yes
 $bin ls | grep smoke
+$bin events cleo-tmp-claude-smoke -n 5
+$bin doctor
+$bin doctor --quiet >/dev/null
 $bin kill cleo-tmp-claude-smoke --yes
 $bin ls
 echo "smoke OK"
