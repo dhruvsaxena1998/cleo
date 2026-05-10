@@ -5,8 +5,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
 	"github.com/dhruvsaxena1998/cleo/internal/hooks"
@@ -17,6 +19,15 @@ const (
 	hookClaude = "claude"
 	hookCodex  = "codex"
 	hookPi     = "pi"
+)
+
+var (
+	initHeaderStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#a6e3a1"))
+	initAgentStyle  = lipgloss.NewStyle().Bold(true)
+	initOkStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#a6e3a1"))
+	initWarnStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#f38ba8"))
+	initDimStyle    = lipgloss.NewStyle().Faint(true)
+	initLabelWidth  = 13
 )
 
 func newInitCmd(getCtx func() *Ctx) *cobra.Command {
@@ -109,53 +120,53 @@ type initInstallResult struct {
 }
 
 func printInitSummary(w io.Writer, results []initInstallResult) {
-	fmt.Fprintln(w, "Cleo hooks initialized")
+	fmt.Fprintln(w, initHeaderStyle.Render("✓ Cleo hooks initialized"))
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "Installed:")
-	for _, result := range results {
-		fmt.Fprintf(w, "  - %s\n", result.Name)
-		for _, file := range result.Files {
-			fmt.Fprintf(w, "    %s\n", file)
-		}
-		if len(result.InstalledHooks) > 0 {
-			fmt.Fprintln(w, "    events:")
-			for _, hook := range result.InstalledHooks {
-				fmt.Fprintf(w, "      - %s\n", hook)
-			}
-		}
-	}
 
-	if hasCodexReviewStep(results) {
-		fmt.Fprintln(w)
-		fmt.Fprintln(w, "Codex /hooks approval:")
-		fmt.Fprintln(w, "  Hook names to approve:")
-		for _, result := range results {
-			if !result.NeedsCodexReview {
+	for _, result := range results {
+		fmt.Fprintf(w, "  %s\n", initAgentStyle.Render(result.Name))
+		for _, file := range result.Files {
+			label, path, found := strings.Cut(file, ": ")
+			if !found {
+				fmt.Fprintf(w, "  %s %s\n", initOkStyle.Render("✓"), file)
 				continue
 			}
-			for _, hook := range result.ReviewHooks {
-				fmt.Fprintf(w, "    - %s\n", hook)
-			}
-			if result.ReviewCommand != "" {
-				fmt.Fprintf(w, "  Match command text starting with: %s\n", result.ReviewCommand)
+			fmt.Fprintf(w, "  %s %-*s %s\n",
+				initOkStyle.Render("✓"),
+				initLabelWidth, label,
+				initDimStyle.Render(path),
+			)
+		}
+		if len(result.InstalledHooks) > 0 {
+			const perRow = 4
+			for i := 0; i < len(result.InstalledHooks); i += perRow {
+				end := min(i+perRow, len(result.InstalledHooks))
+				chunk := strings.Join(result.InstalledHooks[i:end], " · ")
+				if i == 0 {
+					fmt.Fprintf(w, "  %s %-*s %s\n",
+						initOkStyle.Render("✓"),
+						initLabelWidth, fmt.Sprintf("%d events", len(result.InstalledHooks)),
+						chunk,
+					)
+				} else {
+					fmt.Fprintf(w, "  %s %-*s %s\n", " ", initLabelWidth+4, "", chunk)
+				}
 			}
 		}
-		fmt.Fprintln(w, "  Do not run these hook commands manually; Codex runs them after approval.")
 		fmt.Fprintln(w)
-		fmt.Fprintln(w, "Next steps:")
-		fmt.Fprintln(w, "  - Restart any open Codex sessions so they reload ~/.codex/config.toml.")
-		fmt.Fprintln(w, "  - In Codex, run /hooks and approve the Cleo entries listed above if they appear under Review.")
-		fmt.Fprintln(w, "  - Codex will not execute newly installed hooks until this review step is completed.")
 	}
-}
 
-func hasCodexReviewStep(results []initInstallResult) bool {
 	for _, result := range results {
-		if result.NeedsCodexReview {
-			return true
+		if !result.NeedsCodexReview {
+			continue
 		}
+		fmt.Fprintf(w, "%s %s requires manual hook approval\n",
+			initWarnStyle.Render("⚠"), result.Name)
+		fmt.Fprintf(w, "   Open %s, run /hooks, and approve entries starting with:\n", result.Name)
+		fmt.Fprintf(w, "   %s\n", initDimStyle.Render(result.ReviewCommand))
+		fmt.Fprintln(w, "   Restart any open sessions first so they pick up the updated config.")
+		fmt.Fprintln(w)
 	}
-	return false
 }
 
 func promptHookSelection(selected *[]string) error {
