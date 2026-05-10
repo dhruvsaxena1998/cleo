@@ -359,12 +359,19 @@ func TestEscClosesPopupOnly(t *testing.T) {
 }
 
 // TestEscInFilterClearsQueryAndExits locks in step 2 of the Esc hierarchy:
-// in filter mode, Esc exits ModeFilter AND clears the filter query.
+// in filter mode, Esc exits ModeFilter, clears the filter query, AND calls
+// clampCursor so the cursor lands on a valid row after the visible set
+// changes.
 func TestEscInFilterClearsQueryAndExits(t *testing.T) {
 	c := newTestCtx(t)
 	m := New(c)
+	m.projects = []projects.Project{{ID: "p1"}}
 	m.mode = ModeFilter
 	m.filter = "search"
+	// Seed an out-of-range cursor that clampCursor must repair. Without the
+	// clamp call in the Esc handler, projectIdx=99 would survive and the
+	// next render would crash on a slice access.
+	m.cursor.projectIdx = 99
 
 	m2 := updateAsModel(m, tea.KeyMsg{Type: tea.KeyEsc})
 	if m2.mode != ModeNormal {
@@ -372,6 +379,9 @@ func TestEscInFilterClearsQueryAndExits(t *testing.T) {
 	}
 	if m2.filter != "" {
 		t.Errorf("filter: want empty, got %q", m2.filter)
+	}
+	if m2.cursor.projectIdx != 0 {
+		t.Errorf("cursor not clamped: want projectIdx=0, got %d", m2.cursor.projectIdx)
 	}
 }
 
@@ -421,19 +431,68 @@ func TestStatusClearsOnFilterEntry(t *testing.T) {
 	}
 }
 
-// TestStatusClearsOnPopupOpen covers spec §2.2: opening the help popup is a
-// user-initiated state change and must clear any stale status line.
+// TestStatusClearsOnPopupOpen covers spec §2.2 across ALL four popup
+// openers, not just help. Each must clear any stale status line on the
+// success path (where the popup actually opens).
 func TestStatusClearsOnPopupOpen(t *testing.T) {
-	c := newTestCtx(t)
-	m := New(c)
-	m.status = "old"
-
-	m2, _ := m.openHelpPopup()
-	if m2.mode != ModePopup {
-		t.Fatalf("openHelpPopup should enter ModePopup, got %v", m2.mode)
+	cases := []struct {
+		name string
+		// open returns the post-action Model; setup seeds projects/sessions
+		// so the opener finds something at the cursor and doesn't early-return.
+		setup func(*Model)
+		open  func(Model) (Model, tea.Cmd)
+	}{
+		{
+			name:  "help",
+			setup: func(_ *Model) {},
+			open:  func(m Model) (Model, tea.Cmd) { return m.openHelpPopup() },
+		},
+		{
+			name: "spawn",
+			setup: func(m *Model) {
+				m.projects = []projects.Project{{ID: "p1"}}
+				m.cursor.projectIdx = 0
+			},
+			open: func(m Model) (Model, tea.Cmd) { return m.openSpawnPopup() },
+		},
+		{
+			name: "kill",
+			setup: func(m *Model) {
+				m.projects = []projects.Project{{ID: "p1"}}
+				m.sessions = []state.Session{{ID: "s1", ProjectID: "p1", State: state.Running}}
+				m.expanded = map[string]bool{"p1": true}
+				m.cursor.projectIdx = 0
+				m.cursor.agentIdx = 0
+			},
+			open: func(m Model) (Model, tea.Cmd) { return m.confirmKill() },
+		},
+		{
+			name: "rename",
+			setup: func(m *Model) {
+				m.projects = []projects.Project{{ID: "p1"}}
+				m.sessions = []state.Session{{ID: "s1", ProjectID: "p1", State: state.Running}}
+				m.expanded = map[string]bool{"p1": true}
+				m.cursor.projectIdx = 0
+				m.cursor.agentIdx = 0
+			},
+			open: func(m Model) (Model, tea.Cmd) { return m.openRenamePopup() },
+		},
 	}
-	if m2.status != "" {
-		t.Errorf("status should clear on help popup open, got %q", m2.status)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newTestCtx(t)
+			m := New(c)
+			tc.setup(&m)
+			m.status = "old"
+
+			m2, _ := tc.open(m)
+			if m2.mode != ModePopup {
+				t.Fatalf("%s opener should enter ModePopup, got %v", tc.name, m2.mode)
+			}
+			if m2.status != "" {
+				t.Errorf("%s opener should clear status, got %q", tc.name, m2.status)
+			}
+		})
 	}
 }
 

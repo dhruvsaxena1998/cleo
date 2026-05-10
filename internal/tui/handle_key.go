@@ -178,6 +178,8 @@ func (m Model) openSpawnPopup() (Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
+	// Status clear comes after the early return: pressing 'n' on an empty
+	// row is a no-op and shouldn't clear an existing status message.
 	m.status = ""
 	agents := []string{}
 	for k := range m.ctx.Config.Agents {
@@ -231,6 +233,8 @@ func (m Model) confirmKill() (Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
+	// Status clear comes after the early return: pressing 'K' on an empty
+	// row is a no-op and shouldn't clear an existing status message.
 	m.status = ""
 	m.popup = NewConfirmPopup(fmt.Sprintf("kill %q?", sess.ID), sess.ID, m.theme)
 	m.mode = ModePopup
@@ -242,11 +246,14 @@ func (m Model) openRenamePopup() (Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
-	m.status = ""
 	if sess.State.IsFinished() {
+		// Replace status with the finished-session warning rather than clearing
+		// first; otherwise a reader sees status= "" then immediately reassigned.
 		m.status = fmt.Sprintf("%s is %s; finished sessions cannot be renamed", sess.ID, sess.State)
 		return m, nil
 	}
+	// Clear stale status only on the success path (popup actually opens).
+	m.status = ""
 	m.popup = NewRenamePopup(sess.ID, sess.Name, m.theme)
 	m.mode = ModePopup
 	return m, m.popup.Init()
