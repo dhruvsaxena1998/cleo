@@ -15,17 +15,6 @@ func ClaudeEvents() []string {
 	return append([]string(nil), claudeEvents...)
 }
 
-// codexEvents are the hook events cleo observes from Codex CLI.
-// Codex uses the same PascalCase names as Claude Code for lifecycle hooks.
-// PermissionRequest is the codex equivalent of Notification (approval needed).
-// UserPromptSubmit is important because it marks an idle session as running
-// as soon as the user starts a new turn, before the first tool call.
-var codexEvents = []string{"SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PermissionRequest", "Stop"}
-
-func CodexEvents() []string {
-	return append([]string(nil), codexEvents...)
-}
-
 // ExpectedClaudeEntries returns the per-event hook entries that
 // InstallClaude would write for the given cleo binary path. Keyed by
 // Claude hook event name (SessionStart, PreToolUse, …). The values match
