@@ -2,6 +2,7 @@ package reconcile
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,7 +20,7 @@ func TestReconcileMarksMissingSessionsDead(t *testing.T) {
 	_ = st.Put(state.Session{ID: "cleo-bar-claude-1", State: state.Running, LastEventAt: time.Now()})
 
 	tx := &fakeTmux{existing: []string{"cleo-foo-claude-1"}}
-	if err := Run(st, tx, time.Hour); err != nil {
+	if err := RunOpts(st, tx, Options{IdleTimeout: time.Hour, SpawningTimeout: 30 * time.Second}); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := st.Get("cleo-bar-claude-1")
@@ -39,11 +40,94 @@ func TestReconcileIdleTimeoutPromotesToCompleted(t *testing.T) {
 		ID: "cleo-foo-claude-1", State: state.Idle, LastEventAt: time.Now().Add(-30 * time.Minute),
 	})
 	tx := &fakeTmux{existing: []string{"cleo-foo-claude-1"}}
-	if err := Run(st, tx, 10*time.Minute); err != nil {
+	if err := RunOpts(st, tx, Options{IdleTimeout: 10 * time.Minute, SpawningTimeout: 30 * time.Second}); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := st.Get("cleo-foo-claude-1")
 	if got.State != state.Completed {
 		t.Errorf("expected completed, got %s", got.State)
+	}
+}
+
+// Regression: synthetic EvIdleTimeout used to bump LastEventAt and trap
+// WaitingForInput sessions in an indefinite loop because each reconcile
+// cycle reset the idle clock. The two-cycle assertion below pins the bug
+// shut — first cycle must not bump LastEventAt, second cycle must reach
+// Completed using the same anchor timestamp.
+func TestWaitingForInputProgressesToCompletedAcrossTwoIdleCycles(t *testing.T) {
+	dir := t.TempDir()
+	st := state.NewStore(filepath.Join(dir, "state.json"), filepath.Join(dir, "state.json.lock"))
+	tx := &fakeTmux{existing: []string{"s1"}}
+
+	tenMinAgo := time.Now().Add(-10 * time.Minute)
+	if err := st.Put(state.Session{ID: "s1", State: state.WaitingForInput, LastEventAt: tenMinAgo}); err != nil {
+		t.Fatalf("put: %v", err)
+	}
+
+	// First reconcile: WaitingForInput -> Idle. LastEventAt must NOT be bumped.
+	if err := RunOpts(st, tx, Options{IdleTimeout: time.Minute, SpawningTimeout: 30 * time.Second}); err != nil {
+		t.Fatalf("first reconcile: %v", err)
+	}
+	got, _ := st.Get("s1")
+	if got.State != state.Idle {
+		t.Fatalf("after first reconcile, want Idle, got %s", got.State)
+	}
+	if !got.LastEventAt.Equal(tenMinAgo) {
+		t.Fatalf("LastEventAt bumped: want %v, got %v", tenMinAgo, got.LastEventAt)
+	}
+
+	// Second reconcile (immediate): Idle -> Completed because LastEventAt is still 10min ago.
+	if err := RunOpts(st, tx, Options{IdleTimeout: time.Minute, SpawningTimeout: 30 * time.Second}); err != nil {
+		t.Fatalf("second reconcile: %v", err)
+	}
+	got, _ = st.Get("s1")
+	if got.State != state.Completed {
+		t.Fatalf("after second reconcile, want Completed, got %s", got.State)
+	}
+}
+
+func TestSpawningTimeoutAdvanceSetsLastMessage(t *testing.T) {
+	dir := t.TempDir()
+	st := state.NewStore(filepath.Join(dir, "state.json"), filepath.Join(dir, "state.json.lock"))
+	tx := &fakeTmux{existing: []string{"s1"}}
+
+	if err := st.Put(state.Session{
+		ID: "s1", State: state.Spawning,
+		StartedAt: time.Now().Add(-time.Minute),
+	}); err != nil {
+		t.Fatalf("put: %v", err)
+	}
+
+	if err := RunOpts(st, tx, Options{IdleTimeout: 10 * time.Minute, SpawningTimeout: 5 * time.Second}); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	got, _ := st.Get("s1")
+	if got.State != state.Running {
+		t.Fatalf("want Running, got %s", got.State)
+	}
+	if !strings.Contains(got.LastMessage, "spawning") {
+		t.Fatalf("LastMessage should mention spawning, got %q", got.LastMessage)
+	}
+}
+
+func TestRunOptsUsesProvidedSpawningTimeout(t *testing.T) {
+	dir := t.TempDir()
+	st := state.NewStore(filepath.Join(dir, "state.json"), filepath.Join(dir, "state.json.lock"))
+	tx := &fakeTmux{existing: []string{"s1"}}
+
+	// Started 5s ago; SpawningTimeout = 1s should fire, default 30s should not.
+	if err := st.Put(state.Session{
+		ID: "s1", State: state.Spawning,
+		StartedAt: time.Now().Add(-5 * time.Second),
+	}); err != nil {
+		t.Fatalf("put: %v", err)
+	}
+
+	if err := RunOpts(st, tx, Options{SpawningTimeout: time.Second, IdleTimeout: time.Hour}); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	got, _ := st.Get("s1")
+	if got.State != state.Running {
+		t.Fatalf("with 1s timeout and 5s elapsed, want Running, got %s", got.State)
 	}
 }

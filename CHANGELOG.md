@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Sessions in `waiting_for_input` now correctly progress to `completed` after two idle-timeout windows. Previously, the synthetic `idle_timeout` event bumped `last_event_at`, restarting the timer indefinitely.
+
+### Changed
+- Reconciler now annotates a spawning-timeout advance with `LastMessage = "advanced from spawning by reconciler (no startup hook seen)"`, surfaced in the TUI events panel.
+- `cleo ls` honors `retention.spawning_timeout` (previously hardcoded to 30s).
+
 ## [0.1.0-alpha.1] - 2026-05-09
 
 First public alpha. Terminal session manager for AI coding agents.

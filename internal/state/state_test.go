@@ -76,6 +76,27 @@ func TestStoreApplyEvent(t *testing.T) {
 	}
 }
 
+func TestApplySyntheticDoesNotBumpLastEventAt(t *testing.T) {
+	dir := t.TempDir()
+	st := NewStore(filepath.Join(dir, "state.json"), filepath.Join(dir, "state.json.lock"))
+	at := time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC)
+	if err := st.Put(Session{ID: "s1", State: WaitingForInput, LastEventAt: at}); err != nil {
+		t.Fatalf("put: %v", err)
+	}
+
+	out, err := st.ApplySynthetic("s1", EvIdleTimeout, "")
+	if err != nil {
+		t.Fatalf("apply synthetic: %v", err)
+	}
+
+	if out.State != Idle {
+		t.Errorf("state: want Idle, got %s", out.State)
+	}
+	if !out.LastEventAt.Equal(at) {
+		t.Errorf("LastEventAt was bumped: want %v, got %v", at, out.LastEventAt)
+	}
+}
+
 func TestStoreConcurrentApply(t *testing.T) {
 	dir := t.TempDir()
 	store := NewStore(filepath.Join(dir, "state.json"), filepath.Join(dir, "state.json.lock"))
