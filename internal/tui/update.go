@@ -1,8 +1,6 @@
 package tui
 
 import (
-	"time"
-
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -61,25 +59,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.paneCache = map[string]string{}
 		}
 		m.paneCache[msg.sid] = msg.content
-		// Schedule re-capture if the session that just landed is still visible.
-		if visible, ok := m.selectedSession(); ok && visible.ID == msg.sid {
-			if visible.State.IsFinished() {
-				return m, nil
-			}
-			return m, tea.Tick(m.ctx.Config.UI.PanePreviewInterval, func(time.Time) tea.Msg {
-				return capturePaneTickMsg{sid: msg.sid}
-			})
-		}
+		m.paneCaptureInFlight = false
+		// The previewTickCmd drives itself — do not schedule another tick here.
 		return m, nil
-	case capturePaneTickMsg:
-		// Only re-capture if this session is still the one on screen.
-		if visible, ok := m.selectedSession(); ok && visible.ID == msg.sid {
-			if visible.State.IsFinished() {
-				return m, nil
-			}
-			return m, capturePaneCmd(m.ctx, msg.sid, m.ctx.Config.UI.PanePreviewLines)
+	case previewTickMsg:
+		next := previewTickCmd(m.ctx.Config.UI.PanePreviewInterval)
+		if !m.ctx.Config.UI.ShowPanePreview {
+			return m, next
 		}
-		return m, nil
+		sess, ok := m.selectedSession()
+		if !ok || sess.State.IsFinished() || m.paneCaptureInFlight {
+			return m, next
+		}
+		m.paneCaptureInFlight = true
+		return m, tea.Batch(next, capturePaneCmd(m.ctx, sess.ID, m.ctx.Config.UI.PanePreviewLines))
 	}
 	return m, nil
 }

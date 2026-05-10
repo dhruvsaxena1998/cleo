@@ -3,6 +3,7 @@ package tui
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -11,9 +12,24 @@ import (
 	"github.com/charmbracelet/x/exp/teatest"
 
 	"github.com/dhruvsaxena1998/cleo/internal/cli"
+	"github.com/dhruvsaxena1998/cleo/internal/projects"
 	"github.com/dhruvsaxena1998/cleo/internal/state"
 	"github.com/dhruvsaxena1998/cleo/internal/tmux"
 )
+
+// newTestCtx returns a *cli.Ctx wired against a temp config root with the fake
+// tmux double — handy for unit tests that exercise Update without driving a
+// full teatest harness.
+func newTestCtx(t *testing.T) *cli.Ctx {
+	t.Helper()
+	root := t.TempDir()
+	c, err := cli.NewCtxWithRoot(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Tmux = &fakeTmux{live: map[string]bool{}}
+	return c
+}
 
 func mkdirAll(p string) error { return os.MkdirAll(p, 0o755) }
 
@@ -155,4 +171,78 @@ func TestEnterOnDeadSessionDoesNotAttach(t *testing.T) {
 	if !strings.Contains(got.status, "press K") {
 		t.Fatalf("expected remove hint status, got %q", got.status)
 	}
+}
+
+// TestPreviewTickAlwaysReArms locks in the self-recovering preview ticker:
+// every previewTickMsg fire must return a non-nil command that produces another
+// previewTickMsg, regardless of whether a capture was dispatched. The previous
+// chain (paneCapturedMsg -> tea.Tick -> capturePaneTickMsg) deadlocked when
+// the user navigated mid-flight, because the tick was scheduled from the
+// *response* path; if the response sid no longer matched the selection, the
+// loop returned m, nil and never fired again until manual nav.
+func TestPreviewTickAlwaysReArms(t *testing.T) {
+	c := newTestCtx(t)
+	c.Config.UI.PanePreviewInterval = 10 * time.Millisecond
+	m := New(c)
+	m.projects = []projects.Project{{ID: "p"}}
+	m.sessions = []state.Session{{ID: "s1", State: state.Running, ProjectID: "p"}}
+	m.cursor.projectIdx = 0
+	m.cursor.agentIdx = 0
+	m.expanded = map[string]bool{"p": true}
+
+	_, cmd := m.Update(previewTickMsg{})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd from previewTickMsg")
+	}
+	out := runCmdAndCollect(t, cmd, 200*time.Millisecond)
+	if !containsType(out, previewTickMsg{}) {
+		t.Errorf("expected previewTickMsg in output, got %v", out)
+	}
+}
+
+// runCmdAndCollect runs cmd to completion (or timeout) and returns each tea.Msg
+// produced. tea.BatchMsg is unwrapped one level — children are invoked once and
+// their messages collected. Use it to assert the *shape* of a Bubble Tea cmd
+// chain without driving a full Program.
+func runCmdAndCollect(t *testing.T, cmd tea.Cmd, timeout time.Duration) []tea.Msg {
+	t.Helper()
+	if cmd == nil {
+		return nil
+	}
+	ch := make(chan tea.Msg, 8)
+	go func() {
+		msg := cmd()
+		if batch, ok := msg.(tea.BatchMsg); ok {
+			for _, sub := range batch {
+				if sub != nil {
+					ch <- sub()
+				}
+			}
+		} else {
+			ch <- msg
+		}
+		close(ch)
+	}()
+	var out []tea.Msg
+	deadline := time.After(timeout)
+	for {
+		select {
+		case mv, ok := <-ch:
+			if !ok {
+				return out
+			}
+			out = append(out, mv)
+		case <-deadline:
+			return out
+		}
+	}
+}
+
+func containsType(msgs []tea.Msg, want tea.Msg) bool {
+	for _, m := range msgs {
+		if reflect.TypeOf(m) == reflect.TypeOf(want) {
+			return true
+		}
+	}
+	return false
 }

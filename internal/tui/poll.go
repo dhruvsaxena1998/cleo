@@ -40,7 +40,17 @@ func tickStateCmd() tea.Cmd {
 	return tea.Tick(750*time.Millisecond, func(time.Time) tea.Msg { return tickStateMsg{} })
 }
 
-type capturePaneTickMsg struct{ sid string }
+// previewTickMsg fires on a fixed interval and drives all pane-preview
+// captures. Replaces the v0.1 paneCapturedMsg -> tea.Tick -> capturePaneTickMsg
+// chain, which deadlocked when the user navigated between fire and response.
+type previewTickMsg struct{}
+
+func previewTickCmd(interval time.Duration) tea.Cmd {
+	if interval <= 0 {
+		interval = 1500 * time.Millisecond
+	}
+	return tea.Tick(interval, func(time.Time) tea.Msg { return previewTickMsg{} })
+}
 
 func capturePaneCmd(c *cli.Ctx, sid string, lines int) tea.Cmd {
 	return func() tea.Msg {
