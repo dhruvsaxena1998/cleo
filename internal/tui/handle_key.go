@@ -19,6 +19,24 @@ import (
 )
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Explicit Esc hierarchy (spec §2.2): popup -> filter -> status.
+	// Intercepted at the top level so each layer behaves predictably no
+	// matter which mode forwarded the keypress.
+	if msg.Type == tea.KeyEsc {
+		if m.mode == ModePopup && m.popup != nil {
+			m.popup = nil
+			m.mode = ModeNormal
+			m.status = ""
+			return m, nil
+		}
+		if m.mode == ModeFilter {
+			m.mode = ModeNormal
+			m.filter = ""
+			return m.clampCursor(), nil
+		}
+		m.status = ""
+		return m, nil
+	}
 	if m.mode == ModeFilter {
 		return m.handleFilterKey(msg)
 	}
@@ -32,6 +50,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, km.Quit):
 		return m, tea.Quit
 	case key.Matches(msg, km.Filter):
+		m.status = ""
 		m.mode = ModeFilter
 		return m, nil
 	case key.Matches(msg, km.New):
@@ -159,6 +178,9 @@ func (m Model) openSpawnPopup() (Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
+	// Status clear comes after the early return: pressing 'n' on an empty
+	// row is a no-op and shouldn't clear an existing status message.
+	m.status = ""
 	agents := []string{}
 	for k := range m.ctx.Config.Agents {
 		agents = append(agents, k)
@@ -211,6 +233,9 @@ func (m Model) confirmKill() (Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
+	// Status clear comes after the early return: pressing 'K' on an empty
+	// row is a no-op and shouldn't clear an existing status message.
+	m.status = ""
 	m.popup = NewConfirmPopup(fmt.Sprintf("kill %q?", sess.ID), sess.ID, m.theme)
 	m.mode = ModePopup
 	return m, m.popup.Init()
@@ -222,15 +247,20 @@ func (m Model) openRenamePopup() (Model, tea.Cmd) {
 		return m, nil
 	}
 	if sess.State.IsFinished() {
+		// Replace status with the finished-session warning rather than clearing
+		// first; otherwise a reader sees status= "" then immediately reassigned.
 		m.status = fmt.Sprintf("%s is %s; finished sessions cannot be renamed", sess.ID, sess.State)
 		return m, nil
 	}
+	// Clear stale status only on the success path (popup actually opens).
+	m.status = ""
 	m.popup = NewRenamePopup(sess.ID, sess.Name, m.theme)
 	m.mode = ModePopup
 	return m, m.popup.Init()
 }
 
 func (m Model) openHelpPopup() (Model, tea.Cmd) {
+	m.status = ""
 	m.popup = NewHelpPopup(m.theme)
 	m.mode = ModePopup
 	return m, m.popup.Init()

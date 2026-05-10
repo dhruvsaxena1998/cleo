@@ -324,3 +324,206 @@ func TestPreviewEmptyShowsLoading(t *testing.T) {
 		t.Errorf("expected loading hint for empty cache, got: %q", out)
 	}
 }
+
+// updateAsModel runs Update and asserts the resulting tea.Model is a Model.
+// Used by the Esc-hierarchy and status-clear tests below.
+func updateAsModel(m Model, msg tea.Msg) Model {
+	out, _ := m.Update(msg)
+	return out.(Model)
+}
+
+// TestEscClosesPopupOnly locks in step 1 of the Esc hierarchy: when a popup
+// is open, Esc closes the popup and clears the status line, but leaves the
+// filter query intact so the user returns to the same filtered view.
+func TestEscClosesPopupOnly(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	m.popup = NewHelpPopup(m.theme)
+	m.mode = ModePopup
+	m.filter = "active-query"
+	m.status = "stale-status"
+
+	m2 := updateAsModel(m, tea.KeyMsg{Type: tea.KeyEsc})
+	if m2.popup != nil {
+		t.Error("popup should be closed")
+	}
+	if m2.mode != ModeNormal {
+		t.Errorf("mode: want Normal, got %v", m2.mode)
+	}
+	if m2.status != "" {
+		t.Errorf("status should be cleared, got %q", m2.status)
+	}
+	if m2.filter != "active-query" {
+		t.Errorf("filter should survive popup close, got %q", m2.filter)
+	}
+}
+
+// TestEscInFilterClearsQueryAndExits locks in step 2 of the Esc hierarchy:
+// in filter mode, Esc exits ModeFilter, clears the filter query, AND calls
+// clampCursor so the cursor lands on a valid row after the visible set
+// changes.
+func TestEscInFilterClearsQueryAndExits(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	m.projects = []projects.Project{{ID: "p1"}}
+	m.mode = ModeFilter
+	m.filter = "search"
+	// Seed an out-of-range cursor that clampCursor must repair. Without the
+	// clamp call in the Esc handler, projectIdx=99 would survive and the
+	// next render would crash on a slice access.
+	m.cursor.projectIdx = 99
+
+	m2 := updateAsModel(m, tea.KeyMsg{Type: tea.KeyEsc})
+	if m2.mode != ModeNormal {
+		t.Errorf("mode: want Normal, got %v", m2.mode)
+	}
+	if m2.filter != "" {
+		t.Errorf("filter: want empty, got %q", m2.filter)
+	}
+	if m2.cursor.projectIdx != 0 {
+		t.Errorf("cursor not clamped: want projectIdx=0, got %d", m2.cursor.projectIdx)
+	}
+}
+
+// TestEscInNormalClearsStatus locks in step 3 of the Esc hierarchy: with no
+// popup or filter active, Esc just clears any stale status line message.
+func TestEscInNormalClearsStatus(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	m.mode = ModeNormal
+	m.status = "old"
+
+	m2 := updateAsModel(m, tea.KeyMsg{Type: tea.KeyEsc})
+	if m2.status != "" {
+		t.Errorf("status: want empty, got %q", m2.status)
+	}
+}
+
+// TestStatusClearsOnExpand locks in v0.1 behavior: toggleExpand wipes any
+// stale status line so the next user-initiated state change starts clean.
+func TestStatusClearsOnExpand(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	m.projects = []projects.Project{{ID: "p1"}}
+	m.cursor.projectIdx = 0
+	m.status = "old"
+
+	m2, _ := m.toggleExpand()
+	if m2.status != "" {
+		t.Errorf("status should clear on expand, got %q", m2.status)
+	}
+}
+
+// TestStatusClearsOnFilterEntry covers the v0.2 status auto-clear extension:
+// pressing '/' to enter filter mode must wipe a stale status line, just like
+// cursor moves and expand/collapse already do.
+func TestStatusClearsOnFilterEntry(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	m.status = "old"
+
+	m2 := updateAsModel(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	if m2.mode != ModeFilter {
+		t.Fatalf("'/' should enter filter mode, got mode=%v", m2.mode)
+	}
+	if m2.status != "" {
+		t.Errorf("status should clear on filter entry, got %q", m2.status)
+	}
+}
+
+// TestStatusClearsOnPopupOpen covers spec §2.2 across ALL four popup
+// openers, not just help. Each must clear any stale status line on the
+// success path (where the popup actually opens).
+func TestStatusClearsOnPopupOpen(t *testing.T) {
+	cases := []struct {
+		name string
+		// open returns the post-action Model; setup seeds projects/sessions
+		// so the opener finds something at the cursor and doesn't early-return.
+		setup func(*Model)
+		open  func(Model) (Model, tea.Cmd)
+	}{
+		{
+			name:  "help",
+			setup: func(_ *Model) {},
+			open:  func(m Model) (Model, tea.Cmd) { return m.openHelpPopup() },
+		},
+		{
+			name: "spawn",
+			setup: func(m *Model) {
+				m.projects = []projects.Project{{ID: "p1"}}
+				m.cursor.projectIdx = 0
+			},
+			open: func(m Model) (Model, tea.Cmd) { return m.openSpawnPopup() },
+		},
+		{
+			name: "kill",
+			setup: func(m *Model) {
+				m.projects = []projects.Project{{ID: "p1"}}
+				m.sessions = []state.Session{{ID: "s1", ProjectID: "p1", State: state.Running}}
+				m.expanded = map[string]bool{"p1": true}
+				m.cursor.projectIdx = 0
+				m.cursor.agentIdx = 0
+			},
+			open: func(m Model) (Model, tea.Cmd) { return m.confirmKill() },
+		},
+		{
+			name: "rename",
+			setup: func(m *Model) {
+				m.projects = []projects.Project{{ID: "p1"}}
+				m.sessions = []state.Session{{ID: "s1", ProjectID: "p1", State: state.Running}}
+				m.expanded = map[string]bool{"p1": true}
+				m.cursor.projectIdx = 0
+				m.cursor.agentIdx = 0
+			},
+			open: func(m Model) (Model, tea.Cmd) { return m.openRenamePopup() },
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newTestCtx(t)
+			m := New(c)
+			tc.setup(&m)
+			m.status = "old"
+
+			m2, _ := tc.open(m)
+			if m2.mode != ModePopup {
+				t.Fatalf("%s opener should enter ModePopup, got %v", tc.name, m2.mode)
+			}
+			if m2.status != "" {
+				t.Errorf("%s opener should clear status, got %q", tc.name, m2.status)
+			}
+		})
+	}
+}
+
+// TestFilterSurvivesExpandCollapse locks in spec §2.2's filter persistence
+// guarantee: toggling a project's expand/collapse state must not clear the
+// filter query, even though the visible row set re-flows.
+func TestFilterSurvivesExpandCollapse(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	m.projects = []projects.Project{{ID: "p1"}, {ID: "p2"}}
+	m.sessions = []state.Session{{ID: "s1", ProjectID: "p1", Name: "alpha"}}
+	m.filter = "alpha"
+	m.expanded = map[string]bool{"p1": false}
+	m.cursor.projectIdx = 0
+
+	m2, _ := m.toggleExpand()
+	if m2.filter != "alpha" {
+		t.Errorf("filter cleared on expand: got %q", m2.filter)
+	}
+	// Sanity-check that toggleExpand actually flipped the project state, so
+	// a future regression that no-ops the call doesn't pass this test by
+	// accident.
+	if !m2.expanded["p1"] {
+		t.Errorf("expected p1 expanded after toggle, got %v", m2.expanded)
+	}
+
+	m3, _ := m2.toggleExpand()
+	if m3.filter != "alpha" {
+		t.Errorf("filter cleared on collapse: got %q", m3.filter)
+	}
+	if m3.expanded["p1"] {
+		t.Errorf("expected p1 collapsed after second toggle, got %v", m3.expanded)
+	}
+}
