@@ -44,6 +44,7 @@ func Protocols() []Protocol {
 	return []Protocol{
 		ClaudeProtocol{},
 		CodexProtocol{},
+		PiProtocol{},
 	}
 }
 
@@ -70,7 +71,6 @@ var errUnknownProtocol = func(name string) error {
 }
 
 // Protocol type declarations. Methods are implemented in each protocol's own
-// file (claude.go, codex.go, pi.go). PiProtocol is still a stub pending Task 4.
+// file (claude.go, codex.go, pi.go).
 type ClaudeProtocol struct{}
 type CodexProtocol struct{}
-type PiProtocol struct{}
