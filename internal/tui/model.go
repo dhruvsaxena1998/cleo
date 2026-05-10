@@ -30,6 +30,11 @@ type Model struct {
 	// receiving the corresponding paneCapturedMsg. The selection-driven
 	// preview ticker uses it to avoid dispatching overlapping captures.
 	paneCaptureInFlight bool
+
+	// firstStateLoaded flips to true after the first stateLoadedMsg is
+	// processed. The handler uses it to fire one immediate pane capture on
+	// startup instead of waiting for the first previewTickCmd interval.
+	firstStateLoaded bool
 }
 
 type Mode int

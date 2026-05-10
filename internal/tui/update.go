@@ -10,6 +10,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		return m, nil
 	case stateLoadedMsg:
+		firstLoad := !m.firstStateLoaded
+		m.firstStateLoaded = true
 		m.projects = msg.projects
 		m.sessions = msg.sessions
 		// Auto-expand projects that have sessions on first discovery.
@@ -24,6 +26,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		m = m.clampCursor()
+		// On the very first state load, fire one immediate capture so the
+		// preview panel renders within ~tmux-ls latency instead of waiting
+		// for the first previewTickCmd interval (~1.5s of "loading…").
+		if firstLoad {
+			if cmd := m.autoCaptureCmd(); cmd != nil {
+				m.paneCaptureInFlight = true
+				return m, cmd
+			}
+		}
 		return m, nil
 	case tickStateMsg:
 		return m, tea.Batch(loadStateCmd(m.ctx), tickStateCmd())

@@ -168,9 +168,12 @@ func (m Model) renderPreviewPanel(w, h int, sess state.Session, has bool) string
 	shown := allLines[start:]
 	body := make([]string, len(shown))
 	for i, l := range shown {
-		// Truncate to the panel inner width before styling: PanelBox does its
-		// own clamp but feeding it pre-styled, over-wide content can wrap and
-		// break the border layout in some terminals.
+		// Truncate the RAW line to the panel inner width BEFORE styling.
+		// truncateWidth walks runes including ANSI escape bytes, so cutting
+		// an already-styled string risks slicing mid-escape and leaking
+		// style codes. By pre-truncating the raw text and then wrapping it
+		// in dimmed styling, PanelBox's downstream clamp becomes a no-op
+		// and we never present a sliced escape to the terminal.
 		body[i] = dimmed.Render(truncateWidth(l, w-4))
 	}
 	return m.theme.PanelBox("Terminal Preview", hint, body, w, h)
