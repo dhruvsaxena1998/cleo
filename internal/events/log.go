@@ -65,3 +65,44 @@ func (l *Log) Tail(n int) ([]Entry, error) {
 	}
 	return all, sc.Err()
 }
+
+type ReadOpts struct {
+	Type  string
+	Since time.Time
+	Limit int
+}
+
+func (l *Log) ReadFiltered(opts ReadOpts) ([]Entry, error) {
+	f, err := os.Open(l.path)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var out []Entry
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 1<<20), 1<<20)
+	for sc.Scan() {
+		var e Entry
+		if err := json.Unmarshal(sc.Bytes(), &e); err != nil {
+			continue
+		}
+		if opts.Type != "" && e.Type != opts.Type {
+			continue
+		}
+		if !opts.Since.IsZero() && e.At.Before(opts.Since) {
+			continue
+		}
+		out = append(out, e)
+	}
+	if err := sc.Err(); err != nil {
+		return nil, err
+	}
+	if opts.Limit > 0 && len(out) > opts.Limit {
+		out = out[len(out)-opts.Limit:]
+	}
+	return out, nil
+}
