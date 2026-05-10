@@ -222,6 +222,7 @@ a { color: inherit; text-decoration: none; }
 .install-pill {
   display: inline-flex;
   align-items: stretch;
+  max-width: 100%;
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
@@ -239,6 +240,9 @@ a { color: inherit; text-decoration: none; }
 .install-pill code {
   padding: 14px 18px;
   color: var(--fg);
+  font-size: 12px;
+  min-width: 0;
+  overflow-x: auto;
   white-space: nowrap;
 }
 .install-pill code .pkg { color: var(--accent); }
@@ -1120,8 +1124,8 @@ html[data-anim] .install-pill button.copied { animation: copyPulse 320ms ease-ou
 
       <div class="install-pill" role="group" aria-label="Install command">
         <span class="prompt">$</span>
-        <code>brew install <span class="pkg">dhruvsaxena1998/tap/cleo</span></code>
-        <button id="copyInstall" type="button" data-copy="brew tap dhruvsaxena1998/tap && brew install cleo">copy</button>
+        <code>curl -fsSL <span class="pkg">https://github.com/dhruvsaxena1998/cleo/raw/main/scripts/install.sh</span> | sh</code>
+        <button id="copyInstall" type="button" data-copy="curl -fsSL https://github.com/dhruvsaxena1998/cleo/raw/main/scripts/install.sh | sh">copy</button>
       </div>
 
       <div class="hero-meta">
@@ -1373,9 +1377,9 @@ $ cleo run <span class="ac">claude</span> --name fix-auth
     <div class="install-block">
       <div class="copy">
         <div class="eyebrow"><span class="dot"></span> install</div>
-        <h2 style="margin-top: 14px;">One tap. <em>One install.</em></h2>
+        <h2 style="margin-top: 14px;">One line. <em>One install.</em></h2>
         <p>
-          Cleo is distributed via a Homebrew tap. Install on macOS or Linux with Homebrew installed; you'll also need <code style="font-family:var(--font-mono);font-size:14px;color:var(--fg)">tmux</code> available on your <code style="font-family:var(--font-mono);font-size:14px;color:var(--fg)">PATH</code>.
+          Install the latest GitHub Release on macOS or Linux with curl. Homebrew stays supported if you prefer a package manager; either way, you'll need <code style="font-family:var(--font-mono);font-size:14px;color:var(--fg)">tmux</code> available on your <code style="font-family:var(--font-mono);font-size:14px;color:var(--fg)">PATH</code>.
         </p>
         <div class="cta-row">
           <a class="btn" href="docs.html">read the docs &nbsp;→</a>
@@ -1387,18 +1391,18 @@ $ cleo run <span class="ac">claude</span> --name fix-auth
       </div>
 
       <div class="install-shell">
-        <div class="step-h">1 · tap & install</div>
-<pre><span class="c"># add the homebrew tap, then install cleo</span>
-$ brew tap <span class="a">dhruvsaxena1998/tap</span>
-$ brew install <span class="a">cleo</span></pre>
+        <div class="step-h">1 · curl install</div>
+<pre><span class="c"># installs the latest GitHub Release to ~/.local/bin</span>
+$ curl -fsSL <span class="a">https://github.com/dhruvsaxena1998/cleo/raw/main/scripts/install.sh</span> | sh</pre>
 
         <div class="step-h">2 · verify</div>
 <pre>$ cleo --version
 <span class="ok">0.1.0-beta.1</span></pre>
 
-        <div class="step-h">upgrade</div>
-<pre><span class="c"># fetch the latest tap and upgrade cleo</span>
-$ brew update &amp;&amp; brew upgrade <span class="a">cleo</span></pre>
+        <div class="step-h">homebrew option</div>
+<pre><span class="c"># package-manager install</span>
+$ brew tap <span class="a">dhruvsaxena1998/tap</span>
+$ brew install <span class="a">cleo</span></pre>
 
         <div class="step-h">3 · install hooks for claude code & codex</div>
 <pre><span class="c"># writes ~/.claude/settings.json + ~/.codex/hooks.json</span>
@@ -1414,7 +1418,11 @@ $ cleo <span class="a">run</span> claude --name fix-auth-bug
 $ cleo                 <span class="c"># open the dashboard</span></pre>
 
         <div class="step-h">cleanup (when you're done)</div>
-<pre>$ brew uninstall <span class="a">cleo</span>
+<pre><span class="c"># curl install</span>
+$ rm <span class="a">~/.local/bin/cleo</span>
+
+<span class="c"># homebrew install</span>
+$ brew uninstall <span class="a">cleo</span>
 $ brew untap <span class="a">dhruvsaxena1998/tap</span></pre>
       </div>
     </div>
