@@ -140,6 +140,7 @@ type hookTraceRow struct {
 	EnvSession      bool   `json:"env_session"`
 	ResolvedSession string `json:"resolved_session"`
 	Result          string `json:"result"`
+	FallbackReason  string `json:"fallback_reason"`
 }
 
 func lastHookTrace(path, protocol string) (hookTraceRow, error) {

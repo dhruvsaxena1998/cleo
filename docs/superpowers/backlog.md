@@ -14,6 +14,12 @@ Already scoped into the v0.2 brainstorm. Listed here only for traceability; the 
 
 ### v0.3 candidates
 
+#### `FindByCwd` returns `multi_match_first` reason
+
+- Today the cwd lookup returns one session ID; the handler can't tell if there were multiple candidates.
+- Extend `FindByCwd` to return `(sid string, multi bool, err error)` and have the handler set `fallback_reason = "multi_match_first"` when `multi` is true.
+- Small change but invasive (interface + all call sites + tests). Defer to v0.3.
+
 #### Real hook plugins for opencode and pi
 
 - v0.1 ships these agents as managed-only (`hooks = "none"`); cleo can spawn/attach/kill but cannot observe lifecycle.

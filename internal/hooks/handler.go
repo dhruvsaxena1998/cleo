@@ -60,13 +60,31 @@ func Handle(d Deps, protocol, event string, stdin io.Reader, stdout io.Writer) e
 	sid, err := d.Now()
 	if err == nil {
 		trace.ResolvedSession = sid
+		// Verify the resolved session actually exists in state. If not, fall
+		// through to the cwd lookup (codex) or report env_unknown_session
+		// (claude). Without this check the handler would later try to apply
+		// events against a non-existent session and silently fail.
+		if d.State != nil {
+			if _, sErr := d.State.Get(sid); sErr != nil {
+				trace.FallbackReason = "env_unknown_session"
+				err = sErr
+				sid = ""
+			} else {
+				trace.FallbackReason = "env_present"
+			}
+		} else {
+			trace.FallbackReason = "env_present"
+		}
+	} else {
+		trace.FallbackReason = "env_missing"
 	}
+
 	// FindByCwd is only used for codex: Claude propagates env vars to hook
 	// subprocesses, so absent CLEO_SESSION_ID for Claude unambiguously means a
 	// standalone session that should not be attributed to any cleo session.
 	// Codex may strip the parent env from hook subprocesses, so the cwd-based
 	// lookup is needed there as a best-effort fallback.
-	if err != nil && d.FindByCwd != nil && protocol == "codex" {
+	if (err != nil || sid == "") && d.FindByCwd != nil && protocol == "codex" {
 		// CLEO_SESSION_ID may not be present in Codex hook subprocess environments.
 		// Use hook payload cwd when available; otherwise fall back to the hook
 		// process working directory.
@@ -80,13 +98,31 @@ func Handle(d Deps, protocol, event string, stdin io.Reader, stdout io.Writer) e
 			}
 		}
 		if base.Cwd != "" {
-			sid, err = d.FindByCwd(base.Cwd, protocol)
-			trace.ResolvedSession = sid
+			resolved, fbErr := d.FindByCwd(base.Cwd, protocol)
+			if fbErr != nil || resolved == "" {
+				trace.FallbackReason = "no_match"
+				err = fbErr
+			} else {
+				trace.ResolvedSession = resolved
+				sid = resolved
+				err = nil
+				// FindByCwd doesn't currently signal multi-match. Leave the existing
+				// reason (env_missing or env_unknown_session) on the trace; the
+				// resolved_session itself is the answer. multi_match_first will be
+				// populated only once FindByCwd is enhanced — tracked in backlog.
+			}
 		}
 	}
 	if err != nil || sid == "" {
 		trace.Result = "ignored:no_session"
 		logHookTrace(d.Paths, trace)
+		// no_match is a configuration-or-bug signal (codex active in this cwd
+		// but cleo has no matching session) and gets a noisier hook-errors.log
+		// line. env_unknown_session is routine — a stale CLEO_SESSION_ID in env
+		// from a closed pane — and stays trace-only.
+		if trace.FallbackReason == "no_match" {
+			logHookErr(d.Paths, protocol, event, fmt.Errorf("no session matched cwd=%q", trace.Cwd))
+		}
 		return nil // no session to attribute this event to
 	}
 	trace.Result = "resolved"
@@ -109,6 +145,11 @@ func Handle(d Deps, protocol, event string, stdin io.Reader, stdout io.Writer) e
 	return herr
 }
 
+// hookTrace is the producer-side shape of a hook-trace.log row. Two read-side
+// shadows exist: cli.hookTraceRow (consumed by cleo doctor) and
+// traceRowForTest (used in handler_test.go to avoid an import cycle). When
+// adding fields here, update the readers too — see also docs/superpowers/backlog.md
+// "FindByCwd returns multi_match_first" for the next pending change.
 type hookTrace struct {
 	Protocol        string `json:"protocol"`
 	Event           string `json:"event"`
@@ -116,6 +157,7 @@ type hookTrace struct {
 	Cwd             string `json:"cwd,omitempty"`
 	ResolvedSession string `json:"resolved_session,omitempty"`
 	Result          string `json:"result"`
+	FallbackReason  string `json:"fallback_reason,omitempty"`
 }
 
 func logHookTrace(p paths.Paths, trace hookTrace) {
