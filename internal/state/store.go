@@ -91,6 +91,29 @@ func (s *Store) Apply(id string, ev Event, lastMessage string) (Session, error) 
 	return out, err
 }
 
+// ApplySynthetic transitions a session by a reconciler-driven event without
+// bumping LastEventAt. Use this for synthetic events (EvIdleTimeout, EvDead)
+// that represent the absence of activity rather than activity itself.
+// Bumping LastEventAt for these would reset idle timers and prevent stuck
+// sessions from progressing.
+func (s *Store) ApplySynthetic(id string, ev Event, lastMessage string) (Session, error) {
+	var out Session
+	err := s.modify(func(f *fileFormat) error {
+		sess, ok := f.Sessions[id]
+		if !ok {
+			return ErrSessionNotFound
+		}
+		sess.State = NextState(sess.State, ev)
+		if lastMessage != "" {
+			sess.LastMessage = lastMessage
+		}
+		f.Sessions[id] = sess
+		out = sess
+		return nil
+	})
+	return out, err
+}
+
 func (s *Store) modify(fn func(*fileFormat) error) error {
 	if err := os.MkdirAll(filepath.Dir(s.path), 0o755); err != nil {
 		return err
