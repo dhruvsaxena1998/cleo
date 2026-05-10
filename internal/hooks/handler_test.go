@@ -297,6 +297,18 @@ func TestFallbackReasonNoMatchCodex(t *testing.T) {
 	if row.FallbackReason != "no_match" {
 		t.Errorf("fallback_reason: want no_match, got %q", row.FallbackReason)
 	}
+	// no_match is the only reason that escalates to hook-errors.log; verify
+	// the side effect so a regression that drops logHookErr is caught.
+	errLog, err := os.ReadFile(p.HookErrLog())
+	if err != nil {
+		t.Fatalf("hook-errors.log not created: %v", err)
+	}
+	if !strings.Contains(string(errLog), "/some/path") {
+		t.Errorf("expected cwd in error log, got: %s", string(errLog))
+	}
+	if !strings.Contains(string(errLog), "codex") {
+		t.Errorf("expected protocol in error log, got: %s", string(errLog))
+	}
 }
 
 // traceRowForTest mirrors cli.hookTraceRow; redeclared locally to avoid the

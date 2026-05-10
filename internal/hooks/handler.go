@@ -102,7 +102,6 @@ func Handle(d Deps, protocol, event string, stdin io.Reader, stdout io.Writer) e
 			if fbErr != nil || resolved == "" {
 				trace.FallbackReason = "no_match"
 				err = fbErr
-				sid = ""
 			} else {
 				trace.ResolvedSession = resolved
 				sid = resolved
@@ -117,6 +116,10 @@ func Handle(d Deps, protocol, event string, stdin io.Reader, stdout io.Writer) e
 	if err != nil || sid == "" {
 		trace.Result = "ignored:no_session"
 		logHookTrace(d.Paths, trace)
+		// no_match is a configuration-or-bug signal (codex active in this cwd
+		// but cleo has no matching session) and gets a noisier hook-errors.log
+		// line. env_unknown_session is routine — a stale CLEO_SESSION_ID in env
+		// from a closed pane — and stays trace-only.
 		if trace.FallbackReason == "no_match" {
 			logHookErr(d.Paths, protocol, event, fmt.Errorf("no session matched cwd=%q", trace.Cwd))
 		}
@@ -142,6 +145,11 @@ func Handle(d Deps, protocol, event string, stdin io.Reader, stdout io.Writer) e
 	return herr
 }
 
+// hookTrace is the producer-side shape of a hook-trace.log row. Two read-side
+// shadows exist: cli.hookTraceRow (consumed by cleo doctor) and
+// traceRowForTest (used in handler_test.go to avoid an import cycle). When
+// adding fields here, update the readers too — see also docs/superpowers/backlog.md
+// "FindByCwd returns multi_match_first" for the next pending change.
 type hookTrace struct {
 	Protocol        string `json:"protocol"`
 	Event           string `json:"event"`
