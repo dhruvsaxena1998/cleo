@@ -28,11 +28,13 @@ func newDoctorCmd(getCtx func() *Ctx) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getCtx()
 			home, _ := os.UserHomeDir()
+			piExtPath := filepath.Join(home, ".pi", "agent", "extensions", "cleo.ts")
 			report := diagnoseHooks(
 				filepath.Join(home, ".claude", "settings.json"),
 				filepath.Join(home, ".codex", "hooks.json"),
 				filepath.Join(home, ".codex", "config.toml"),
 				c.Paths.HookTraceLog(),
+				piExtPath,
 			)
 			if exe, err := os.Executable(); err == nil {
 				report.CleoBin = exe
@@ -54,6 +56,7 @@ type doctorReport struct {
 	HookTracePath      string
 	ClaudeSettingsPath string
 	CodexHooksPath     string
+	PiExtensionPath    string // ← new
 	CleoBin            string
 }
 
@@ -64,22 +67,45 @@ type doctorCheck struct {
 	Protocol string // "claude" | "codex" | "" — used to attach trace inline
 }
 
-func diagnoseHooks(claudeSettingsPath, codexHooksPath, codexConfigPath, hookTracePath string) doctorReport {
+func diagnoseHooks(claudeSettingsPath, codexHooksPath, codexConfigPath, hookTracePath, piExtPath string) doctorReport {
 	claude := checkClaudeHooks(claudeSettingsPath)
 	claude.Protocol = "claude"
 	codexFlag := checkCodexFeatureFlag(codexConfigPath)
 	codexHooks := checkCodexHooks(codexHooksPath)
 	codexHooks.Protocol = "codex"
+	pi := checkPiExtension(piExtPath)
+	pi.Protocol = "pi"
 	claudeAct := checkHookTrace(hookTracePath, "claude")
 	claudeAct.Protocol = "claude"
 	codexAct := checkHookTrace(hookTracePath, "codex")
 	codexAct.Protocol = "codex"
 	return doctorReport{
-		Checks:             []doctorCheck{claude, codexFlag, codexHooks, claudeAct, codexAct},
+		Checks:             []doctorCheck{claude, codexFlag, codexHooks, pi, claudeAct, codexAct},
 		HookTracePath:      hookTracePath,
 		ClaudeSettingsPath: claudeSettingsPath,
 		CodexHooksPath:     codexHooksPath,
+		PiExtensionPath:    piExtPath,
 	}
+}
+
+func checkPiExtension(path string) doctorCheck {
+	content, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return doctorCheck{
+			Label:  "Pi extension",
+			Detail: fmt.Sprintf("not found at %s — run cleo init to install", path),
+		}
+	}
+	if err != nil {
+		return doctorCheck{Label: "Pi extension", Detail: err.Error()}
+	}
+	if string(content) != hooks.ExpectedPiEntry() {
+		return doctorCheck{
+			Label:  "Pi extension",
+			Detail: fmt.Sprintf("stale — re-run cleo init to update %s", path),
+		}
+	}
+	return doctorCheck{Label: "Pi extension", OK: true, Detail: path}
 }
 
 func checkClaudeHooks(path string) doctorCheck {
