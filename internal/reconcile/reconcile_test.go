@@ -2,6 +2,7 @@ package reconcile
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -77,5 +78,29 @@ func TestWaitingForInputProgressesToCompletedAcrossTwoIdleCycles(t *testing.T) {
 	got, _ = st.Get("s1")
 	if got.State != state.Completed {
 		t.Fatalf("after second reconcile, want Completed, got %s", got.State)
+	}
+}
+
+func TestSpawningTimeoutAdvanceSetsLastMessage(t *testing.T) {
+	dir := t.TempDir()
+	st := state.NewStore(filepath.Join(dir, "state.json"), filepath.Join(dir, "state.json.lock"))
+	tx := &fakeTmux{existing: []string{"s1"}}
+
+	if err := st.Put(state.Session{
+		ID: "s1", State: state.Spawning,
+		StartedAt: time.Now().Add(-time.Minute),
+	}); err != nil {
+		t.Fatalf("put: %v", err)
+	}
+
+	if err := RunOpts(st, tx, Options{IdleTimeout: 10 * time.Minute, SpawningTimeout: 5 * time.Second}); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	got, _ := st.Get("s1")
+	if got.State != state.Running {
+		t.Fatalf("want Running, got %s", got.State)
+	}
+	if !strings.Contains(got.LastMessage, "spawning") {
+		t.Fatalf("LastMessage should mention spawning, got %q", got.LastMessage)
 	}
 }

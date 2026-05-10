@@ -45,7 +45,8 @@ func RunOpts(st *state.Store, tx TmuxLs, opts Options) error {
 		// Advance to Running so the TUI shows meaningful state.
 		if s.State == state.Spawning && liveSet[s.ID] &&
 			opts.SpawningTimeout > 0 && time.Since(s.StartedAt) > opts.SpawningTimeout {
-			_, _ = st.Apply(s.ID, state.EvSessionStart, "")
+			_, _ = st.Apply(s.ID, state.EvSessionStart,
+				"advanced from spawning by reconciler (no startup hook seen)")
 			continue
 		}
 		if (s.State == state.Idle || s.State == state.WaitingForInput) &&
