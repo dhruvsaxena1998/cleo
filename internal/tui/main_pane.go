@@ -143,9 +143,13 @@ func (m Model) renderPreviewPanel(w, h int, sess state.Session, has bool) string
 
 	pane := m.paneCache[sess.ID]
 	hint := "tmux capture-pane -p"
-	if pane == "" {
+	switch {
+	case pane == "":
 		return m.theme.PanelBox("Terminal Preview", hint,
 			[]string{faint.Render("loading…  press v to refresh")}, w, h)
+	case strings.TrimSpace(pane) == "":
+		return m.theme.PanelBox("Terminal Preview", hint,
+			[]string{faint.Render("agent hasn't rendered yet — press Enter to attach")}, w, h)
 	}
 
 	allLines := strings.Split(pane, "\n")

@@ -273,3 +273,31 @@ func TestPreviewLinesAreTruncatedToPanelWidth(t *testing.T) {
 		}
 	}
 }
+
+// TestPreviewWhitespaceShowsAttachHint covers the v0.2 fix for Bug E — when
+// the captured pane is non-empty but only whitespace (e.g. an agent that
+// rendered nothing yet, or one launched with --no-attach), the preview now
+// nudges the user to press Enter instead of pretending it's still loading.
+func TestPreviewWhitespaceShowsAttachHint(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	m.paneCache = map[string]string{"s1": "   \n  \n"}
+	sess := state.Session{ID: "s1", State: state.Running}
+	out := m.renderPreviewPanel(60, 10, sess, true)
+	if !strings.Contains(out, "press Enter to attach") {
+		t.Errorf("expected attach hint for whitespace-only pane, got: %q", out)
+	}
+}
+
+// TestPreviewEmptyShowsLoading complements the whitespace test: a missing
+// cache entry (capture not landed yet) keeps the original "loading…" hint.
+func TestPreviewEmptyShowsLoading(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	m.paneCache = map[string]string{}
+	sess := state.Session{ID: "s1", State: state.Running}
+	out := m.renderPreviewPanel(60, 10, sess, true)
+	if !strings.Contains(out, "loading") {
+		t.Errorf("expected loading hint for empty cache, got: %q", out)
+	}
+}
