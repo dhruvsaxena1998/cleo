@@ -87,6 +87,59 @@ func TestEventsCmdFollowEmitsAppendedLines(t *testing.T) {
 	_ = done
 }
 
+func TestEventsCmdResolvesSubstringAndArchive(t *testing.T) {
+	c, _ := testCtxWithRoot(t)
+
+	// Create one active session log
+	activeID := "cleo-myapp-claude-active-thing"
+	activeLog := events.NewLog(c.Paths.EventsLog(activeID))
+	if err := activeLog.Append(events.Entry{At: time.Now().UTC(), Type: "session_start"}); err != nil {
+		t.Fatalf("active seed: %v", err)
+	}
+
+	// Create one archived log via Archive helper
+	archiveID := "cleo-myapp-claude-archived-thing"
+	archiveSrc := c.Paths.EventsLog(archiveID)
+	archiveLog := events.NewLog(archiveSrc)
+	if err := archiveLog.Append(events.Entry{At: time.Now().UTC(), Type: "session_end"}); err != nil {
+		t.Fatalf("archive seed: %v", err)
+	}
+	if err := events.Archive(archiveSrc, c.Paths.ArchiveDir()); err != nil {
+		t.Fatalf("archive: %v", err)
+	}
+
+	// Substring match across both
+	cmd := NewRootCmd(func(*Ctx) error { return nil })
+	cmd.SetArgs([]string{"events", "active-thing", "-n", "10"})
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	cmd.SetErr(&buf)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("active substring: %v", err)
+	}
+	if !strings.Contains(buf.String(), "session_start") {
+		t.Errorf("active substring output: %q", buf.String())
+	}
+
+	// Archive substring match
+	buf.Reset()
+	cmd.SetArgs([]string{"events", "archived-thing", "-n", "10"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("archive substring: %v", err)
+	}
+	if !strings.Contains(buf.String(), "session_end") {
+		t.Errorf("archive substring output: %q", buf.String())
+	}
+
+	// Ambiguous substring matches both → error
+	buf.Reset()
+	cmd.SetArgs([]string{"events", "myapp-claude", "-n", "10"})
+	err := cmd.Execute()
+	if err == nil || !strings.Contains(err.Error(), "ambiguous") {
+		t.Errorf("expected ambiguous error, got %v / output %q", err, buf.String())
+	}
+}
+
 // testCtxWithRoot creates a Ctx rooted at a tempdir and returns (ctx, root).
 func testCtxWithRoot(t *testing.T) (*Ctx, string) {
 	t.Helper()
