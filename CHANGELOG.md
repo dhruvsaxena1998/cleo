@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Sessions in `waiting_for_input` now correctly progress to `completed` after two idle-timeout windows. Previously, the synthetic `idle_timeout` event bumped `last_event_at`, restarting the timer indefinitely.
+- Pane preview no longer freezes after rapid navigation. Preview ticker is now selection-driven and self-recovering.
+- `pane_preview_lines` is honored (was silently ignored in v0.1).
+- Long captured lines are truncated to the panel width instead of wrapping and breaking the layout.
+- Whitespace-only pane (e.g. `--no-attach` agent) shows an attach hint instead of an unhelpful "loading…".
 
 ### Changed
 - Reconciler now annotates a spawning-timeout advance with `LastMessage = "advanced from spawning by reconciler (no startup hook seen)"`, surfaced in the TUI events panel.

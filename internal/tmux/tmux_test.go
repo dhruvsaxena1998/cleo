@@ -72,6 +72,32 @@ func TestCapturePane(t *testing.T) {
 	}
 }
 
+func TestCapturePaneArgsIncludeScrollbackFlag(t *testing.T) {
+	args := capturePaneArgs("cleo-foo", 50)
+	want := []string{"capture-pane", "-p", "-S", "-50", "-t", "cleo-foo:."}
+	if !equalStrings(args, want) {
+		t.Errorf("argv: want %v, got %v", want, args)
+	}
+
+	// Default fallback when lines <= 0
+	args = capturePaneArgs("cleo-bar", 0)
+	if args[3] != "-30" {
+		t.Errorf("default lines: want -30, got %s", args[3])
+	}
+}
+
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func TestRenameSession(t *testing.T) {
 	c := newTestClient(t)
 	_ = c.NewSession(NewSessionOpts{Name: "old", Cwd: "/tmp", Cmd: "sleep 60"})

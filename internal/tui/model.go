@@ -25,6 +25,16 @@ type Model struct {
 	help          help.Model
 	width, height int
 	err           error
+
+	// paneCaptureInFlight is true between dispatching a capturePaneCmd and
+	// receiving the corresponding paneCapturedMsg. The selection-driven
+	// preview ticker uses it to avoid dispatching overlapping captures.
+	paneCaptureInFlight bool
+
+	// firstStateLoaded flips to true after the first stateLoadedMsg is
+	// processed. The handler uses it to fire one immediate pane capture on
+	// startup instead of waiting for the first previewTickCmd interval.
+	firstStateLoaded bool
 }
 
 type Mode int
@@ -51,5 +61,9 @@ func New(ctx *cli.Ctx) Model {
 }
 
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(loadStateCmd(m.ctx), tickStateCmd())
+	return tea.Batch(
+		loadStateCmd(m.ctx),
+		tickStateCmd(),
+		previewTickCmd(m.ctx.Config.UI.PanePreviewInterval),
+	)
 }

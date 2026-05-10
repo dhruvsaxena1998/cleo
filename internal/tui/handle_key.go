@@ -137,9 +137,13 @@ func (m Model) cursorDown() (Model, tea.Cmd) {
 	return m, m.autoCaptureCmd()
 }
 
-// autoCaptureCmd always fires a fresh pane capture for the cursor session so
-// the terminal preview stays current when navigating.
+// autoCaptureCmd fires a fresh pane capture for the cursor session so the
+// preview stays current when the user navigates. Skips when previews are
+// disabled, no session is selected, or the session is finished.
 func (m Model) autoCaptureCmd() tea.Cmd {
+	if !m.ctx.Config.UI.ShowPanePreview {
+		return nil
+	}
 	sess, ok := m.sessionAtCursor()
 	if !ok {
 		return nil
