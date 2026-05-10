@@ -86,7 +86,7 @@
   }
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
+html, body { margin: 0; padding: 0; overflow-x: hidden; }
 body {
   background: var(--bg);
   color: var(--fg);
@@ -145,6 +145,7 @@ a { color: inherit; text-decoration: none; }
   font-family: var(--font-mono); font-size: 11px;
   color: var(--quiet); margin-left: 10px;
   padding: 3px 7px; border: 1px solid var(--hairline); border-radius: 4px;
+  white-space: nowrap;
 }
 .nav-links {
   display: flex; align-items: center; gap: 26px;
@@ -175,7 +176,7 @@ a { color: inherit; text-decoration: none; }
 .docs-hero .breadcrumb a:hover { color: var(--accent); }
 .docs-hero h1 {
   font-family: var(--font-display);
-  font-size: clamp(36px, 4.6vw, 60px);
+  font-size: clamp(30px, 9vw, 60px);
   line-height: 1.04; letter-spacing: -0.02em;
   font-weight: 500;
   margin: 18px 0 16px;
@@ -194,6 +195,7 @@ a { color: inherit; text-decoration: none; }
   padding: 24px 0 96px;
   align-items: start;
 }
+.docs-grid > * { min-width: 0; }
 .toc {
   position: sticky; top: 92px;
   font-family: var(--font-mono); font-size: 13px;
@@ -226,7 +228,7 @@ a { color: inherit; text-decoration: none; }
 .content section:last-child { margin-bottom: 0; }
 .content h2 {
   font-family: var(--font-display);
-  font-size: 36px; line-height: 1.1;
+  font-size: clamp(28px, 5.5vw, 36px); line-height: 1.1;
   letter-spacing: -0.012em; font-weight: 500;
   margin: 0 0 8px;
   position: relative;
@@ -240,7 +242,7 @@ a { color: inherit; text-decoration: none; }
 }
 .content h3 {
   font-family: var(--font-display);
-  font-size: 22px; line-height: 1.2;
+  font-size: clamp(19px, 4.5vw, 22px); line-height: 1.2;
   margin: 36px 0 10px;
   font-weight: 500;
   scroll-margin-top: 92px;
@@ -367,11 +369,40 @@ footer {
   }
   .docs-hero { padding: 40px 0 12px; }
 }
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   .container { padding: 0 22px; }
   .nav-inner { padding: 14px 22px; }
+  .nav-links { gap: 14px; }
   .nav-links a:not(.gh):not(.active) { display: none; }
+  .nav-links .gh {
+    width: 34px; height: 34px;
+    padding: 0; gap: 0;
+    justify-content: center;
+  }
+  .nav-links .gh .gh-label { display: none; }
   .cmd-row { grid-template-columns: 1fr; gap: 4px; padding: 14px 18px; }
+  .content section { margin-bottom: 48px; }
+  .docs-hero { padding: 32px 0 12px; }
+  .toc { padding: 14px 16px; }
+  .toc ol ol { margin: 4px 0 6px 8px; padding-inline-start: 8px; }
+  .content pre { padding: 14px 16px; font-size: 12.5px; }
+}
+@media (max-width: 380px) {
+  .container { padding: 0 16px; }
+  .nav-inner { padding: 12px 16px; gap: 10px; }
+  .wordmark { font-size: 20px; }
+  .cat-mark { width: 24px; height: 24px; }
+  .nav-version { display: none; }
+  .nav-links { gap: 10px; }
+  .cmd-row { padding: 12px 14px; }
+  .alert { grid-template-columns: 1fr; gap: 8px; padding: 12px 14px; }
+  .alert .ico {
+    display: inline-flex;
+    width: auto; height: auto;
+    border: none;
+    margin-right: 4px;
+    padding: 0;
+  }
 }
 
 /* ─── motion · respects prefers-reduced-motion ─── */
@@ -441,9 +472,9 @@ html { scroll-behavior: smooth; }
         <svg class="icon-moon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6 1c-.7 1.4-1 2.7-1 4 0 3.3 2.7 6 6 6 .8 0 1.6-.2 2.3-.5C12.4 13.1 9.9 15 7 15c-3.9 0-7-3.1-7-7S3.1 1 6 1z"/></svg>
         <svg class="icon-sun" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="8" r="3.4"/><g stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><line x1="8" y1=".8" x2="8" y2="2.6"/><line x1="8" y1="13.4" x2="8" y2="15.2"/><line x1=".8" y1="8" x2="2.6" y2="8"/><line x1="13.4" y1="8" x2="15.2" y2="8"/><line x1="2.9" y1="2.9" x2="4.2" y2="4.2"/><line x1="11.8" y1="11.8" x2="13.1" y2="13.1"/><line x1="2.9" y1="13.1" x2="4.2" y2="11.8"/><line x1="11.8" y1="4.2" x2="13.1" y2="2.9"/></g></svg>
       </button>
-      <a class="gh" href="https://github.com/dhruvsaxena1998/cleo" rel="noopener">
+      <a class="gh" href="https://github.com/dhruvsaxena1998/cleo" rel="noopener" aria-label="GitHub repository">
         <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
-        github
+        <span class="gh-label">github</span>
       </a>
     </div>
   </div>
