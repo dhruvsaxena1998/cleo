@@ -41,7 +41,9 @@ type Protocol interface {
 // Protocols returns the registered set of supported agents.
 // Adding a new agent: implement Protocol and add one line here.
 func Protocols() []Protocol {
-	return []Protocol{}
+	return []Protocol{
+		ClaudeProtocol{},
+	}
 }
 
 func findProtocol(protos []Protocol, name string) (Protocol, bool) {
@@ -65,3 +67,9 @@ func protocolNames(protos []Protocol) []string {
 var errUnknownProtocol = func(name string) error {
 	return fmt.Errorf("unknown protocol %q", name)
 }
+
+// Stub protocol implementations. Each protocol type is defined here
+// and methods are implemented in its corresponding file (e.g. claude.go).
+type ClaudeProtocol struct{}
+type CodexProtocol struct{}
+type PiProtocol struct{}
