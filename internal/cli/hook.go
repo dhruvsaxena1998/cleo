@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -10,13 +11,26 @@ import (
 )
 
 func newHookCmd(getCtx func() *Ctx) *cobra.Command {
-	return &cobra.Command{
+	var payloadFlag string
+
+	cmd := &cobra.Command{
 		Use:    "hook <protocol> <event>",
 		Short:  "Internal: invoked by hook configs",
 		Args:   cobra.ExactArgs(2),
 		Hidden: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getCtx()
+
+			// Read payload: --payload flag takes precedence over stdin.
+			// Pi uses --payload because pi.exec() has no stdin support.
+			// Claude and Codex pipe JSON via stdin.
+			var body []byte
+			if payloadFlag != "" {
+				body = []byte(payloadFlag)
+			} else {
+				body, _ = io.ReadAll(os.Stdin)
+			}
+
 			deps := hooks.Deps{
 				Paths:  c.Paths,
 				State:  c.State,
@@ -36,7 +50,6 @@ func newHookCmd(getCtx func() *Ctx) *cobra.Command {
 					if err != nil {
 						return "", err
 					}
-					// Pick the most recently started active session for this project+agent.
 					var best state.Session
 					for _, s := range sessions {
 						if s.ProjectID == proj.ID && s.Agent == agent && !s.State.IsFinished() {
@@ -51,7 +64,9 @@ func newHookCmd(getCtx func() *Ctx) *cobra.Command {
 					return best.ID, nil
 				},
 			}
-			return hooks.Handle(deps, args[0], args[1], os.Stdin, cmd.OutOrStdout())
+			return hooks.Handle(deps, args[0], args[1], body)
 		},
 	}
+	cmd.Flags().StringVar(&payloadFlag, "payload", "", "JSON payload (alternative to stdin, used by Pi extension)")
+	return cmd
 }
