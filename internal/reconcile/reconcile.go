@@ -37,7 +37,7 @@ func RunOpts(st *state.Store, tx TmuxLs, opts Options) error {
 	}
 	for _, s := range sessions {
 		if !liveSet[s.ID] && s.State != state.Dead {
-			_, _ = st.Apply(s.ID, state.EvDead, "")
+			_, _ = st.ApplySynthetic(s.ID, state.EvDead, "")
 			continue
 		}
 		// If the agent has been spawning for longer than SpawningTimeout and
@@ -50,7 +50,7 @@ func RunOpts(st *state.Store, tx TmuxLs, opts Options) error {
 		}
 		if (s.State == state.Idle || s.State == state.WaitingForInput) &&
 			time.Since(s.LastEventAt) > opts.IdleTimeout {
-			_, _ = st.Apply(s.ID, state.EvIdleTimeout, "")
+			_, _ = st.ApplySynthetic(s.ID, state.EvIdleTimeout, "")
 		}
 	}
 	return nil

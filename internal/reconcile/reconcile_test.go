@@ -47,3 +47,35 @@ func TestReconcileIdleTimeoutPromotesToCompleted(t *testing.T) {
 		t.Errorf("expected completed, got %s", got.State)
 	}
 }
+
+func TestWaitingForInputProgressesToCompletedAcrossTwoIdleCycles(t *testing.T) {
+	dir := t.TempDir()
+	st := state.NewStore(filepath.Join(dir, "state.json"), filepath.Join(dir, "state.json.lock"))
+	tx := &fakeTmux{existing: []string{"s1"}}
+
+	tenMinAgo := time.Now().Add(-10 * time.Minute)
+	if err := st.Put(state.Session{ID: "s1", State: state.WaitingForInput, LastEventAt: tenMinAgo}); err != nil {
+		t.Fatalf("put: %v", err)
+	}
+
+	// First reconcile: WaitingForInput -> Idle. LastEventAt must NOT be bumped.
+	if err := RunOpts(st, tx, Options{IdleTimeout: time.Minute, SpawningTimeout: 30 * time.Second}); err != nil {
+		t.Fatalf("first reconcile: %v", err)
+	}
+	got, _ := st.Get("s1")
+	if got.State != state.Idle {
+		t.Fatalf("after first reconcile, want Idle, got %s", got.State)
+	}
+	if !got.LastEventAt.Equal(tenMinAgo) {
+		t.Fatalf("LastEventAt bumped: want %v, got %v", tenMinAgo, got.LastEventAt)
+	}
+
+	// Second reconcile (immediate): Idle -> Completed because LastEventAt is still 10min ago.
+	if err := RunOpts(st, tx, Options{IdleTimeout: time.Minute, SpawningTimeout: 30 * time.Second}); err != nil {
+		t.Fatalf("second reconcile: %v", err)
+	}
+	got, _ = st.Get("s1")
+	if got.State != state.Completed {
+		t.Fatalf("after second reconcile, want Completed, got %s", got.State)
+	}
+}
