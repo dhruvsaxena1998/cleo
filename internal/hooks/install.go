@@ -26,6 +26,28 @@ func CodexEvents() []string {
 	return append([]string(nil), codexEvents...)
 }
 
+// ExpectedClaudeEntries returns the per-event hook entries that
+// InstallClaude would write for the given cleo binary path. Keyed by
+// Claude hook event name (SessionStart, PreToolUse, …). The values match
+// the on-disk JSON shape expected by Claude Code.
+func ExpectedClaudeEntries(cleoBin string) map[string]any {
+	out := make(map[string]any, len(claudeEvents))
+	for _, ev := range claudeEvents {
+		out[ev] = []any{
+			map[string]any{
+				"hooks": []any{
+					map[string]any{
+						"type":    "command",
+						"command": fmt.Sprintf("%s hook claude %s", cleoBin, ev),
+						"timeout": 2,
+					},
+				},
+			},
+		}
+	}
+	return out
+}
+
 func InstallClaude(settingsPath, cleoBin string, force bool) error {
 	b, err := os.ReadFile(settingsPath)
 	if errors.Is(err, os.ErrNotExist) {
@@ -41,18 +63,9 @@ func InstallClaude(settingsPath, cleoBin string, force bool) error {
 	if hooks == nil {
 		hooks = map[string]any{}
 	}
+	expected := ExpectedClaudeEntries(cleoBin)
 	for _, ev := range claudeEvents {
-		want := []any{
-			map[string]any{
-				"hooks": []any{
-					map[string]any{
-						"type":    "command",
-						"command": fmt.Sprintf("%s hook claude %s", cleoBin, ev),
-						"timeout": 2,
-					},
-				},
-			},
-		}
+		want := expected[ev]
 		if existing, ok := hooks[ev]; ok {
 			if !equalsHook(existing, want) && !force {
 				return fmt.Errorf("conflict: %s already has a different hook (re-run with --force to overwrite)", ev)
@@ -67,6 +80,27 @@ func InstallClaude(settingsPath, cleoBin string, force bool) error {
 
 func CleanupClaude(settingsPath string) (int, error) {
 	return cleanupHookFile(settingsPath, "claude", "settings.json")
+}
+
+// ExpectedCodexEntries returns the per-event hook entries that
+// InstallCodex would write for the given cleo binary path. Keyed by
+// Codex hook event name (SessionStart, PreToolUse, …).
+func ExpectedCodexEntries(cleoBin string) map[string]any {
+	out := make(map[string]any, len(codexEvents))
+	for _, ev := range codexEvents {
+		out[ev] = []any{
+			map[string]any{
+				"hooks": []any{
+					map[string]any{
+						"type":    "command",
+						"command": fmt.Sprintf("%s hook codex %s", cleoBin, ev),
+						"timeout": 2,
+					},
+				},
+			},
+		}
+	}
+	return out
 }
 
 // InstallCodex writes hook entries to hooksPath (~/.codex/hooks.json) and
@@ -89,18 +123,9 @@ func InstallCodex(hooksPath, configPath, cleoBin string, force bool) error {
 	if hooks == nil {
 		hooks = map[string]any{}
 	}
+	expected := ExpectedCodexEntries(cleoBin)
 	for _, ev := range codexEvents {
-		want := []any{
-			map[string]any{
-				"hooks": []any{
-					map[string]any{
-						"type":    "command",
-						"command": fmt.Sprintf("%s hook codex %s", cleoBin, ev),
-						"timeout": 2,
-					},
-				},
-			},
-		}
+		want := expected[ev]
 		if existing, ok := hooks[ev]; ok {
 			if !equalsHook(existing, want) && !force {
 				return fmt.Errorf("conflict: %s already has a different hook (re-run with --force to overwrite)", ev)

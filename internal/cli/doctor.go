@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -30,6 +31,9 @@ func newDoctorCmd(getCtx func() *Ctx) *cobra.Command {
 				filepath.Join(home, ".codex", "config.toml"),
 				c.Paths.HookTraceLog(),
 			)
+			if exe, err := os.Executable(); err == nil {
+				report.CleoBin = exe
+			}
 			printDoctorReport(cmd.OutOrStdout(), report)
 			return nil
 		},
@@ -37,8 +41,11 @@ func newDoctorCmd(getCtx func() *Ctx) *cobra.Command {
 }
 
 type doctorReport struct {
-	Checks        []doctorCheck
-	HookTracePath string
+	Checks             []doctorCheck
+	HookTracePath      string
+	ClaudeSettingsPath string
+	CodexHooksPath     string
+	CleoBin            string
 }
 
 type doctorCheck struct {
@@ -59,8 +66,10 @@ func diagnoseHooks(claudeSettingsPath, codexHooksPath, codexConfigPath, hookTrac
 	codexAct := checkHookTrace(hookTracePath, "codex")
 	codexAct.Protocol = "codex"
 	return doctorReport{
-		Checks:        []doctorCheck{claude, codexFlag, codexHooks, claudeAct, codexAct},
-		HookTracePath: hookTracePath,
+		Checks:             []doctorCheck{claude, codexFlag, codexHooks, claudeAct, codexAct},
+		HookTracePath:      hookTracePath,
+		ClaudeSettingsPath: claudeSettingsPath,
+		CodexHooksPath:     codexHooksPath,
 	}
 }
 
@@ -237,6 +246,78 @@ func attributionFailures(path string, since time.Time) []hookTraceRow {
 	return out
 }
 
+// printHookDiffSection renders the per-agent +/= diff. agentLabel is the
+// human-readable name ("Claude hooks" / "Codex hooks"); protocol is used in
+// the printed command (`cleo hook claude` etc.). Empty diffs print
+// "<agentLabel>: in sync ✓".
+func printHookDiffSection(w io.Writer, agentLabel, settingsPath string, expected map[string]any, protocol string) {
+	d := hookConfigDiff(settingsPath, expected)
+	if len(d.toAdd) == 0 && len(d.conflicts) == 0 {
+		fmt.Fprintf(w, "%s: in sync %s\n", agentLabel, okStyle.Render("✓"))
+		return
+	}
+	fmt.Fprintf(w, "%s (%s):\n", agentLabel, settingsPath)
+	for _, ev := range d.matched {
+		fmt.Fprintf(w, "  = %-18s cleo hook %s\n", ev, protocol)
+	}
+	for _, ev := range d.toAdd {
+		fmt.Fprintf(w, "  + %-18s cleo hook %s    (would install)\n", ev, protocol)
+	}
+	for _, ev := range d.conflicts {
+		fmt.Fprintf(w, "  - %-18s cleo hook %s    (foreign or divergent entry present)\n", ev, protocol)
+	}
+}
+
+type hookDiff struct {
+	matched   []string
+	toAdd     []string
+	conflicts []string // entries that exist but don't match cleo's expected command
+}
+
+// hookConfigDiff compares the on-disk settings file at settingsPath against
+// the entries cleo would install (expectedEntries: keyed by event name).
+// Returns the per-event matched / toAdd / conflicts buckets, alphabetised.
+// If settingsPath is missing or unparseable, every expected entry is treated
+// as toAdd.
+func hookConfigDiff(settingsPath string, expectedEntries map[string]any) hookDiff {
+	var d hookDiff
+	b, err := os.ReadFile(settingsPath)
+	if err != nil {
+		for k := range expectedEntries {
+			d.toAdd = append(d.toAdd, k)
+		}
+		sort.Strings(d.toAdd)
+		return d
+	}
+	var settings map[string]any
+	if err := json.Unmarshal(b, &settings); err != nil {
+		for k := range expectedEntries {
+			d.toAdd = append(d.toAdd, k)
+		}
+		sort.Strings(d.toAdd)
+		return d
+	}
+	configured, _ := settings["hooks"].(map[string]any)
+	for event, expected := range expectedEntries {
+		actual, ok := configured[event]
+		if !ok {
+			d.toAdd = append(d.toAdd, event)
+			continue
+		}
+		eb, _ := json.Marshal(expected)
+		ab, _ := json.Marshal(actual)
+		if string(eb) == string(ab) {
+			d.matched = append(d.matched, event)
+		} else {
+			d.conflicts = append(d.conflicts, event)
+		}
+	}
+	sort.Strings(d.matched)
+	sort.Strings(d.toAdd)
+	sort.Strings(d.conflicts)
+	return d
+}
+
 // truncRight truncates s to at most n display columns, appending an ellipsis
 // when truncation occurs. Naive byte-based truncation; safe for ASCII session
 // IDs and event labels.
@@ -332,6 +413,12 @@ func printDoctorReport(w io.Writer, report doctorReport) {
 			}
 			fmt.Fprintf(w, "    %s  %-30s %-18s %s\n", ts, truncRight(cwd, 30), tr.Event, tr.FallbackReason)
 		}
+	}
+	if report.CleoBin != "" {
+		fmt.Fprintln(w)
+		printHookDiffSection(w, "Claude hooks", report.ClaudeSettingsPath, hooks.ExpectedClaudeEntries(report.CleoBin), "claude")
+		fmt.Fprintln(w)
+		printHookDiffSection(w, "Codex hooks", report.CodexHooksPath, hooks.ExpectedCodexEntries(report.CleoBin), "codex")
 	}
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Codex approval check:")

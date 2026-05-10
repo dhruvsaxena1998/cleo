@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -117,6 +118,43 @@ func TestDoctorAttributionFailureSummary(t *testing.T) {
 	if len(failures) != 2 {
 		t.Fatalf("len: want 2, got %d (%+v)", len(failures), failures)
 	}
+}
+
+func TestDoctorHookConfigDiff(t *testing.T) {
+	dir := t.TempDir()
+	settings := filepath.Join(dir, "settings.json")
+	expected := map[string]any{
+		"hooks": map[string]any{
+			"SessionStart": map[string]any{"command": "/path/to/cleo hook claude SessionStart"},
+		},
+	}
+	b, _ := json.Marshal(expected)
+	if err := os.WriteFile(settings, b, 0o644); err != nil {
+		t.Fatalf("seed settings: %v", err)
+	}
+
+	// Diff against a richer expected set (UserPromptSubmit also expected)
+	expectedEntries := map[string]any{
+		"SessionStart":     map[string]any{"command": "/path/to/cleo hook claude SessionStart"},
+		"UserPromptSubmit": map[string]any{"command": "/path/to/cleo hook claude UserPromptSubmit"},
+	}
+
+	d := hookConfigDiff(settings, expectedEntries)
+	if !contains(d.matched, "SessionStart") {
+		t.Errorf("matched should include SessionStart: %+v", d)
+	}
+	if !contains(d.toAdd, "UserPromptSubmit") {
+		t.Errorf("toAdd should include UserPromptSubmit: %+v", d)
+	}
+}
+
+func contains(xs []string, s string) bool {
+	for _, x := range xs {
+		if x == s {
+			return true
+		}
+	}
+	return false
 }
 
 func TestPrintDoctorReportListsCodexApprovalHooks(t *testing.T) {
