@@ -86,7 +86,7 @@
   }
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
+html, body { margin: 0; padding: 0; overflow-x: hidden; }
 body {
   background: var(--bg);
   color: var(--fg);
@@ -367,11 +367,20 @@ footer {
   }
   .docs-hero { padding: 40px 0 12px; }
 }
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   .container { padding: 0 22px; }
   .nav-inner { padding: 14px 22px; }
   .nav-links a:not(.gh):not(.active) { display: none; }
   .cmd-row { grid-template-columns: 1fr; gap: 4px; padding: 14px 18px; }
+}
+@media (max-width: 380px) {
+  .container { padding: 0 16px; }
+  .nav-inner { padding: 12px 16px; gap: 10px; }
+  .wordmark { font-size: 20px; }
+  .cat-mark { width: 24px; height: 24px; }
+  .nav-version { display: none; }
+  .nav-links { gap: 10px; }
+  .nav-links .gh { padding: 6px 10px; gap: 6px; font-size: 12px; }
 }
 
 /* ─── motion · respects prefers-reduced-motion ─── */
