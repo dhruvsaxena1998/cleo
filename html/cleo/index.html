@@ -97,7 +97,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
+html, body { margin: 0; padding: 0; overflow-x: hidden; }
 body {
   background: var(--bg);
   color: var(--fg);
@@ -903,7 +903,7 @@ footer ul a:hover { border-bottom-color: var(--accent); color: var(--accent); }
   .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
   .footer-brand { grid-column: 1 / -1; }
 }
-@media (max-width: 600px) {
+@media (max-width: 640px) {
   .container { padding: 0 22px; }
   .nav-inner { padding: 14px 22px; }
   .nav-links { gap: 14px; }
