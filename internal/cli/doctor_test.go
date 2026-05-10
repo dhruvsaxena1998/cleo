@@ -123,20 +123,24 @@ func TestDoctorAttributionFailureSummary(t *testing.T) {
 func TestDoctorHookConfigDiff(t *testing.T) {
 	dir := t.TempDir()
 	settings := filepath.Join(dir, "settings.json")
-	expected := map[string]any{
+	// On-disk: SessionStart matches, PreToolUse exists but has the wrong
+	// command (a foreign or stale entry — should land in conflicts), no
+	// UserPromptSubmit at all (should land in toAdd).
+	onDisk := map[string]any{
 		"hooks": map[string]any{
 			"SessionStart": map[string]any{"command": "/path/to/cleo hook claude SessionStart"},
+			"PreToolUse":   map[string]any{"command": "/usr/local/bin/some-other-hook"},
 		},
 	}
-	b, _ := json.Marshal(expected)
+	b, _ := json.Marshal(onDisk)
 	if err := os.WriteFile(settings, b, 0o644); err != nil {
 		t.Fatalf("seed settings: %v", err)
 	}
 
-	// Diff against a richer expected set (UserPromptSubmit also expected)
 	expectedEntries := map[string]any{
 		"SessionStart":     map[string]any{"command": "/path/to/cleo hook claude SessionStart"},
 		"UserPromptSubmit": map[string]any{"command": "/path/to/cleo hook claude UserPromptSubmit"},
+		"PreToolUse":       map[string]any{"command": "/path/to/cleo hook claude PreToolUse"},
 	}
 
 	d := hookConfigDiff(settings, expectedEntries)
@@ -145,6 +149,38 @@ func TestDoctorHookConfigDiff(t *testing.T) {
 	}
 	if !contains(d.toAdd, "UserPromptSubmit") {
 		t.Errorf("toAdd should include UserPromptSubmit: %+v", d)
+	}
+	if !contains(d.conflicts, "PreToolUse") {
+		t.Errorf("conflicts should include PreToolUse (foreign command on disk): %+v", d)
+	}
+}
+
+// JSON marshal output for map[string]any has been deterministic since Go 1.12
+// (sorted keys), which the diff's string-equality check relies on. Lock that
+// assumption in: same logical content, two different programmatic build
+// orders, must compare equal.
+func TestHookConfigDiffEqualityIsKeyOrderInsensitive(t *testing.T) {
+	dir := t.TempDir()
+	settings := filepath.Join(dir, "settings.json")
+	// Construct on-disk JSON with a hand-written byte order that puts "type"
+	// after "command" — different from Go's marshal-sorted order.
+	raw := []byte(`{"hooks":{"SessionStart":{"timeout":2,"command":"cleo hook claude SessionStart","type":"command"}}}`)
+	if err := os.WriteFile(settings, raw, 0o644); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	expected := map[string]any{
+		"SessionStart": map[string]any{
+			"command": "cleo hook claude SessionStart",
+			"type":    "command",
+			"timeout": float64(2), // JSON unmarshal produces float64 for numbers
+		},
+	}
+	d := hookConfigDiff(settings, expected)
+	if !contains(d.matched, "SessionStart") {
+		t.Errorf("expected matched (key-order shouldn't affect equality): %+v", d)
+	}
+	if len(d.conflicts) != 0 {
+		t.Errorf("expected no conflicts, got %+v", d.conflicts)
 	}
 }
 
@@ -165,7 +201,7 @@ func TestDoctorQuietSuppressesPassingChecks(t *testing.T) {
 		},
 	}
 	var buf bytes.Buffer
-	printDoctorReportOpts(&buf, report, doctorPrintOpts{Quiet: true})
+	printDoctorReportOpts(&buf, report, analyzeReport(report), doctorPrintOpts{Quiet: true})
 	out := buf.String()
 	if strings.Contains(out, "Claude hooks") {
 		t.Errorf("quiet mode should hide passing check, got %q", out)

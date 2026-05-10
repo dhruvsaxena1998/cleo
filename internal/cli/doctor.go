@@ -21,8 +21,10 @@ import (
 func newDoctorCmd(getCtx func() *Ctx) *cobra.Command {
 	var quiet bool
 	cmd := &cobra.Command{
-		Use:   "doctor",
-		Short: "Check Cleo hook setup",
+		Use:           "doctor",
+		Short:         "Check Cleo hook setup",
+		SilenceUsage:  true, // doctor reports problems; cobra's usage banner is noise on failure
+		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getCtx()
 			home, _ := os.UserHomeDir()
@@ -35,11 +37,9 @@ func newDoctorCmd(getCtx func() *Ctx) *cobra.Command {
 			if exe, err := os.Executable(); err == nil {
 				report.CleoBin = exe
 			}
-			printDoctorReportOpts(cmd.OutOrStdout(), report, doctorPrintOpts{Quiet: quiet})
-			if quiet && doctorReportHasFailures(report) {
-				// Suppress cobra's automatic usage / "Error:" prefix.
-				cmd.SilenceUsage = true
-				cmd.SilenceErrors = true
+			analysis := analyzeReport(report)
+			printDoctorReportOpts(cmd.OutOrStdout(), report, analysis, doctorPrintOpts{Quiet: quiet})
+			if quiet && analysis.HasFailures(report) {
 				os.Exit(1)
 			}
 			return nil
@@ -259,8 +259,7 @@ func attributionFailures(path string, since time.Time) []hookTraceRow {
 // human-readable name ("Claude hooks" / "Codex hooks"); protocol is used in
 // the printed command (`cleo hook claude` etc.). Empty diffs print
 // "<agentLabel>: in sync ✓".
-func printHookDiffSection(w io.Writer, agentLabel, settingsPath string, expected map[string]any, protocol string) {
-	d := hookConfigDiff(settingsPath, expected)
+func printHookDiffSection(w io.Writer, agentLabel, settingsPath string, d hookDiff, protocol string) {
 	if len(d.toAdd) == 0 && len(d.conflicts) == 0 {
 		fmt.Fprintf(w, "%s: in sync %s\n", agentLabel, okStyle.Render("✓"))
 		return
@@ -380,11 +379,51 @@ type doctorPrintOpts struct {
 	Quiet bool
 }
 
-func printDoctorReport(w io.Writer, report doctorReport) {
-	printDoctorReportOpts(w, report, doctorPrintOpts{})
+// doctorAnalysis caches the computed diagnostic data so the printer and the
+// failure-detection path don't re-read the trace log + settings files. Build
+// it once via analyzeReport and reuse it.
+type doctorAnalysis struct {
+	Failures   []hookTraceRow // attribution failures in the last 24h
+	ClaudeDiff hookDiff       // empty.matched/toAdd/conflicts when CleoBin == ""
+	CodexDiff  hookDiff
 }
 
-func printDoctorReportOpts(w io.Writer, report doctorReport, opts doctorPrintOpts) {
+func analyzeReport(report doctorReport) doctorAnalysis {
+	a := doctorAnalysis{
+		Failures: attributionFailures(report.HookTracePath, time.Now().Add(-24*time.Hour)),
+	}
+	if report.CleoBin != "" {
+		a.ClaudeDiff = hookConfigDiff(report.ClaudeSettingsPath, hooks.ExpectedClaudeEntries(report.CleoBin))
+		a.CodexDiff = hookConfigDiff(report.CodexHooksPath, hooks.ExpectedCodexEntries(report.CleoBin))
+	}
+	return a
+}
+
+// HasFailures reports whether the report would warrant a non-zero exit in
+// --quiet mode: any failed check, attribution failures, or non-empty diff.
+func (a doctorAnalysis) HasFailures(report doctorReport) bool {
+	for _, check := range report.Checks {
+		if !check.OK {
+			return true
+		}
+	}
+	if len(a.Failures) > 0 {
+		return true
+	}
+	if len(a.ClaudeDiff.toAdd)+len(a.ClaudeDiff.conflicts) > 0 {
+		return true
+	}
+	if len(a.CodexDiff.toAdd)+len(a.CodexDiff.conflicts) > 0 {
+		return true
+	}
+	return false
+}
+
+func printDoctorReport(w io.Writer, report doctorReport) {
+	printDoctorReportOpts(w, report, analyzeReport(report), doctorPrintOpts{})
+}
+
+func printDoctorReportOpts(w io.Writer, report doctorReport, analysis doctorAnalysis, opts doctorPrintOpts) {
 	if !opts.Quiet {
 		fmt.Fprintln(w, "Cleo doctor")
 		fmt.Fprintln(w)
@@ -414,13 +453,11 @@ func printDoctorReportOpts(w io.Writer, report doctorReport, opts doctorPrintOpt
 			}
 		}
 	}
-	since := time.Now().Add(-24 * time.Hour)
-	failures := attributionFailures(report.HookTracePath, since)
-	if len(failures) > 0 {
+	if len(analysis.Failures) > 0 {
 		fmt.Fprintln(w)
-		fmt.Fprintf(w, "Attribution failures (last 24h): %d\n", len(failures))
+		fmt.Fprintf(w, "Attribution failures (last 24h): %d\n", len(analysis.Failures))
 		fmt.Fprintln(w, "  Last 3:")
-		last := failures
+		last := analysis.Failures
 		if len(last) > 3 {
 			last = last[len(last)-3:]
 		}
@@ -437,24 +474,15 @@ func printDoctorReportOpts(w io.Writer, report doctorReport, opts doctorPrintOpt
 		}
 	}
 	if report.CleoBin != "" {
-		claudeDiff := hookConfigDiff(report.ClaudeSettingsPath, hooks.ExpectedClaudeEntries(report.CleoBin))
-		codexDiff := hookConfigDiff(report.CodexHooksPath, hooks.ExpectedCodexEntries(report.CleoBin))
-		claudeSync := len(claudeDiff.toAdd) == 0 && len(claudeDiff.conflicts) == 0
-		codexSync := len(codexDiff.toAdd) == 0 && len(codexDiff.conflicts) == 0
-		if !opts.Quiet {
+		claudeSync := len(analysis.ClaudeDiff.toAdd) == 0 && len(analysis.ClaudeDiff.conflicts) == 0
+		codexSync := len(analysis.CodexDiff.toAdd) == 0 && len(analysis.CodexDiff.conflicts) == 0
+		if !opts.Quiet || !claudeSync {
 			fmt.Fprintln(w)
-			printHookDiffSection(w, "Claude hooks", report.ClaudeSettingsPath, hooks.ExpectedClaudeEntries(report.CleoBin), "claude")
+			printHookDiffSection(w, "Claude hooks", report.ClaudeSettingsPath, analysis.ClaudeDiff, "claude")
+		}
+		if !opts.Quiet || !codexSync {
 			fmt.Fprintln(w)
-			printHookDiffSection(w, "Codex hooks", report.CodexHooksPath, hooks.ExpectedCodexEntries(report.CleoBin), "codex")
-		} else {
-			if !claudeSync {
-				fmt.Fprintln(w)
-				printHookDiffSection(w, "Claude hooks", report.ClaudeSettingsPath, hooks.ExpectedClaudeEntries(report.CleoBin), "claude")
-			}
-			if !codexSync {
-				fmt.Fprintln(w)
-				printHookDiffSection(w, "Codex hooks", report.CodexHooksPath, hooks.ExpectedCodexEntries(report.CleoBin), "codex")
-			}
+			printHookDiffSection(w, "Codex hooks", report.CodexHooksPath, analysis.CodexDiff, "codex")
 		}
 	}
 	if !opts.Quiet {
@@ -469,28 +497,3 @@ func printDoctorReportOpts(w io.Writer, report doctorReport, opts doctorPrintOpt
 	}
 }
 
-// doctorReportHasFailures returns true when the report would warrant a
-// non-zero exit in --quiet mode: any failed check, attribution failures in
-// the last 24h, or any agent's hook config diff containing toAdd/conflicts.
-func doctorReportHasFailures(report doctorReport) bool {
-	for _, check := range report.Checks {
-		if !check.OK {
-			return true
-		}
-	}
-	since := time.Now().Add(-24 * time.Hour)
-	if len(attributionFailures(report.HookTracePath, since)) > 0 {
-		return true
-	}
-	if report.CleoBin != "" {
-		claudeDiff := hookConfigDiff(report.ClaudeSettingsPath, hooks.ExpectedClaudeEntries(report.CleoBin))
-		if len(claudeDiff.toAdd)+len(claudeDiff.conflicts) > 0 {
-			return true
-		}
-		codexDiff := hookConfigDiff(report.CodexHooksPath, hooks.ExpectedCodexEntries(report.CleoBin))
-		if len(codexDiff.toAdd)+len(codexDiff.conflicts) > 0 {
-			return true
-		}
-	}
-	return false
-}
