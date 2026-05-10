@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/dhruvsaxena1998/cleo/internal/hooks"
 )
@@ -97,6 +98,24 @@ func TestDoctorPrintsRecentTraces(t *testing.T) {
 	}
 	if got[0].Event != "Notification" { // most recent first
 		t.Errorf("ordering: want Notification first, got %s", got[0].Event)
+	}
+}
+
+func TestDoctorAttributionFailureSummary(t *testing.T) {
+	dir := t.TempDir()
+	tracePath := filepath.Join(dir, "hook-trace.log")
+	rows := []string{
+		`{"at":"2026-05-01T12:00:00Z","protocol":"codex","event":"PreToolUse","cwd":"/a","result":"resolved","fallback_reason":"env_missing"}`,
+		`{"at":"2026-05-01T12:00:01Z","protocol":"codex","event":"PreToolUse","cwd":"/a","result":"ignored:no_session","fallback_reason":"no_match"}`,
+		`{"at":"2026-05-01T12:00:02Z","protocol":"claude","event":"PreToolUse","result":"ignored:no_session","fallback_reason":"env_unknown_session"}`,
+	}
+	if err := os.WriteFile(tracePath, []byte(strings.Join(rows, "\n")+"\n"), 0o644); err != nil {
+		t.Fatalf("write trace: %v", err)
+	}
+
+	failures := attributionFailures(tracePath, time.Time{})
+	if len(failures) != 2 {
+		t.Fatalf("len: want 2, got %d (%+v)", len(failures), failures)
 	}
 }
 

@@ -208,6 +208,35 @@ func recentHookTraces(path, protocol string, n int) []hookTraceRow {
 	return rows
 }
 
+// attributionFailures returns trace rows whose fallback_reason indicates
+// resolution did not succeed (no_match or env_unknown_session). If `since`
+// is non-zero, only rows newer than `since` are returned.
+func attributionFailures(path string, since time.Time) []hookTraceRow {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+	var out []hookTraceRow
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		var row hookTraceRow
+		if err := json.Unmarshal(scanner.Bytes(), &row); err != nil {
+			continue
+		}
+		if row.FallbackReason != "no_match" && row.FallbackReason != "env_unknown_session" {
+			continue
+		}
+		if !since.IsZero() {
+			if t, err := time.Parse(time.RFC3339, row.At); err == nil && t.Before(since) {
+				continue
+			}
+		}
+		out = append(out, row)
+	}
+	return out
+}
+
 // truncRight truncates s to at most n display columns, appending an ellipsis
 // when truncation occurs. Naive byte-based truncation; safe for ASCII session
 // IDs and event labels.
@@ -280,6 +309,28 @@ func printDoctorReport(w io.Writer, report doctorReport) {
 					fmt.Fprintf(w, "    %s  %-18s %-40s %s\n", ts, tr.Event, truncRight(tr.ResolvedSession, 40), tr.FallbackReason)
 				}
 			}
+		}
+	}
+	since := time.Now().Add(-24 * time.Hour)
+	failures := attributionFailures(report.HookTracePath, since)
+	if len(failures) > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintf(w, "Attribution failures (last 24h): %d\n", len(failures))
+		fmt.Fprintln(w, "  Last 3:")
+		last := failures
+		if len(last) > 3 {
+			last = last[len(last)-3:]
+		}
+		for _, tr := range last {
+			ts := tr.At
+			if t, err := time.Parse(time.RFC3339, tr.At); err == nil {
+				ts = t.Local().Format("15:04:05")
+			}
+			cwd := tr.Cwd
+			if cwd == "" {
+				cwd = "(no cwd)"
+			}
+			fmt.Fprintf(w, "    %s  %-30s %-18s %s\n", ts, truncRight(cwd, 30), tr.Event, tr.FallbackReason)
 		}
 	}
 	fmt.Fprintln(w)
