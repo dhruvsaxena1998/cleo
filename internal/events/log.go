@@ -65,3 +65,60 @@ func (l *Log) Tail(n int) ([]Entry, error) {
 	}
 	return all, sc.Err()
 }
+
+type ReadOpts struct {
+	Type  string
+	Since time.Time
+	Limit int
+}
+
+// Match reports whether e satisfies the Type and Since predicates. Limit is
+// a tail-slicing concern handled by ApplyLimit, not Match.
+func (o ReadOpts) Match(e Entry) bool {
+	if o.Type != "" && e.Type != o.Type {
+		return false
+	}
+	if !o.Since.IsZero() && e.At.Before(o.Since) {
+		return false
+	}
+	return true
+}
+
+// ApplyLimit returns the last Limit entries from xs, or xs unchanged when
+// Limit is zero (no limit). The caller is expected to have already filtered
+// via Match.
+func (o ReadOpts) ApplyLimit(xs []Entry) []Entry {
+	if o.Limit > 0 && len(xs) > o.Limit {
+		return xs[len(xs)-o.Limit:]
+	}
+	return xs
+}
+
+func (l *Log) ReadFiltered(opts ReadOpts) ([]Entry, error) {
+	f, err := os.Open(l.path)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var out []Entry
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 1<<20), 1<<20)
+	for sc.Scan() {
+		var e Entry
+		if err := json.Unmarshal(sc.Bytes(), &e); err != nil {
+			continue
+		}
+		if !opts.Match(e) {
+			continue
+		}
+		out = append(out, e)
+	}
+	if err := sc.Err(); err != nil {
+		return nil, err
+	}
+	return opts.ApplyLimit(out), nil
+}
