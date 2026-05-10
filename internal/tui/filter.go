@@ -3,11 +3,9 @@ package tui
 import tea "github.com/charmbracelet/bubbletea"
 
 func (m Model) handleFilterKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Esc is intercepted in handleKey (spec §2.2 hierarchy); only Enter,
+	// backspace, and rune input land here.
 	switch msg.Type {
-	case tea.KeyEsc:
-		m.filter = ""
-		m.mode = ModeNormal
-		return m.clampCursor(), nil
 	case tea.KeyEnter:
 		m.mode = ModeNormal
 		return m.clampCursor(), nil

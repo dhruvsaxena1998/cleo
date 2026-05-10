@@ -324,3 +324,67 @@ func TestPreviewEmptyShowsLoading(t *testing.T) {
 		t.Errorf("expected loading hint for empty cache, got: %q", out)
 	}
 }
+
+// updateAsModel runs Update and asserts the resulting tea.Model is a Model.
+// Used by the Esc-hierarchy and status-clear tests below.
+func updateAsModel(m Model, msg tea.Msg) Model {
+	out, _ := m.Update(msg)
+	return out.(Model)
+}
+
+// TestEscClosesPopupOnly locks in step 1 of the Esc hierarchy: when a popup
+// is open, Esc closes the popup and clears the status line, but leaves the
+// filter query intact so the user returns to the same filtered view.
+func TestEscClosesPopupOnly(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	m.popup = NewHelpPopup(m.theme)
+	m.mode = ModePopup
+	m.filter = "active-query"
+	m.status = "stale-status"
+
+	m2 := updateAsModel(m, tea.KeyMsg{Type: tea.KeyEsc})
+	if m2.popup != nil {
+		t.Error("popup should be closed")
+	}
+	if m2.mode != ModeNormal {
+		t.Errorf("mode: want Normal, got %v", m2.mode)
+	}
+	if m2.status != "" {
+		t.Errorf("status should be cleared, got %q", m2.status)
+	}
+	if m2.filter != "active-query" {
+		t.Errorf("filter should survive popup close, got %q", m2.filter)
+	}
+}
+
+// TestEscInFilterClearsQueryAndExits locks in step 2 of the Esc hierarchy:
+// in filter mode, Esc exits ModeFilter AND clears the filter query.
+func TestEscInFilterClearsQueryAndExits(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	m.mode = ModeFilter
+	m.filter = "search"
+
+	m2 := updateAsModel(m, tea.KeyMsg{Type: tea.KeyEsc})
+	if m2.mode != ModeNormal {
+		t.Errorf("mode: want Normal, got %v", m2.mode)
+	}
+	if m2.filter != "" {
+		t.Errorf("filter: want empty, got %q", m2.filter)
+	}
+}
+
+// TestEscInNormalClearsStatus locks in step 3 of the Esc hierarchy: with no
+// popup or filter active, Esc just clears any stale status line message.
+func TestEscInNormalClearsStatus(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	m.mode = ModeNormal
+	m.status = "old"
+
+	m2 := updateAsModel(m, tea.KeyMsg{Type: tea.KeyEsc})
+	if m2.status != "" {
+		t.Errorf("status: want empty, got %q", m2.status)
+	}
+}

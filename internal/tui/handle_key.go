@@ -19,6 +19,24 @@ import (
 )
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Explicit Esc hierarchy (spec §2.2): popup -> filter -> status.
+	// Intercepted at the top level so each layer behaves predictably no
+	// matter which mode forwarded the keypress.
+	if msg.Type == tea.KeyEsc {
+		if m.mode == ModePopup && m.popup != nil {
+			m.popup = nil
+			m.mode = ModeNormal
+			m.status = ""
+			return m, nil
+		}
+		if m.mode == ModeFilter {
+			m.mode = ModeNormal
+			m.filter = ""
+			return m.clampCursor(), nil
+		}
+		m.status = ""
+		return m, nil
+	}
 	if m.mode == ModeFilter {
 		return m.handleFilterKey(msg)
 	}
