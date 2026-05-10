@@ -3,13 +3,36 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/dhruvsaxena1998/cleo/internal/events"
 )
+
+// safeBuffer is a bytes.Buffer with a mutex around writes/reads, used by the
+// follow test where the cobra goroutine writes while the main goroutine polls.
+// bytes.Buffer is documented as not safe for concurrent use; without the
+// mutex, `go test -race` reports a data race.
+type safeBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (s *safeBuffer) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buf.Write(p)
+}
+
+func (s *safeBuffer) String() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.buf.String()
+}
 
 func TestEventsCmdPrintsActiveSession(t *testing.T) {
 	c, _ := testCtxWithRoot(t)
@@ -55,11 +78,23 @@ func TestEventsCmdFollowEmitsAppendedLines(t *testing.T) {
 
 	cmd := NewRootCmd(func(*Ctx) error { return nil })
 	cmd.SetArgs([]string{"events", "cleo-foo-claude-bar", "-f", "--json"})
-	var buf bytes.Buffer
+	var buf safeBuffer
 	cmd.SetOut(&buf)
 
 	done := make(chan error, 1)
 	go func() { done <- cmd.Execute() }()
+
+	// Stop the follow goroutine on cleanup by deleting the log file —
+	// tailLoop exits cleanly when its path disappears (the same exit path
+	// triggered in production by `cleo prune` archiving the session).
+	t.Cleanup(func() {
+		_ = os.Remove(logPath)
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Log("follow goroutine did not exit within 2s of file removal")
+		}
+	})
 
 	// Wait for initial dump
 	deadline := time.Now().Add(2 * time.Second)
@@ -81,10 +116,6 @@ func TestEventsCmdFollowEmitsAppendedLines(t *testing.T) {
 	if !strings.Contains(buf.String(), "post_tool_use") {
 		t.Fatalf("appended event not seen: %q", buf.String())
 	}
-
-	// Cancel the follow by sending SIGINT — for the test we just stop reading.
-	// In production a user hits Ctrl-C; here we let the test goroutine leak.
-	_ = done
 }
 
 func TestEventsCmdResolvesSubstringAndArchive(t *testing.T) {

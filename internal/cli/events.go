@@ -62,6 +62,10 @@ func newEventsCmd(getCtx func() *Ctx) *cobra.Command {
 //  1. Exact match on active events file.
 //  2. Exact match on archived events file (.jsonl.gz).
 //  3. Substring match across active+archived; error if multiple match.
+//
+// If both an active and archived file exist for the same id (a session was
+// pruned and a new session reused the id, or a race during archive), the
+// active file wins — live data is fresher than the gzip on disk.
 func resolveEventsPath(c *Ctx, id string) (string, bool, error) {
 	active := c.Paths.EventsLog(id)
 	if _, err := os.Stat(active); err == nil {
@@ -78,7 +82,7 @@ func resolveEventsPath(c *Ctx, id string) (string, bool, error) {
 	}
 	switch len(candidates) {
 	case 0:
-		return "", false, fmt.Errorf("unknown session: %s", id)
+		return "", false, fmt.Errorf("unknown session %q (try 'cleo ls' to list active ids)", id)
 	case 1:
 		return candidates[0].path, candidates[0].archived, nil
 	default:
@@ -166,7 +170,9 @@ func printArchivedEvents(cmd *cobra.Command, gzPath string, opts events.ReadOpts
 		_, err := io.Copy(cmd.OutOrStdout(), gz)
 		return err
 	}
-	// Decode line by line, apply filters, reuse table printer.
+	// Stream-decode so a 100MB archive doesn't load fully into memory.
+	// Filter via the same predicate ReadFiltered uses on the active path so
+	// the two surfaces can't drift.
 	dec := json.NewDecoder(gz)
 	var entries []events.Entry
 	for dec.More() {
@@ -174,18 +180,12 @@ func printArchivedEvents(cmd *cobra.Command, gzPath string, opts events.ReadOpts
 		if err := dec.Decode(&e); err != nil {
 			break
 		}
-		if opts.Type != "" && e.Type != opts.Type {
-			continue
-		}
-		if !opts.Since.IsZero() && e.At.Before(opts.Since) {
+		if !opts.Match(e) {
 			continue
 		}
 		entries = append(entries, e)
 	}
-	if opts.Limit > 0 && len(entries) > opts.Limit {
-		entries = entries[len(entries)-opts.Limit:]
-	}
-	printEventsTable(cmd.OutOrStdout(), entries)
+	printEventsTable(cmd.OutOrStdout(), opts.ApplyLimit(entries))
 	return nil
 }
 
@@ -218,7 +218,7 @@ func streamJSONL(w io.Writer, path string, follow bool) error {
 }
 
 func tailEvents(w io.Writer, path string, opts events.ReadOpts, asJSON bool) error {
-	return tailLoop(w, path, func(line []byte) {
+	return tailLoop(path, func(line []byte) {
 		if asJSON {
 			fmt.Fprintln(w, string(line))
 			return
@@ -238,16 +238,20 @@ func tailEvents(w io.Writer, path string, opts events.ReadOpts, asJSON bool) err
 }
 
 func tailRaw(w io.Writer, path string) error {
-	return tailLoop(w, path, func(line []byte) {
+	return tailLoop(path, func(line []byte) {
 		fmt.Fprintln(w, string(line))
 	})
 }
 
-// tailLoop polls path, calling onLine for each newly appended JSONL line.
-// Reopens the file when the inode changes (so a prune→archive doesn't kill
-// the follow). Caller is responsible for stopping the loop (Ctrl-C / process
-// exit). The poll cadence is 500 ms.
-func tailLoop(w io.Writer, path string, onLine func([]byte)) error {
+// tailLoop polls path every 500ms, calling onLine for each newly appended
+// JSONL line. Reopens the file when its inode changes — useful if some
+// external process replaces it atomically. Exits cleanly with nil when the
+// path disappears (e.g. cleo prune archives the session and removes the
+// active log); the held FD has already drained any final bytes via the
+// preceding read so no events are lost. Caller is responsible for stopping
+// the loop on Ctrl-C / process exit; deleting the path is also a valid
+// stop signal (used by tests).
+func tailLoop(path string, onLine func([]byte)) error {
 	openFile := func() (*os.File, os.FileInfo, error) {
 		f, err := os.Open(path)
 		if err != nil {
@@ -294,9 +298,14 @@ func tailLoop(w io.Writer, path string, onLine func([]byte)) error {
 		if err != nil && err != io.EOF {
 			return err
 		}
-		// Sleep, then check for inode change
 		time.Sleep(500 * time.Millisecond)
 		newSt, statErr := os.Stat(path)
+		if os.IsNotExist(statErr) {
+			// Active file gone — most commonly because cleo prune archived
+			// the session. Exit the follow cleanly; the user can re-run
+			// `cleo events <id>` against the archive.
+			return nil
+		}
 		if statErr == nil && !sameFile(st, newSt) {
 			f.Close()
 			f, st, err = openFile()

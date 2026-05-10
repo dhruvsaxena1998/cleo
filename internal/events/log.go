@@ -72,6 +72,28 @@ type ReadOpts struct {
 	Limit int
 }
 
+// Match reports whether e satisfies the Type and Since predicates. Limit is
+// a tail-slicing concern handled by ApplyLimit, not Match.
+func (o ReadOpts) Match(e Entry) bool {
+	if o.Type != "" && e.Type != o.Type {
+		return false
+	}
+	if !o.Since.IsZero() && e.At.Before(o.Since) {
+		return false
+	}
+	return true
+}
+
+// ApplyLimit returns the last Limit entries from xs, or xs unchanged when
+// Limit is zero (no limit). The caller is expected to have already filtered
+// via Match.
+func (o ReadOpts) ApplyLimit(xs []Entry) []Entry {
+	if o.Limit > 0 && len(xs) > o.Limit {
+		return xs[len(xs)-o.Limit:]
+	}
+	return xs
+}
+
 func (l *Log) ReadFiltered(opts ReadOpts) ([]Entry, error) {
 	f, err := os.Open(l.path)
 	if os.IsNotExist(err) {
@@ -90,10 +112,7 @@ func (l *Log) ReadFiltered(opts ReadOpts) ([]Entry, error) {
 		if err := json.Unmarshal(sc.Bytes(), &e); err != nil {
 			continue
 		}
-		if opts.Type != "" && e.Type != opts.Type {
-			continue
-		}
-		if !opts.Since.IsZero() && e.At.Before(opts.Since) {
+		if !opts.Match(e) {
 			continue
 		}
 		out = append(out, e)
@@ -101,8 +120,5 @@ func (l *Log) ReadFiltered(opts ReadOpts) ([]Entry, error) {
 	if err := sc.Err(); err != nil {
 		return nil, err
 	}
-	if opts.Limit > 0 && len(out) > opts.Limit {
-		out = out[len(out)-opts.Limit:]
-	}
-	return out, nil
+	return opts.ApplyLimit(out), nil
 }
