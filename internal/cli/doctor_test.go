@@ -78,6 +78,28 @@ func TestDiagnoseHooksReportsMissingCodexHook(t *testing.T) {
 	}
 }
 
+func TestDoctorPrintsRecentTraces(t *testing.T) {
+	dir := t.TempDir()
+	tracePath := filepath.Join(dir, "hook-trace.log")
+	rows := []string{
+		`{"at":"2026-05-01T12:00:00Z","protocol":"claude","event":"SessionStart","resolved_session":"sid-a","result":"resolved","fallback_reason":"env_present"}`,
+		`{"at":"2026-05-01T12:00:01Z","protocol":"claude","event":"PreToolUse","resolved_session":"sid-a","result":"resolved","fallback_reason":"env_present"}`,
+		`{"at":"2026-05-01T12:00:02Z","protocol":"claude","event":"Stop","resolved_session":"sid-a","result":"resolved","fallback_reason":"env_present"}`,
+		`{"at":"2026-05-01T12:00:03Z","protocol":"claude","event":"Notification","resolved_session":"sid-a","result":"resolved","fallback_reason":"env_present"}`,
+	}
+	if err := os.WriteFile(tracePath, []byte(strings.Join(rows, "\n")+"\n"), 0o644); err != nil {
+		t.Fatalf("write trace: %v", err)
+	}
+
+	got := recentHookTraces(tracePath, "claude", 3)
+	if len(got) != 3 {
+		t.Fatalf("len: want 3, got %d", len(got))
+	}
+	if got[0].Event != "Notification" { // most recent first
+		t.Errorf("ordering: want Notification first, got %s", got[0].Event)
+	}
+}
+
 func TestPrintDoctorReportListsCodexApprovalHooks(t *testing.T) {
 	var out bytes.Buffer
 

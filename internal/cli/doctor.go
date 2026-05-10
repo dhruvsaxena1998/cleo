@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
@@ -36,23 +37,31 @@ func newDoctorCmd(getCtx func() *Ctx) *cobra.Command {
 }
 
 type doctorReport struct {
-	Checks []doctorCheck
+	Checks        []doctorCheck
+	HookTracePath string
 }
 
 type doctorCheck struct {
-	Label  string
-	OK     bool
-	Detail string
+	Label    string
+	OK       bool
+	Detail   string
+	Protocol string // "claude" | "codex" | "" — used to attach trace inline
 }
 
 func diagnoseHooks(claudeSettingsPath, codexHooksPath, codexConfigPath, hookTracePath string) doctorReport {
-	return doctorReport{Checks: []doctorCheck{
-		checkClaudeHooks(claudeSettingsPath),
-		checkCodexFeatureFlag(codexConfigPath),
-		checkCodexHooks(codexHooksPath),
-		checkHookTrace(hookTracePath, "claude"),
-		checkHookTrace(hookTracePath, "codex"),
-	}}
+	claude := checkClaudeHooks(claudeSettingsPath)
+	claude.Protocol = "claude"
+	codexFlag := checkCodexFeatureFlag(codexConfigPath)
+	codexHooks := checkCodexHooks(codexHooksPath)
+	codexHooks.Protocol = "codex"
+	claudeAct := checkHookTrace(hookTracePath, "claude")
+	claudeAct.Protocol = "claude"
+	codexAct := checkHookTrace(hookTracePath, "codex")
+	codexAct.Protocol = "codex"
+	return doctorReport{
+		Checks:        []doctorCheck{claude, codexFlag, codexHooks, claudeAct, codexAct},
+		HookTracePath: hookTracePath,
+	}
 }
 
 func checkClaudeHooks(path string) doctorCheck {
@@ -170,6 +179,48 @@ func lastHookTrace(path, protocol string) (hookTraceRow, error) {
 	return last, nil
 }
 
+// recentHookTraces returns the n most recent trace rows for the given protocol,
+// ordered most-recent-first.
+func recentHookTraces(path, protocol string, n int) []hookTraceRow {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+	var rows []hookTraceRow
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		var row hookTraceRow
+		if err := json.Unmarshal(scanner.Bytes(), &row); err != nil {
+			continue
+		}
+		if row.Protocol == protocol {
+			rows = append(rows, row)
+		}
+	}
+	// Reverse to most-recent-first; truncate to n
+	for i, j := 0, len(rows)-1; i < j; i, j = i+1, j-1 {
+		rows[i], rows[j] = rows[j], rows[i]
+	}
+	if len(rows) > n {
+		rows = rows[:n]
+	}
+	return rows
+}
+
+// truncRight truncates s to at most n display columns, appending an ellipsis
+// when truncation occurs. Naive byte-based truncation; safe for ASCII session
+// IDs and event labels.
+func truncRight(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	if n <= 0 {
+		return ""
+	}
+	return s[:n-1] + "…"
+}
+
 func protocolTitle(protocol string) string {
 	switch protocol {
 	case "codex":
@@ -217,6 +268,19 @@ func printDoctorReport(w io.Writer, report doctorReport) {
 			symbol = warnStyle.Render("✗")
 		}
 		fmt.Fprintf(w, "%s %s: %s\n", symbol, check.Label, check.Detail)
+		if strings.Contains(check.Label, "hook activity") && check.Protocol != "" {
+			traces := recentHookTraces(report.HookTracePath, check.Protocol, 3)
+			if len(traces) > 0 {
+				fmt.Fprintln(w, "  Last hook traces:")
+				for _, tr := range traces {
+					ts := tr.At
+					if t, err := time.Parse(time.RFC3339, tr.At); err == nil {
+						ts = t.Local().Format("15:04:05")
+					}
+					fmt.Fprintf(w, "    %s  %-18s %-40s %s\n", ts, tr.Event, truncRight(tr.ResolvedSession, 40), tr.FallbackReason)
+				}
+			}
+		}
 	}
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Codex approval check:")
