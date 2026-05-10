@@ -472,6 +472,7 @@ html { scroll-behavior: smooth; }
         <ol>
           <li><a href="#prerequisites">Prerequisites</a></li>
           <li><a href="#tap-install">Homebrew</a></li>
+          <li><a href="#upgrade">Upgrade</a></li>
           <li><a href="#go-install">Go install</a></li>
           <li><a href="#verify">Verify</a></li>
           <li><a href="#uninstall">Uninstall</a></li>
@@ -532,6 +533,10 @@ $ brew tap <span class="a">dhruvsaxena1998/tap</span>
 <span class="c"># 2. install cleo</span>
 $ brew install <span class="a">cleo</span></pre>
 
+      <h3 id="upgrade">Upgrade</h3>
+<pre><span class="c"># fetch the latest tap and upgrade cleo</span>
+$ brew update &amp;&amp; brew upgrade <span class="a">cleo</span></pre>
+
       <h3 id="go-install">Go install</h3>
       <p>If you already have Go on your machine, this is the shortest path:</p>
 <pre>$ go install <span class="a">github.com/dhruvsaxena1998/cleo/cmd/cleo@latest</span></pre>
@@ -542,7 +547,7 @@ $ ./bin/cleo --version</pre>
 
       <h3 id="verify">Verify the install</h3>
 <pre>$ cleo --version
-<span class="ok">0.1.0-alpha.1</span></pre>
+<span class="ok">0.1.0-beta.1</span></pre>
 
       <p class="muted">If <code>cleo --version</code> prints anything else, see <a href="#troubleshooting" class="link">Troubleshooting</a>.</p>
 

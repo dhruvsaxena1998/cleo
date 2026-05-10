@@ -29,6 +29,15 @@ Cleo is intentionally local-first. It stores its state in your config directory,
 
 ## Install
 
+**Homebrew (recommended):**
+
+```bash
+brew tap dhruvsaxena1998/tap
+brew install cleo
+```
+
+**Go install:**
+
 ```bash
 go install github.com/dhruvsaxena1998/cleo/cmd/cleo@latest
 ```
@@ -38,6 +47,12 @@ For local development from this repository:
 ```bash
 make build
 ./bin/cleo --version
+```
+
+## Upgrade
+
+```bash
+brew update && brew upgrade cleo
 ```
 
 ## Quick Start
