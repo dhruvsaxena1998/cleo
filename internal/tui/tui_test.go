@@ -9,6 +9,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/exp/teatest"
 
 	"github.com/dhruvsaxena1998/cleo/internal/cli"
@@ -245,4 +246,30 @@ func containsType(msgs []tea.Msg, want tea.Msg) bool {
 		}
 	}
 	return false
+}
+
+// visualWidth ignores ANSI sequences when measuring terminal cell width.
+func visualWidth(s string) int { return lipgloss.Width(s) }
+
+// TestPreviewLinesAreTruncatedToPanelWidth pins the v0.2 fix for Bug D — long
+// captured lines used to wrap and shove the panel border off-screen. The
+// preview body now truncates each line to the panel inner width.
+func TestPreviewLinesAreTruncatedToPanelWidth(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	long := strings.Repeat("X", 200)
+	m.paneCache = map[string]string{"s1": long + "\nshort\n"}
+	m.sessions = []state.Session{{ID: "s1", State: state.Running, ProjectID: "p"}}
+	m.projects = []projects.Project{{ID: "p"}}
+	m.expanded = map[string]bool{"p": true}
+	m.cursor.projectIdx = 0
+	m.cursor.agentIdx = 0
+	m.width, m.height = 80, 30
+
+	out := m.renderPreviewPanel(40, 20, m.sessions[0], true)
+	for _, line := range strings.Split(out, "\n") {
+		if visualWidth(line) > 40 {
+			t.Errorf("line wider than panel: %q (%d cells)", line, visualWidth(line))
+		}
+	}
 }

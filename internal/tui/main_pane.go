@@ -164,7 +164,10 @@ func (m Model) renderPreviewPanel(w, h int, sess state.Session, has bool) string
 	shown := allLines[start:]
 	body := make([]string, len(shown))
 	for i, l := range shown {
-		body[i] = dimmed.Render(l)
+		// Truncate to the panel inner width before styling: PanelBox does its
+		// own clamp but feeding it pre-styled, over-wide content can wrap and
+		// break the border layout in some terminals.
+		body[i] = dimmed.Render(truncateWidth(l, w-4))
 	}
 	return m.theme.PanelBox("Terminal Preview", hint, body, w, h)
 }
