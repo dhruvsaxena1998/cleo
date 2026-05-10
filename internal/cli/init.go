@@ -16,6 +16,7 @@ import (
 const (
 	hookClaude = "claude"
 	hookCodex  = "codex"
+	hookPi     = "pi"
 )
 
 func newInitCmd(getCtx func() *Ctx) *cobra.Command {
@@ -75,6 +76,17 @@ func newInitCmd(getCtx func() *Ctx) *cobra.Command {
 						NeedsCodexReview: true,
 						ReviewHooks:      hooks.CodexEvents(),
 						ReviewCommand:    fmt.Sprintf("%s hook codex", cleoBin),
+					})
+				case hookPi:
+					if err := (hooks.PiProtocol{}).Install(cleoBin, force); err != nil {
+						return err
+					}
+					results = append(results, initInstallResult{
+						Name: "Pi",
+						Files: []string{
+							fmt.Sprintf("extension: %s", filepath.Join(home, ".pi", "agent", "extensions", "cleo.ts")),
+						},
+						InstalledHooks: hooks.PiEvents(),
 					})
 				}
 			}
@@ -154,6 +166,7 @@ func promptHookSelection(selected *[]string) error {
 				Options(
 					huh.NewOption("Claude Code  (~/.claude/settings.json)", hookClaude),
 					huh.NewOption("Codex        (~/.codex/hooks.json)", hookCodex),
+					huh.NewOption("Pi           (~/.pi/agent/extensions/cleo.ts)", hookPi),
 				).
 				Value(selected),
 		),
