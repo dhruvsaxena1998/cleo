@@ -372,8 +372,13 @@ footer {
 @media (max-width: 640px) {
   .container { padding: 0 22px; }
   .nav-inner { padding: 14px 22px; }
+  .nav-links { gap: 14px; }
   .nav-links a:not(.gh):not(.active) { display: none; }
-  .nav-links .gh { padding: 7px 10px; gap: 0; }
+  .nav-links .gh {
+    width: 34px; height: 34px;
+    padding: 0; gap: 0;
+    justify-content: center;
+  }
   .nav-links .gh .gh-label { display: none; }
   .cmd-row { grid-template-columns: 1fr; gap: 4px; padding: 14px 18px; }
   .content section { margin-bottom: 48px; }
