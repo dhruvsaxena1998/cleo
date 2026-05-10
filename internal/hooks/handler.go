@@ -49,7 +49,7 @@ func Handle(d Deps, protocol, event string, payload []byte) error {
 		return err
 	}
 
-	sid := resolveSession(d, proto, payload)
+	sid := resolveSession(d, proto, event, payload)
 	if sid == "" {
 		return nil
 	}
@@ -65,8 +65,8 @@ func Handle(d Deps, protocol, event string, payload []byte) error {
 // resolveSession finds the cleo session ID for an incoming hook.
 // Strategy A: CLEO_SESSION_ID env var (all protocols).
 // Strategy B: cwd lookup (only when proto.UsesCwdFallback() is true).
-func resolveSession(d Deps, proto Protocol, payload []byte) string {
-	trace := hookTrace{Protocol: proto.Name(), EnvSession: os.Getenv("CLEO_SESSION_ID") != ""}
+func resolveSession(d Deps, proto Protocol, event string, payload []byte) string {
+	trace := hookTrace{Protocol: proto.Name(), Event: event, EnvSession: os.Getenv("CLEO_SESSION_ID") != ""}
 
 	sid, err := d.Now()
 	if err == nil {
@@ -116,7 +116,7 @@ func resolveSession(d Deps, proto Protocol, payload []byte) string {
 		trace.Result = "ignored:no_session"
 		logHookTrace(d.Paths, trace)
 		if trace.FallbackReason == "no_match" {
-			logHookErr(d.Paths, proto.Name(), "", fmt.Errorf("no session matched cwd=%q", trace.Cwd))
+			logHookErr(d.Paths, proto.Name(), event, fmt.Errorf("no session matched cwd=%q", trace.Cwd))
 		}
 		return ""
 	}
@@ -127,7 +127,7 @@ func resolveSession(d Deps, proto Protocol, payload []byte) string {
 
 // applyNormalized applies a NormalizedEvent to state, event log, and sound.
 func applyNormalized(d Deps, sid string, norm NormalizedEvent) error {
-	if !norm.LogOnly {
+	if !norm.LogOnly && d.State != nil {
 		if _, err := d.State.Apply(sid, norm.StateEvent, norm.Message); err != nil {
 			return err
 		}
