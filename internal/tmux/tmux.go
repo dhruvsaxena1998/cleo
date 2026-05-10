@@ -96,11 +96,18 @@ func (c *Client) KillServer() error {
 	return c.cmd("kill-server").Run()
 }
 
-func (c *Client) CapturePane(name string, _ int) (string, error) {
-	// No -S: capture the current visible pane content only (not scrollback).
-	// Full-screen TUIs like Claude Code fill the whole pane, so this gives us
-	// the actual rendered interface rather than a slice of raw history.
-	out, err := c.cmd("capture-pane", "-p", "-t", name+":.").Output()
+// capturePaneArgs builds the argv for `tmux capture-pane` honoring the lines
+// parameter via -S -<lines> (start N lines back from the bottom of history).
+// Falls back to 30 lines when lines <= 0.
+func capturePaneArgs(name string, lines int) []string {
+	if lines <= 0 {
+		lines = 30
+	}
+	return []string{"capture-pane", "-p", "-S", fmt.Sprintf("-%d", lines), "-t", name + ":."}
+}
+
+func (c *Client) CapturePane(name string, lines int) (string, error) {
+	out, err := c.cmd(capturePaneArgs(name, lines)...).Output()
 	return string(out), err
 }
 
