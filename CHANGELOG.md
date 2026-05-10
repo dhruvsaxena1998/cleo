@@ -7,9 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-05-10
+## [0.1.0-beta.1] - 2026-05-10
 
-Trust-it-for-daily-use release: stability fixes, observability tooling, and TUI polish driven by friction surfaced during real cleo use. See [docs/superpowers/specs/2026-05-10-v02-design.md](docs/superpowers/specs/2026-05-10-v02-design.md) for the design rationale.
+Beta on the road to v0.1.0 stable. Stability fixes, observability tooling, and TUI polish driven by friction surfaced during real cleo use. See [docs/superpowers/specs/2026-05-10-v02-design.md](docs/superpowers/specs/2026-05-10-v02-design.md) for the design rationale (the spec was authored under a "v0.2" working title before the version was reframed; the content still applies).
 
 ### Added
 - Hook trace log entries now include a `fallback_reason` field documenting how the session was resolved (`env_present`, `env_missing`, `env_unknown_session`, `no_match`). Surfaced by `cleo doctor` in v0.2.
