@@ -50,6 +50,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, km.Quit):
 		return m, tea.Quit
 	case key.Matches(msg, km.Filter):
+		m.status = ""
 		m.mode = ModeFilter
 		return m, nil
 	case key.Matches(msg, km.New):
@@ -177,6 +178,7 @@ func (m Model) openSpawnPopup() (Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
+	m.status = ""
 	agents := []string{}
 	for k := range m.ctx.Config.Agents {
 		agents = append(agents, k)
@@ -229,6 +231,7 @@ func (m Model) confirmKill() (Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
+	m.status = ""
 	m.popup = NewConfirmPopup(fmt.Sprintf("kill %q?", sess.ID), sess.ID, m.theme)
 	m.mode = ModePopup
 	return m, m.popup.Init()
@@ -239,6 +242,7 @@ func (m Model) openRenamePopup() (Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
+	m.status = ""
 	if sess.State.IsFinished() {
 		m.status = fmt.Sprintf("%s is %s; finished sessions cannot be renamed", sess.ID, sess.State)
 		return m, nil
@@ -249,6 +253,7 @@ func (m Model) openRenamePopup() (Model, tea.Cmd) {
 }
 
 func (m Model) openHelpPopup() (Model, tea.Cmd) {
+	m.status = ""
 	m.popup = NewHelpPopup(m.theme)
 	m.mode = ModePopup
 	return m, m.popup.Init()

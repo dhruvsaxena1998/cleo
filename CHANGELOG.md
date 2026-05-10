@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Reconciler now annotates a spawning-timeout advance with `LastMessage = "advanced from spawning by reconciler (no startup hook seen)"`, surfaced in the TUI events panel.
 - `cleo ls` honors `retention.spawning_timeout` (previously hardcoded to 30s).
+- Esc has a predictable hierarchy: closes the active popup, then exits filter mode (clearing the query), then clears the status line. `q` no longer quits while inside a popup or filter.
+- Status line clears on any user-initiated state change (cursor move, expand/collapse, popup open, filter entry), not just navigation.
 
 ## [0.1.0-alpha.1] - 2026-05-09
 

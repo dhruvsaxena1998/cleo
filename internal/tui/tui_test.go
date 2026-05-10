@@ -389,6 +389,54 @@ func TestEscInNormalClearsStatus(t *testing.T) {
 	}
 }
 
+// TestStatusClearsOnExpand locks in v0.1 behavior: toggleExpand wipes any
+// stale status line so the next user-initiated state change starts clean.
+func TestStatusClearsOnExpand(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	m.projects = []projects.Project{{ID: "p1"}}
+	m.cursor.projectIdx = 0
+	m.status = "old"
+
+	m2, _ := m.toggleExpand()
+	if m2.status != "" {
+		t.Errorf("status should clear on expand, got %q", m2.status)
+	}
+}
+
+// TestStatusClearsOnFilterEntry covers the v0.2 status auto-clear extension:
+// pressing '/' to enter filter mode must wipe a stale status line, just like
+// cursor moves and expand/collapse already do.
+func TestStatusClearsOnFilterEntry(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	m.status = "old"
+
+	m2 := updateAsModel(m, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	if m2.mode != ModeFilter {
+		t.Fatalf("'/' should enter filter mode, got mode=%v", m2.mode)
+	}
+	if m2.status != "" {
+		t.Errorf("status should clear on filter entry, got %q", m2.status)
+	}
+}
+
+// TestStatusClearsOnPopupOpen covers spec §2.2: opening the help popup is a
+// user-initiated state change and must clear any stale status line.
+func TestStatusClearsOnPopupOpen(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	m.status = "old"
+
+	m2, _ := m.openHelpPopup()
+	if m2.mode != ModePopup {
+		t.Fatalf("openHelpPopup should enter ModePopup, got %v", m2.mode)
+	}
+	if m2.status != "" {
+		t.Errorf("status should clear on help popup open, got %q", m2.status)
+	}
+}
+
 // TestFilterSurvivesExpandCollapse locks in spec §2.2's filter persistence
 // guarantee: toggling a project's expand/collapse state must not clear the
 // filter query, even though the visible row set re-flows.
