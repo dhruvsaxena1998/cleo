@@ -374,6 +374,9 @@ footer {
   .cmd-row { grid-template-columns: 1fr; gap: 4px; padding: 14px 18px; }
   .content section { margin-bottom: 48px; }
   .docs-hero { padding: 32px 0 12px; }
+  .toc { padding: 14px 16px; }
+  .toc ol ol { margin: 4px 0 6px 8px; padding-inline-start: 8px; }
+  .content pre { padding: 14px 16px; font-size: 12.5px; }
 }
 @media (max-width: 380px) {
   .container { padding: 0 16px; }
@@ -383,6 +386,15 @@ footer {
   .nav-version { display: none; }
   .nav-links { gap: 10px; }
   .nav-links .gh { padding: 6px 10px; gap: 6px; font-size: 12px; }
+  .cmd-row { padding: 12px 14px; }
+  .alert { grid-template-columns: 1fr; gap: 8px; padding: 12px 14px; }
+  .alert .ico {
+    display: inline-flex;
+    width: auto; height: auto;
+    border: none;
+    margin-right: 4px;
+    padding: 0;
+  }
 }
 
 /* ─── motion · respects prefers-reduced-motion ─── */
