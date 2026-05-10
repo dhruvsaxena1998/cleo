@@ -318,6 +318,17 @@ a { color: inherit; text-decoration: none; }
   border: 1px solid color-mix(in oklch, var(--term-bg), white 8%);
   overflow: hidden;
 }
+.term::after {
+  content: "";
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 28px;
+  background: linear-gradient(90deg, transparent, var(--term-bg));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 160ms ease;
+  z-index: 2;
+}
 .term-bar {
   display: flex; align-items: center;
   padding: 13px 18px;
@@ -912,9 +923,9 @@ footer ul a:hover { border-bottom-color: var(--accent); color: var(--accent); }
   .install-pill .prompt { padding: 12px 12px 12px 14px; }
   .install-pill code { padding: 12px 14px; }
   .install-pill button { padding: 0 14px; }
-  .term-body { grid-template-columns: 1fr; }
-  .term-pane { border-right: none; border-bottom: 1px solid color-mix(in oklch, var(--term-bg), white 8%); padding: 14px 16px; }
-  .term-pane:last-child { border-bottom: none; }
+  .term::after { opacity: 1; }
+  .term-body { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+  .term-pane { padding: 14px 16px; min-width: 280px; }
   .term-status { padding: 10px 14px; font-size: 11px; flex-wrap: wrap; gap: 8px; }
   .term-status .stats { gap: 12px; font-size: 11px; }
   .term .footer-line { padding: 10px 14px; font-size: 11px; gap: 3px 12px; }
