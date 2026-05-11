@@ -3,10 +3,11 @@ package config
 import "time"
 
 func Defaults_() Config {
+	enabled := true
 	return Config{
 		Defaults: Defaults{DetachKey: "C-b d", DefaultAgent: "claude"},
 		Sound: Sound{
-			Enabled: true,
+			Enabled: &enabled,
 			Volume:  0.7,
 			Events: map[string]string{
 				"session_start":     "start.wav",
@@ -54,6 +55,10 @@ func mergeDefaults(c *Config) {
 	}
 	if c.Defaults.DetachKey == "" {
 		c.Defaults.DetachKey = d.Defaults.DetachKey
+	}
+	if c.Sound.Enabled == nil {
+		enabled := true
+		c.Sound.Enabled = &enabled
 	}
 	if c.Sound.Volume == 0 {
 		c.Sound.Volume = d.Sound.Volume

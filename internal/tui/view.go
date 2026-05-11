@@ -62,7 +62,7 @@ func renderFrame(m Model) string {
 func (m Model) renderTopbar(width int) string {
 	stats := m.sessionStats()
 	sound := lipgloss.NewStyle().Foreground(m.theme.Overlay0).Render("sound on")
-	if !m.ctx.Config.Sound.Enabled {
+	if m.ctx.Config.Sound.Enabled != nil && !*m.ctx.Config.Sound.Enabled {
 		sound = lipgloss.NewStyle().Foreground(m.theme.Overlay0).Render("muted")
 	}
 	left := lipgloss.NewStyle().Foreground(m.theme.Mauve).Bold(true).Render("cleo") +

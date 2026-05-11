@@ -272,7 +272,8 @@ func (m Model) openHelpPopup() (Model, tea.Cmd) {
 
 func (m Model) toggleMute() (Model, tea.Cmd) {
 	cfg := m.ctx.Config
-	cfg.Sound.Enabled = !cfg.Sound.Enabled
+	next := cfg.Sound.Enabled != nil && !*cfg.Sound.Enabled
+	cfg.Sound.Enabled = &next
 	if err := config.Save(m.ctx.Paths.ConfigFile(), cfg); err == nil {
 		m.ctx.Config = cfg
 	}
