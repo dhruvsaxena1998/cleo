@@ -312,4 +312,27 @@ func lastTraceRow(t *testing.T, path string) traceRowForTest {
 	return row
 }
 
+func TestClaudeStaleSidFallsBackToCwd(t *testing.T) {
+	deps, st, _ := setup(t)
+	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
+
+	// Simulate: env var is set but points to a session not in the store (stale).
+	deps.Now = func() (string, error) { return "stale-session-id", nil }
+	deps.FindByCwd = func(cwd, agent string) (string, error) {
+		if cwd == "/tmp/myproject" && agent == "claude" {
+			return "cleo-x-claude-1", nil
+		}
+		return "", nil
+	}
+
+	payload := []byte(`{"cwd":"/tmp/myproject","message":"Need approval"}`)
+	if err := Handle(deps, "claude", "Notification", payload); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := st.Get("cleo-x-claude-1")
+	if got.State != state.WaitingForInput {
+		t.Errorf("expected WaitingForInput via stale-sid CWD fallback, got %s", got.State)
+	}
+}
+
 var errNoSessionTest = errors.New("no session")

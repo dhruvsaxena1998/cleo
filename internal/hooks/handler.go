@@ -87,7 +87,8 @@ func resolveSession(d Deps, proto Protocol, event string, payload []byte) string
 		trace.FallbackReason = "env_missing"
 	}
 
-	if (err != nil || sid == "") && proto.UsesCwdFallback() && d.FindByCwd != nil {
+	staleSid := trace.FallbackReason == "env_unknown_session"
+	if (err != nil || sid == "") && d.FindByCwd != nil && (proto.UsesCwdFallback() || staleSid) {
 		var base struct {
 			Cwd string `json:"cwd"`
 		}
