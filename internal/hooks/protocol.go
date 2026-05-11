@@ -16,7 +16,7 @@ type NormalizedEvent struct {
 	ToolName         string      // written to the event log
 	LogOnly          bool        // log entry only, no state transition (e.g. SubagentStop)
 	LogType          string      // events.Entry.Type override when LogOnly=true; defaults to string(StateEvent)
-	SuppressWhenIdle bool        // suppress sound when session is already Idle (idle-nudge pattern; Claude Notification only)
+	SuppressWhenIdle bool        // suppress sound when session is already Idle; set by protocols that emit idle-nudge events
 }
 
 // Protocol describes a supported agent integration. Implement this interface to

@@ -398,8 +398,11 @@ func TestCodexPermissionRequestFromIdleStillPlaysSound(t *testing.T) {
 	deps, st, _ := setup(t)
 	player := &recordingPlayer{}
 	deps.Sound = player
-	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
-	_, _ = st.Apply("cleo-x-claude-1", state.EvStop, "")
+	// Use a genuine Codex session — the test fires a codex protocol event.
+	_ = st.Put(state.Session{ID: "cleo-x-codex-1", Agent: "codex", State: state.Spawning})
+	deps.Now = func() (string, error) { return "cleo-x-codex-1", nil }
+	_, _ = st.Apply("cleo-x-codex-1", state.EvSessionStart, "")
+	_, _ = st.Apply("cleo-x-codex-1", state.EvStop, "")
 	// Codex PermissionRequest is a genuine blocking request, not an idle nudge.
 	// Sound must play even when the session is Idle.
 	payload := []byte(`{"tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/foo"}}`)
