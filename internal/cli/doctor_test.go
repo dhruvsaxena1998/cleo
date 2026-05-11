@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -36,7 +37,16 @@ func TestDiagnoseHooksReportsHealthySetup(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	report := diagnoseHooks(claudePath, codexHooksPath, codexConfigPath, tracePath)
+	piExtDir := filepath.Join(dir, ".pi", "agent", "extensions")
+	if err := os.MkdirAll(piExtDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	piExtPath := filepath.Join(piExtDir, "cleo.ts")
+	if err := os.WriteFile(piExtPath, []byte(hooks.ExpectedPiEntry()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	report := diagnoseHooks(claudePath, codexHooksPath, codexConfigPath, tracePath, piExtPath)
 	got := fmt.Sprint(report.Checks)
 	for _, want := range []string{"Claude hook activity", "Codex hook activity"} {
 		if !strings.Contains(got, want) {
@@ -73,7 +83,7 @@ func TestDiagnoseHooksReportsMissingCodexHook(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	report := diagnoseHooks(claudePath, codexHooksPath, codexConfigPath, tracePath)
+	report := diagnoseHooks(claudePath, codexHooksPath, codexConfigPath, tracePath, "")
 	got := fmt.Sprint(report.Checks)
 	if !strings.Contains(got, "PreToolUse") {
 		t.Fatalf("expected missing codex hook detail, got %+v", report.Checks)
@@ -144,13 +154,13 @@ func TestDoctorHookConfigDiff(t *testing.T) {
 	}
 
 	d := hookConfigDiff(settings, expectedEntries)
-	if !contains(d.matched, "SessionStart") {
+	if !slices.Contains(d.matched, "SessionStart") {
 		t.Errorf("matched should include SessionStart: %+v", d)
 	}
-	if !contains(d.toAdd, "UserPromptSubmit") {
+	if !slices.Contains(d.toAdd, "UserPromptSubmit") {
 		t.Errorf("toAdd should include UserPromptSubmit: %+v", d)
 	}
-	if !contains(d.conflicts, "PreToolUse") {
+	if !slices.Contains(d.conflicts, "PreToolUse") {
 		t.Errorf("conflicts should include PreToolUse (foreign command on disk): %+v", d)
 	}
 }
@@ -176,7 +186,7 @@ func TestHookConfigDiffEqualityIsKeyOrderInsensitive(t *testing.T) {
 		},
 	}
 	d := hookConfigDiff(settings, expected)
-	if !contains(d.matched, "SessionStart") {
+	if !slices.Contains(d.matched, "SessionStart") {
 		t.Errorf("expected matched (key-order shouldn't affect equality): %+v", d)
 	}
 	if len(d.conflicts) != 0 {
@@ -184,14 +194,48 @@ func TestHookConfigDiffEqualityIsKeyOrderInsensitive(t *testing.T) {
 	}
 }
 
-func contains(xs []string, s string) bool {
-	for _, x := range xs {
-		if x == s {
-			return true
-		}
+func TestDoctorPiCheck_FileMissing(t *testing.T) {
+	dir := t.TempDir()
+	piExtPath := filepath.Join(dir, ".pi", "agent", "extensions", "cleo.ts")
+
+	check := checkPiExtension(piExtPath)
+	if check.OK {
+		t.Error("expected not-ok when extension file is missing")
 	}
-	return false
+	if !strings.Contains(check.Detail, "run cleo init") {
+		t.Errorf("expected 'run cleo init' in detail, got: %q", check.Detail)
+	}
 }
+
+func TestDoctorPiCheck_FileMatches(t *testing.T) {
+	dir := t.TempDir()
+	extDir := filepath.Join(dir, ".pi", "agent", "extensions")
+	_ = os.MkdirAll(extDir, 0o755)
+	dest := filepath.Join(extDir, "cleo.ts")
+	_ = os.WriteFile(dest, []byte(hooks.ExpectedPiEntry()), 0o644)
+
+	check := checkPiExtension(dest)
+	if !check.OK {
+		t.Errorf("expected ok when extension matches template, got: %q", check.Detail)
+	}
+}
+
+func TestDoctorPiCheck_FileStale(t *testing.T) {
+	dir := t.TempDir()
+	extDir := filepath.Join(dir, ".pi", "agent", "extensions")
+	_ = os.MkdirAll(extDir, 0o755)
+	dest := filepath.Join(extDir, "cleo.ts")
+	_ = os.WriteFile(dest, []byte("// old content"), 0o644)
+
+	check := checkPiExtension(dest)
+	if check.OK {
+		t.Error("expected not-ok when extension is stale")
+	}
+	if !strings.Contains(check.Detail, "re-run") && !strings.Contains(check.Detail, "stale") {
+		t.Errorf("expected 'stale' or 're-run' in detail, got: %q", check.Detail)
+	}
+}
+
 
 func TestDoctorQuietSuppressesPassingChecks(t *testing.T) {
 	report := doctorReport{

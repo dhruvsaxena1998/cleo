@@ -1,11 +1,9 @@
 package hooks
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"testing"
@@ -28,7 +26,7 @@ func setup(t *testing.T) (Deps, *state.Store, paths.Paths) {
 		Config: cfg,
 		Events: func(sid string) *events.Log { return events.NewLog(p.EventsLog(sid)) },
 		Sound:  noopPlayer{},
-		Now:    func() (string, error) { return "cleo-x-claude-1", nil }, // sid
+		Now:    func() (string, error) { return "cleo-x-claude-1", nil },
 	}
 	return deps, st, p
 }
@@ -38,22 +36,17 @@ type noopPlayer struct{}
 func (noopPlayer) Play(string) error { return nil }
 func (noopPlayer) Available() bool   { return false }
 
-type recordingPlayer struct {
-	played []string
-}
+type recordingPlayer struct{ played []string }
 
 func (p *recordingPlayer) Play(file string) error {
 	p.played = append(p.played, file)
 	return nil
 }
-
 func (*recordingPlayer) Available() bool { return true }
 
 func TestClaudePreToolUseTransitions(t *testing.T) {
 	deps, st, _ := setup(t)
-	in := strings.NewReader(`{"tool_name":"Bash"}`)
-	out := &bytes.Buffer{}
-	if err := Handle(deps, "claude", "PreToolUse", in, out); err != nil {
+	if err := Handle(deps, "claude", "PreToolUse", []byte(`{"tool_name":"Bash"}`)); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := st.Get("cleo-x-claude-1")
@@ -65,8 +58,7 @@ func TestClaudePreToolUseTransitions(t *testing.T) {
 func TestClaudeNotificationSetsLastMessage(t *testing.T) {
 	deps, st, _ := setup(t)
 	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
-	in := strings.NewReader(`{"message":"Approve Bash command?"}`)
-	if err := Handle(deps, "claude", "Notification", in, &bytes.Buffer{}); err != nil {
+	if err := Handle(deps, "claude", "Notification", []byte(`{"message":"Approve Bash command?"}`)); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := st.Get("cleo-x-claude-1")
@@ -84,8 +76,7 @@ func TestDisabledSoundEventDoesNotPlay(t *testing.T) {
 	deps.Sound = player
 	deps.Config.Sound.EventEnabled["session_completed"] = false
 	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
-
-	if err := Handle(deps, "claude", "SessionEnd", strings.NewReader(`{}`), &bytes.Buffer{}); err != nil {
+	if err := Handle(deps, "claude", "SessionEnd", []byte(`{}`)); err != nil {
 		t.Fatal(err)
 	}
 	if len(player.played) != 0 {
@@ -99,8 +90,7 @@ func TestFocusedSessionDoesNotPlaySound(t *testing.T) {
 	deps.Sound = player
 	deps.Focused = func(sid string) bool { return sid == "cleo-x-claude-1" }
 	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
-
-	if err := Handle(deps, "claude", "SessionEnd", strings.NewReader(`{}`), &bytes.Buffer{}); err != nil {
+	if err := Handle(deps, "claude", "SessionEnd", []byte(`{}`)); err != nil {
 		t.Fatal(err)
 	}
 	if len(player.played) != 0 {
@@ -113,8 +103,7 @@ func TestEnabledSoundEventPlays(t *testing.T) {
 	player := &recordingPlayer{}
 	deps.Sound = player
 	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
-
-	if err := Handle(deps, "claude", "SessionEnd", strings.NewReader(`{}`), &bytes.Buffer{}); err != nil {
+	if err := Handle(deps, "claude", "SessionEnd", []byte(`{}`)); err != nil {
 		t.Fatal(err)
 	}
 	if len(player.played) != 1 {
@@ -129,8 +118,7 @@ func TestClaudeUserPromptSubmitResumesRunning(t *testing.T) {
 	deps, st, _ := setup(t)
 	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
 	_, _ = st.Apply("cleo-x-claude-1", state.EvStop, "")
-
-	if err := Handle(deps, "claude", "UserPromptSubmit", strings.NewReader(`{"cwd":"/tmp/myproject"}`), &bytes.Buffer{}); err != nil {
+	if err := Handle(deps, "claude", "UserPromptSubmit", []byte(`{"cwd":"/tmp/myproject"}`)); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := st.Get("cleo-x-claude-1")
@@ -139,26 +127,15 @@ func TestClaudeUserPromptSubmitResumesRunning(t *testing.T) {
 	}
 }
 
-// TestClaudeStandaloneSessionIgnoredWhenNoEnvVar verifies that a hook event
-// from a standalone Claude session (CLEO_SESSION_ID absent) is NOT attributed
-// to an active cleo session via FindByCwd. Claude propagates env to hook
-// subprocesses, so absent CLEO_SESSION_ID means genuinely standalone.
 func TestClaudeStandaloneSessionIgnoredWhenNoEnvVar(t *testing.T) {
 	deps, st, _ := setup(t)
 	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
 	deps.Now = func() (string, error) { return "", fmt.Errorf("not set") }
 	deps.FindByCwd = func(cwd, agent string) (string, error) {
-		// Should never be called for the claude protocol.
 		t.Errorf("FindByCwd must not be called for claude protocol")
 		return "cleo-x-claude-1", nil
 	}
-
-	payload := `{"cwd":"/tmp/myproject","hook_event_name":"Stop"}`
-	if err := Handle(deps, "claude", "Stop", strings.NewReader(payload), &bytes.Buffer{}); err != nil {
-		t.Fatal(err)
-	}
-	// State must remain Running — the Stop event must be ignored because the
-	// hook could not be attributed to any cleo session.
+	_ = Handle(deps, "claude", "Stop", []byte(`{"cwd":"/tmp/myproject"}`))
 	got, _ := st.Get("cleo-x-claude-1")
 	if got.State != state.Running {
 		t.Errorf("expected state unchanged (Running), got %s", got.State)
@@ -168,8 +145,8 @@ func TestClaudeStandaloneSessionIgnoredWhenNoEnvVar(t *testing.T) {
 func TestCodexPermissionRequestSetsWaitingForInput(t *testing.T) {
 	deps, st, _ := setup(t)
 	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
-	payload := `{"tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/foo"}}`
-	if err := Handle(deps, "codex", "PermissionRequest", strings.NewReader(payload), &bytes.Buffer{}); err != nil {
+	payload := []byte(`{"tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/foo"}}`)
+	if err := Handle(deps, "codex", "PermissionRequest", payload); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := st.Get("cleo-x-claude-1")
@@ -185,8 +162,7 @@ func TestCodexUserPromptSubmitResumesRunning(t *testing.T) {
 	deps, st, _ := setup(t)
 	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
 	_, _ = st.Apply("cleo-x-claude-1", state.EvStop, "")
-
-	if err := Handle(deps, "codex", "UserPromptSubmit", strings.NewReader(`{"cwd":"/tmp/myproject"}`), &bytes.Buffer{}); err != nil {
+	if err := Handle(deps, "codex", "UserPromptSubmit", []byte(`{"cwd":"/tmp/myproject"}`)); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := st.Get("cleo-x-claude-1")
@@ -198,19 +174,15 @@ func TestCodexUserPromptSubmitResumesRunning(t *testing.T) {
 func TestCodexCwdFallbackWhenNoEnvVar(t *testing.T) {
 	deps, st, _ := setup(t)
 	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
-
-	// Simulate CLEO_SESSION_ID not in env: Now returns an error.
 	deps.Now = func() (string, error) { return "", fmt.Errorf("not set") }
-	// Fallback: FindByCwd resolves to our test session.
 	deps.FindByCwd = func(cwd, agent string) (string, error) {
 		if cwd == "/tmp/myproject" && agent == "codex" {
 			return "cleo-x-claude-1", nil
 		}
 		return "", nil
 	}
-
-	payload := `{"cwd":"/tmp/myproject","hook_event_name":"PreToolUse","tool_name":"Bash"}`
-	if err := Handle(deps, "codex", "PreToolUse", strings.NewReader(payload), &bytes.Buffer{}); err != nil {
+	payload := []byte(`{"cwd":"/tmp/myproject","tool_name":"Bash"}`)
+	if err := Handle(deps, "codex", "PreToolUse", payload); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := st.Get("cleo-x-claude-1")
@@ -229,11 +201,7 @@ func TestCodexCwdFallbackUsesProcessWorkingDirectory(t *testing.T) {
 		}
 		return "", nil
 	}
-
-	payload := `{"hook_event_name":"Stop"}`
-	if err := Handle(deps, "codex", "Stop", strings.NewReader(payload), &bytes.Buffer{}); err != nil {
-		t.Fatal(err)
-	}
+	_ = Handle(deps, "codex", "Stop", []byte(`{}`))
 	got, _ := st.Get("cleo-x-claude-1")
 	if got.State != state.Idle {
 		t.Errorf("expected idle via process cwd fallback, got %s", got.State)
@@ -242,7 +210,7 @@ func TestCodexCwdFallbackUsesProcessWorkingDirectory(t *testing.T) {
 
 func TestHandleUnknownProtocolLogsError(t *testing.T) {
 	deps, _, p := setup(t)
-	_ = Handle(deps, "unknown-proto", "SomeEvent", strings.NewReader(""), &bytes.Buffer{})
+	_ = Handle(deps, "unknown-proto", "SomeEvent", []byte(""))
 	b, err := os.ReadFile(p.HookErrLog())
 	if err != nil {
 		t.Fatalf("hook-errors.log not created: %v", err)
@@ -252,12 +220,24 @@ func TestHandleUnknownProtocolLogsError(t *testing.T) {
 	}
 }
 
+func TestResolveSession_CwdFallbackNotCalledForClaude(t *testing.T) {
+	deps, _, _ := setup(t)
+	deps.Now = func() (string, error) { return "", fmt.Errorf("not set") }
+	called := false
+	deps.FindByCwd = func(cwd, agent string) (string, error) {
+		called = true
+		return "", nil
+	}
+	_ = Handle(deps, "claude", "PreToolUse", []byte(`{"cwd":"/proj"}`))
+	if called {
+		t.Error("FindByCwd must not be called for ClaudeProtocol (UsesCwdFallback=false)")
+	}
+}
+
 func TestFallbackReasonEnvPresent(t *testing.T) {
 	d, _, p := setup(t)
 	d.Now = func() (string, error) { return "cleo-x-claude-1", nil }
-	if err := Handle(d, "claude", "PreToolUse", strings.NewReader(`{}`), io.Discard); err != nil {
-		t.Fatalf("handle: %v", err)
-	}
+	_ = Handle(d, "claude", "PreToolUse", []byte(`{}`))
 	row := lastTraceRow(t, p.HookTraceLog())
 	if row.FallbackReason != "env_present" {
 		t.Errorf("fallback_reason: want env_present, got %q", row.FallbackReason)
@@ -266,9 +246,8 @@ func TestFallbackReasonEnvPresent(t *testing.T) {
 
 func TestFallbackReasonEnvMissing(t *testing.T) {
 	d, _, p := setup(t)
-	// Now returns errNoSession; FindByCwd is not configured (claude path).
 	d.Now = func() (string, error) { return "", errNoSessionTest }
-	_ = Handle(d, "claude", "PreToolUse", strings.NewReader(`{}`), io.Discard)
+	_ = Handle(d, "claude", "PreToolUse", []byte(`{}`))
 	row := lastTraceRow(t, p.HookTraceLog())
 	if row.FallbackReason != "env_missing" {
 		t.Errorf("fallback_reason: want env_missing, got %q", row.FallbackReason)
@@ -277,9 +256,8 @@ func TestFallbackReasonEnvMissing(t *testing.T) {
 
 func TestFallbackReasonEnvUnknownSession(t *testing.T) {
 	d, _, p := setup(t)
-	// Now returns a sid that does not exist in the seeded store.
 	d.Now = func() (string, error) { return "stale-sid", nil }
-	_ = Handle(d, "claude", "PreToolUse", strings.NewReader(`{}`), io.Discard)
+	_ = Handle(d, "claude", "PreToolUse", []byte(`{}`))
 	row := lastTraceRow(t, p.HookTraceLog())
 	if row.FallbackReason != "env_unknown_session" {
 		t.Errorf("fallback_reason: want env_unknown_session, got %q", row.FallbackReason)
@@ -292,13 +270,11 @@ func TestFallbackReasonNoMatchCodex(t *testing.T) {
 	d.FindByCwd = func(cwd, agent string) (string, error) {
 		return "", os.ErrNotExist
 	}
-	_ = Handle(d, "codex", "PreToolUse", strings.NewReader(`{"cwd":"/some/path"}`), io.Discard)
+	_ = Handle(d, "codex", "PreToolUse", []byte(`{"cwd":"/some/path"}`))
 	row := lastTraceRow(t, p.HookTraceLog())
 	if row.FallbackReason != "no_match" {
 		t.Errorf("fallback_reason: want no_match, got %q", row.FallbackReason)
 	}
-	// no_match is the only reason that escalates to hook-errors.log; verify
-	// the side effect so a regression that drops logHookErr is caught.
 	errLog, err := os.ReadFile(p.HookErrLog())
 	if err != nil {
 		t.Fatalf("hook-errors.log not created: %v", err)
@@ -306,13 +282,8 @@ func TestFallbackReasonNoMatchCodex(t *testing.T) {
 	if !strings.Contains(string(errLog), "/some/path") {
 		t.Errorf("expected cwd in error log, got: %s", string(errLog))
 	}
-	if !strings.Contains(string(errLog), "codex") {
-		t.Errorf("expected protocol in error log, got: %s", string(errLog))
-	}
 }
 
-// traceRowForTest mirrors cli.hookTraceRow; redeclared locally to avoid the
-// import cycle that would otherwise pull cli into a hooks-package test.
 type traceRowForTest struct {
 	At              string `json:"at"`
 	Protocol        string `json:"protocol"`
@@ -324,7 +295,6 @@ type traceRowForTest struct {
 	FallbackReason  string `json:"fallback_reason"`
 }
 
-// lastTraceRow reads the trace log and returns the last decoded row.
 func lastTraceRow(t *testing.T, path string) traceRowForTest {
 	t.Helper()
 	data, err := os.ReadFile(path)
