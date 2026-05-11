@@ -124,3 +124,25 @@ func TestSoundEnabledFalseWhenExplicitlySet(t *testing.T) {
 		t.Error("sound should be disabled when enabled = false is set explicitly")
 	}
 }
+
+func TestUISettingsPreservedWhenSidebarWidthAbsent(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+
+	// User sets event_log_lines but not sidebar_width.
+	content := "[ui]\nevent_log_lines = 50\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.UI.EventLogLines != 50 {
+		t.Errorf("event_log_lines = 50 should be preserved, got %d", c.UI.EventLogLines)
+	}
+	if c.UI.SidebarWidth == 0 {
+		t.Error("sidebar_width should be filled from defaults when absent")
+	}
+}

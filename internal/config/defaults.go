@@ -78,12 +78,20 @@ func mergeDefaults(c *Config) {
 	if c.Agents == nil {
 		c.Agents = d.Agents
 	}
+	// UI: merge field-by-field so user settings are not overwritten.
+	// ShowPanePreview is not merged here — bool zero value (false) is
+	// indistinguishable from explicit false without a *bool refactor.
 	if c.UI.SidebarWidth == 0 {
-		userTheme := c.UI.Theme
-		c.UI = d.UI
-		if userTheme != "" {
-			c.UI.Theme = userTheme
-		}
+		c.UI.SidebarWidth = d.UI.SidebarWidth
+	}
+	if c.UI.PanePreviewLines == 0 {
+		c.UI.PanePreviewLines = d.UI.PanePreviewLines
+	}
+	if c.UI.PanePreviewInterval == 0 {
+		c.UI.PanePreviewInterval = d.UI.PanePreviewInterval
+	}
+	if c.UI.EventLogLines == 0 {
+		c.UI.EventLogLines = d.UI.EventLogLines
 	}
 	if c.UI.Theme == "" {
 		c.UI.Theme = d.UI.Theme
