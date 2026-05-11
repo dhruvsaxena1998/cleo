@@ -57,15 +57,6 @@ func findProtocol(protos []Protocol, name string) (Protocol, bool) {
 	return nil, false
 }
 
-// protocolNames returns names for error messages.
-func protocolNames(protos []Protocol) []string {
-	names := make([]string, len(protos))
-	for i, p := range protos {
-		names[i] = p.Name()
-	}
-	return names
-}
-
 var errUnknownProtocol = func(name string) error {
 	return fmt.Errorf("unknown protocol %q", name)
 }
