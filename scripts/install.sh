@@ -38,6 +38,50 @@ case "$arch" in
   *) err "unsupported architecture: $arch (supported: amd64, arm64)" ;;
 esac
 
+# tmux is a hard runtime dependency — check before downloading anything.
+if ! command -v tmux >/dev/null 2>&1; then
+  if [ "$os" = "darwin" ]; then
+    tmux_cmd="brew install tmux"
+  elif command -v apt-get >/dev/null 2>&1; then
+    tmux_cmd="sudo apt-get install -y tmux"
+  elif command -v dnf >/dev/null 2>&1; then
+    tmux_cmd="sudo dnf install -y tmux"
+  elif command -v yum >/dev/null 2>&1; then
+    tmux_cmd="sudo yum install -y tmux"
+  elif command -v pacman >/dev/null 2>&1; then
+    tmux_cmd="sudo pacman -S --noconfirm tmux"
+  elif command -v apk >/dev/null 2>&1; then
+    tmux_cmd="sudo apk add tmux"
+  else
+    tmux_cmd=""
+  fi
+
+  say ""
+  say "cleo requires tmux 3.0+ but it was not found on this system."
+  if [ -n "$tmux_cmd" ]; then
+    say "  Install command: ${tmux_cmd}"
+    say ""
+    printf 'Install tmux now? [y/N] '
+    read -r yn </dev/tty || yn="n"
+    case "$yn" in
+      [Yy]*)
+        eval "$tmux_cmd" || err "tmux installation failed — install it manually and re-run"
+        say "tmux installed."
+        ;;
+      *)
+        say "Skipping tmux installation. cleo will not function without it."
+        say "Run the following when ready, then re-run this installer:"
+        say "  ${tmux_cmd}"
+        exit 1
+        ;;
+    esac
+  else
+    say "Install tmux 3.0+ with your system package manager, then re-run this installer."
+    exit 1
+  fi
+  say ""
+fi
+
 if [ "${CLEO_VERSION:-}" ]; then
   case "$CLEO_VERSION" in
     v*) tag="$CLEO_VERSION" ;;
@@ -98,9 +142,5 @@ case ":$PATH:" in
   *":$install_dir:"*) ;;
   *) say "Warning: ${install_dir} is not on PATH" ;;
 esac
-
-if ! command -v tmux >/dev/null 2>&1; then
-  say "Warning: tmux 3.0+ is required at runtime; install it with your package manager"
-fi
 
 say "Run: cleo --version"

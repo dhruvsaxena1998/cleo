@@ -46,7 +46,13 @@ brews:
     homepage: https://github.com/dhruvsaxena1998/cleo
     description: Terminal session manager for AI coding agents
     license: MIT
+    dependencies:
+      - name: tmux
     install: |
       bin.install "cleo"
     test: |
       system "#{bin}/cleo", "--version"
+    caveats: |
+      tmux was installed as a dependency of cleo.
+      If you uninstall cleo and no longer need tmux, you can remove it with:
+        brew uninstall tmux

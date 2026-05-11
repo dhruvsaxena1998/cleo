@@ -9,11 +9,19 @@ import (
 )
 
 type HelpPopup struct {
-	theme Theme
+	theme     Theme
+	detachKey string
 }
 type HelpClosed struct{}
 
-func NewHelpPopup(theme Theme) HelpPopup { return HelpPopup{theme: theme} }
+func NewHelpPopup(theme Theme, detachKey string) HelpPopup {
+	return HelpPopup{theme: theme, detachKey: formatTmuxKey(detachKey)}
+}
+
+// formatTmuxKey converts tmux notation (e.g. "C-b d") to a readable form ("ctrl+b d").
+func formatTmuxKey(k string) string {
+	return strings.NewReplacer("C-", "ctrl+", "M-", "alt+").Replace(k)
+}
 
 func (p HelpPopup) Init() tea.Cmd { return nil }
 
@@ -55,6 +63,11 @@ func (p HelpPopup) View() string {
 			{"m", "mute / unmute"},
 			{"?", "help"},
 			{"q", "quit"},
+		}},
+		{"tmux (inside a session)", []row{
+			{p.detachKey, "detach — return to cleo"},
+			{"ctrl+b [", "scroll mode  (q to exit)"},
+			{"ctrl+b z", "zoom / unzoom pane"},
 		}},
 	}
 
