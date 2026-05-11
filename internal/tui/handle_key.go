@@ -71,7 +71,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.cursorUp()
 	case key.Matches(msg, km.Down):
 		return m.cursorDown()
-	case msg.String() == " ":
+	case key.Matches(msg, km.Space):
 		return m.toggleExpand()
 	}
 	return m, nil
@@ -261,7 +261,7 @@ func (m Model) openRenamePopup() (Model, tea.Cmd) {
 
 func (m Model) openHelpPopup() (Model, tea.Cmd) {
 	m.status = ""
-	m.popup = NewHelpPopup(m.theme)
+	m.popup = NewHelpPopup(m.theme, m.ctx.Config.Defaults.DetachKey)
 	m.mode = ModePopup
 	return m, m.popup.Init()
 }

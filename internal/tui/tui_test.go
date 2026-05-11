@@ -338,7 +338,7 @@ func updateAsModel(m Model, msg tea.Msg) Model {
 func TestEscClosesPopupOnly(t *testing.T) {
 	c := newTestCtx(t)
 	m := New(c)
-	m.popup = NewHelpPopup(m.theme)
+	m.popup = NewHelpPopup(m.theme, "")
 	m.mode = ModePopup
 	m.filter = "active-query"
 	m.status = "stale-status"
