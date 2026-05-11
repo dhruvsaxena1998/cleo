@@ -24,6 +24,23 @@ func TestNextState(t *testing.T) {
 		{Idle, EvIdleTimeout, Completed},
 		{Running, EvSessionEnd, Completed},
 		{Idle, EvError, Errored},
+		// Terminal states must not be resurrected by hook events.
+		{Dead, EvNotification, Dead},
+		{Dead, EvStop, Dead},
+		{Dead, EvSessionStart, Dead},
+		{Dead, EvUserResume, Dead},
+		{Dead, EvPreToolUse, Dead},
+		{Dead, EvPostToolUse, Dead},
+		{Dead, EvSessionEnd, Dead},
+		{Completed, EvNotification, Completed},
+		{Completed, EvStop, Completed},
+		{Completed, EvSessionStart, Completed},
+		{Errored, EvNotification, Errored},
+		{Errored, EvStop, Errored},
+		// EvDead is still allowed — idempotent and absorbing.
+		{Dead, EvDead, Dead},
+		{Completed, EvDead, Dead},
+		{Errored, EvDead, Dead},
 	}
 	for _, c := range cases {
 		got := NextState(c.from, c.ev)

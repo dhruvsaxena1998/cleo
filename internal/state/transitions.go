@@ -1,6 +1,12 @@
 package state
 
 func NextState(from State, ev Event) State {
+	// Terminal states ignore hook events. Only EvDead can still transition
+	// (Dead absorbs all terminal states; the reconciler guards against
+	// redundant EvDead applications separately).
+	if from.IsFinished() && ev != EvDead {
+		return from
+	}
 	switch ev {
 	case EvDead:
 		return Dead
