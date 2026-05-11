@@ -359,3 +359,37 @@ func TestSoundPlaysEvenWhenStateApplyFails(t *testing.T) {
 		t.Errorf("expected sound to play despite state error, played %v", player.played)
 	}
 }
+
+func TestIdleNudgeNotificationDoesNotPlaySound(t *testing.T) {
+	deps, st, _ := setup(t)
+	player := &recordingPlayer{}
+	deps.Sound = player
+	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
+	_, _ = st.Apply("cleo-x-claude-1", state.EvStop, "")
+	// Simulate Claude's ~60s idle nudge arriving after Stop.
+	if err := Handle(deps, "claude", "Notification", []byte(`{"message":"Claude is waiting for your input"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if len(player.played) != 0 {
+		t.Errorf("idle-nudge Notification (from Idle state) must not play sound, played %v", player.played)
+	}
+	// State transition to WaitingForInput must still happen for TUI visibility.
+	got, _ := st.Get("cleo-x-claude-1")
+	if got.State != state.WaitingForInput {
+		t.Errorf("state should be WaitingForInput after Notification, got %s", got.State)
+	}
+}
+
+func TestGenuineNotificationFromRunningPlaysSound(t *testing.T) {
+	deps, st, _ := setup(t)
+	player := &recordingPlayer{}
+	deps.Sound = player
+	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
+	// Session is Running — Claude needs tool approval (genuine blocking request).
+	if err := Handle(deps, "claude", "Notification", []byte(`{"message":"Approve Bash command?"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if len(player.played) != 1 {
+		t.Errorf("genuine Notification (from Running state) must play sound, played %v", player.played)
+	}
+}

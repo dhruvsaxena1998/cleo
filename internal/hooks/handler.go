@@ -134,6 +134,15 @@ func resolveSession(d Deps, proto Protocol, event string, payload []byte) string
 
 // applyNormalized applies a NormalizedEvent to state, event log, and sound.
 func applyNormalized(d Deps, sid string, norm NormalizedEvent) error {
+	// Read the pre-transition state so idle-nudge detection can check the
+	// "from" state after Apply has already mutated it.
+	var fromState state.State
+	if d.State != nil {
+		if sess, err := d.State.Get(sid); err == nil {
+			fromState = sess.State
+		}
+	}
+
 	var applyErr error
 	if !norm.LogOnly && d.State != nil {
 		if _, err := d.State.Apply(sid, norm.StateEvent, norm.Message); err != nil {
@@ -150,7 +159,14 @@ func applyNormalized(d Deps, sid string, norm NormalizedEvent) error {
 		Tool:   norm.ToolName,
 		Detail: norm.Message,
 	})
-	if norm.SoundEvent != "" && d.Config.SoundEventEnabled(norm.SoundEvent) && !sessionFocused(d, sid) {
+
+	// Idle-nudge suppression: a Notification that arrives while the session is
+	// already Idle (set by the preceding Stop) is Claude's ~60s internal timer,
+	// not a genuine blocking request. Suppress the sound; the state transition to
+	// WaitingForInput still happens so the TUI shows the visual indicator.
+	idleNudge := norm.StateEvent == state.EvNotification && fromState == state.Idle
+
+	if norm.SoundEvent != "" && d.Config.SoundEventEnabled(norm.SoundEvent) && !sessionFocused(d, sid) && !idleNudge {
 		playSound(d, norm.SoundEvent)
 	}
 	return applyErr
