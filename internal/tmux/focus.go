@@ -5,6 +5,15 @@ import (
 	"strings"
 )
 
+// focusHooks maps tmux hook event names to focus direction ("in" or "out").
+// Exported as a var so tests can verify all hooks are present.
+var focusHooks = map[string]string{
+	"client-attached":  "in",
+	"client-focus-in":  "in",
+	"client-detached":  "out",
+	"client-focus-out": "out",
+}
+
 func (c *Client) InstallFocusHooks(cleoBin string) error {
 	if cleoBin == "" {
 		return nil
@@ -12,13 +21,7 @@ func (c *Client) InstallFocusHooks(cleoBin string) error {
 	if err := c.cmd("set-option", "-g", "focus-events", "on").Run(); err != nil {
 		return err
 	}
-	hooks := map[string]string{
-		"client-attached":  "in",
-		"client-focus-in":  "in",
-		"client-detached":  "out",
-		"client-focus-out": "out",
-	}
-	for hook, direction := range hooks {
+	for hook, direction := range focusHooks {
 		shellCommand := fmt.Sprintf("%s focus %s %s",
 			shellQuote(cleoBin),
 			shellQuote(direction),
