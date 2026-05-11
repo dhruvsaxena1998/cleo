@@ -13,9 +13,10 @@ func (c *Client) InstallFocusHooks(cleoBin string) error {
 		return err
 	}
 	hooks := map[string]string{
-		"client-attached": "in",
-		"client-focus-in": "in",
-		"client-detached": "out",
+		"client-attached":  "in",
+		"client-focus-in":  "in",
+		"client-detached":  "out",
+		"client-focus-out": "out",
 	}
 	for hook, direction := range hooks {
 		shellCommand := fmt.Sprintf("%s focus %s %s",
