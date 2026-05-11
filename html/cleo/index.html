@@ -1193,7 +1193,7 @@ html[data-anim] .install-pill button.copied { animation: copyPulse 320ms ease-ou
               <div class="tree-row session"><span><span class="label cl">cl</span>focused-yonath</span><span class="state-tag done">done</span><span class="age">16h</span></div>
               <div class="tree-row session"><span><span class="label cx">cx</span>sharp-ramanujan</span><span class="state-tag run">run</span><span class="age">17h</span></div>
 
-              <div class="tree-row project" style="margin-top:6px;"><span><span class="marker">▾</span> pickup-api</span><span></span><span class="ct">1</span></div>
+              <div class="tree-row project" style="margin-top:6px;"><span><span class="marker">▾</span> invoice-api</span><span></span><span class="ct">1</span></div>
               <div class="tree-row session selected"><span><span class="label cl">cl</span>trusting-hypatia</span><span class="state-tag run">run</span><span class="age">18h</span></div>
             </div>
 
@@ -1204,7 +1204,7 @@ html[data-anim] .install-pill button.copied { animation: copyPulse 320ms ease-ou
               <div class="detail-grid">
                 <div><span class="k">agent</span><span class="v"><span class="label cl" style="margin-right:4px;">cl</span>claude</span></div>
                 <div><span class="k">state</span><span class="v run">running</span></div>
-                <div><span class="k">project</span><span class="v">pickup-api</span></div>
+                <div><span class="k">project</span><span class="v">invoice-api</span></div>
                 <div><span class="k">runtime</span><span class="v">18h ago</span></div>
               </div>
 
@@ -1257,12 +1257,12 @@ html[data-anim] .install-pill button.copied { animation: copyPulse 320ms ease-ou
         </button>
         <div class="acc-wrap" id="acc-1" role="region">
           <div class="acc-body">
-            <p>Cleo creates a tmux session with a stable ID like <code>cleo-pickup-api-claude-fix-auth</code> and launches the agent inside it. No <code>--name</code>? You get a Docker-style label like <em>brave-curie</em> instead.</p>
-            <pre class="ascii">$ cleo add ~/Dev/pickup-api
-<span class="ok">✓</span> registered     pickup-api
+            <p>Cleo creates a tmux session with a stable ID like <code>cleo-invoice-api-claude-fix-auth</code> and launches the agent inside it. No <code>--name</code>? You get a Docker-style label like <em>brave-curie</em> instead.</p>
+            <pre class="ascii">$ cleo add ~/Dev/invoice-api
+<span class="ok">✓</span> registered     invoice-api
 
 $ cleo run <span class="ac">claude</span> --name fix-auth
-<span class="ok">✓</span> tmux session   cleo-pickup-api…
+<span class="ok">✓</span> tmux session   cleo-invoice-api…
 <span class="ok">✓</span> hooks attached
 <span class="ok">↳</span> attaching…</pre>
           </div>
@@ -1299,7 +1299,7 @@ $ cleo run <span class="ac">claude</span> --name fix-auth
             <pre class="ascii">$ cleo
 <span class="p">4 sessions</span> · 2 live · 1 waiting
 ▸ cleo                 <span class="p">3 sessions</span>
-▸ pickup-api           <span class="p">1 session</span>
+▸ invoice-api           <span class="p">1 session</span>
   <span class="ac">[cl]</span> trusting-hypatia  <span class="ok">run 18h</span></pre>
           </div>
         </div>
