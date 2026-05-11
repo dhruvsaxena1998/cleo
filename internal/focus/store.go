@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+// focusTTL is the maximum age of a focused=true entry before it is treated as
+// stale. Self-heals crash scenarios where the Set(false) callback never ran.
+const focusTTL = 30 * time.Minute
+
 type Store struct {
 	path string
 }
@@ -46,7 +50,8 @@ func (s *Store) IsFocused(sessionID string) bool {
 	if err != nil {
 		return false
 	}
-	return f.Sessions[sessionID].Focused
+	sf := f.Sessions[sessionID]
+	return sf.Focused && !sf.UpdatedAt.IsZero() && time.Since(sf.UpdatedAt) <= focusTTL
 }
 
 func (s *Store) read() (fileFormat, error) {
