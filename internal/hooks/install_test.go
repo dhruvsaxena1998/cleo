@@ -230,3 +230,53 @@ func TestInstallCodexConflictRefused(t *testing.T) {
 		t.Errorf("expected conflict error, got %v", err)
 	}
 }
+
+func TestClaudeHookTimeoutIs5Seconds(t *testing.T) {
+	entries := ExpectedClaudeEntries("/usr/local/bin/cleo")
+	for ev, rawEntry := range entries {
+		entryList, ok := rawEntry.([]any)
+		if !ok || len(entryList) == 0 {
+			t.Fatalf("event %s: unexpected shape", ev)
+		}
+		entry, ok := entryList[0].(map[string]any)
+		if !ok {
+			t.Fatalf("event %s: entry not a map", ev)
+		}
+		hooks, ok := entry["hooks"].([]any)
+		if !ok || len(hooks) == 0 {
+			t.Fatalf("event %s: no hooks", ev)
+		}
+		hook, ok := hooks[0].(map[string]any)
+		if !ok {
+			t.Fatalf("event %s: hook not a map", ev)
+		}
+		if timeout, _ := hook["timeout"].(int); timeout != 5 {
+			t.Errorf("event %s: want timeout 5, got %v", ev, hook["timeout"])
+		}
+	}
+}
+
+func TestCodexHookTimeoutIs5Seconds(t *testing.T) {
+	entries := ExpectedCodexEntries("/usr/local/bin/cleo")
+	for ev, rawEntry := range entries {
+		entryList, ok := rawEntry.([]any)
+		if !ok || len(entryList) == 0 {
+			t.Fatalf("event %s: unexpected shape", ev)
+		}
+		entry, ok := entryList[0].(map[string]any)
+		if !ok {
+			t.Fatalf("event %s: entry not a map", ev)
+		}
+		hooks, ok := entry["hooks"].([]any)
+		if !ok || len(hooks) == 0 {
+			t.Fatalf("event %s: no hooks", ev)
+		}
+		hook, ok := hooks[0].(map[string]any)
+		if !ok {
+			t.Fatalf("event %s: hook not a map", ev)
+		}
+		if timeout, _ := hook["timeout"].(int); timeout != 5 {
+			t.Errorf("event %s: want timeout 5, got %v", ev, hook["timeout"])
+		}
+	}
+}
