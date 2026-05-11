@@ -164,7 +164,7 @@ func applyNormalized(d Deps, sid string, norm NormalizedEvent) error {
 	// already Idle (set by the preceding Stop) is Claude's ~60s internal timer,
 	// not a genuine blocking request. Suppress the sound; the state transition to
 	// WaitingForInput still happens so the TUI shows the visual indicator.
-	idleNudge := norm.StateEvent == state.EvNotification && fromState == state.Idle
+	idleNudge := norm.SuppressWhenIdle && fromState == state.Idle
 
 	if norm.SoundEvent != "" && d.Config.SoundEventEnabled(norm.SoundEvent) && !sessionFocused(d, sid) && !idleNudge {
 		playSound(d, norm.SoundEvent)

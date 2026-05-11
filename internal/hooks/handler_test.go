@@ -393,3 +393,20 @@ func TestGenuineNotificationFromRunningPlaysSound(t *testing.T) {
 		t.Errorf("genuine Notification (from Running state) must play sound, played %v", player.played)
 	}
 }
+
+func TestCodexPermissionRequestFromIdleStillPlaysSound(t *testing.T) {
+	deps, st, _ := setup(t)
+	player := &recordingPlayer{}
+	deps.Sound = player
+	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
+	_, _ = st.Apply("cleo-x-claude-1", state.EvStop, "")
+	// Codex PermissionRequest is a genuine blocking request, not an idle nudge.
+	// Sound must play even when the session is Idle.
+	payload := []byte(`{"tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/foo"}}`)
+	if err := Handle(deps, "codex", "PermissionRequest", payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(player.played) != 1 {
+		t.Errorf("Codex PermissionRequest from Idle state must play sound, played %v", player.played)
+	}
+}

@@ -10,12 +10,13 @@ import (
 // its raw payload. Handle() consumes only this — no protocol-specific logic lives
 // outside the Protocol implementation.
 type NormalizedEvent struct {
-	StateEvent state.Event // empty = no state transition
-	SoundEvent string      // empty = no sound
-	Message    string      // Notification / PermissionRequest text
-	ToolName   string      // written to the event log
-	LogOnly    bool        // log entry only, no state transition (e.g. SubagentStop)
-	LogType    string      // events.Entry.Type override when LogOnly=true; defaults to string(StateEvent)
+	StateEvent       state.Event // empty = no state transition
+	SoundEvent       string      // empty = no sound
+	Message          string      // Notification / PermissionRequest text
+	ToolName         string      // written to the event log
+	LogOnly          bool        // log entry only, no state transition (e.g. SubagentStop)
+	LogType          string      // events.Entry.Type override when LogOnly=true; defaults to string(StateEvent)
+	SuppressWhenIdle bool        // suppress sound when session is already Idle (idle-nudge pattern; Claude Notification only)
 }
 
 // Protocol describes a supported agent integration. Implement this interface to

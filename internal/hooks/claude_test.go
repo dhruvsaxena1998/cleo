@@ -42,7 +42,7 @@ func TestClaudeProtocol_Normalize(t *testing.T) {
 		{
 			event:   "Notification",
 			payload: `{"tool_name":"Bash","message":"Approve command?"}`,
-			want:    NormalizedEvent{StateEvent: state.EvNotification, SoundEvent: "needs_input", Message: "Approve command?", ToolName: "Bash"},
+			want:    NormalizedEvent{StateEvent: state.EvNotification, SoundEvent: "needs_input", Message: "Approve command?", ToolName: "Bash", SuppressWhenIdle: true},
 			wantOk:  true,
 		},
 		{

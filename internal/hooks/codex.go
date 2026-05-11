@@ -40,7 +40,14 @@ func (CodexProtocol) Cleanup() error {
 
 func (CodexProtocol) Normalize(event string, payload []byte) (NormalizedEvent, bool) {
 	if event == "PermissionRequest" {
-		return ClaudeProtocol{}.Normalize("Notification", synthesizeNotification(payload))
+		norm, ok := ClaudeProtocol{}.Normalize("Notification", synthesizeNotification(payload))
+		if ok {
+			// Codex PermissionRequest is a genuine blocking request, not an idle nudge.
+			// Unlike Claude's Notification (which may be an idle-nudge timer),
+			// PermissionRequest must play sound even when the session is Idle.
+			norm.SuppressWhenIdle = false
+		}
+		return norm, ok
 	}
 	return ClaudeProtocol{}.Normalize(event, payload)
 }
