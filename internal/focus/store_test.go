@@ -1,8 +1,11 @@
 package focus
 
 import (
+	"encoding/json"
+	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestStoreTracksFocusedSessions(t *testing.T) {
@@ -22,5 +25,32 @@ func TestStoreTracksFocusedSessions(t *testing.T) {
 	}
 	if store.IsFocused("cleo-myapp-codex-1") {
 		t.Fatal("session should not be focused")
+	}
+}
+
+func TestIsFocusedReturnsFalseWhenStale(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "focus.json"))
+
+	staleTime := time.Now().Add(-2 * time.Hour)
+	f := fileFormat{
+		Sessions: map[string]sessionFocus{
+			"cleo-app-claude-1": {Focused: true, UpdatedAt: staleTime},
+		},
+	}
+	b, _ := json.MarshalIndent(f, "", "  ")
+	_ = os.WriteFile(store.path, b, 0o644)
+
+	if store.IsFocused("cleo-app-claude-1") {
+		t.Error("focused=true with UpdatedAt 2h ago should be treated as stale")
+	}
+}
+
+func TestIsFocusedReturnsTrueWhenFresh(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "focus.json"))
+	if err := store.Set("cleo-app-claude-1", true); err != nil {
+		t.Fatal(err)
+	}
+	if !store.IsFocused("cleo-app-claude-1") {
+		t.Error("just-set focused session should return true")
 	}
 }

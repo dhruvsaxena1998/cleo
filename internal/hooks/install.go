@@ -28,7 +28,7 @@ func ExpectedClaudeEntries(cleoBin string) map[string]any {
 					map[string]any{
 						"type":    "command",
 						"command": fmt.Sprintf("%s hook claude %s", cleoBin, ev),
-						"timeout": 2,
+						"timeout": 5,
 					},
 				},
 			},
@@ -83,7 +83,7 @@ func ExpectedCodexEntries(cleoBin string) map[string]any {
 					map[string]any{
 						"type":    "command",
 						"command": fmt.Sprintf("%s hook codex %s", cleoBin, ev),
-						"timeout": 2,
+						"timeout": 5,
 					},
 				},
 			},

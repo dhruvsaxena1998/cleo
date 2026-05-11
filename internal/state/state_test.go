@@ -24,6 +24,23 @@ func TestNextState(t *testing.T) {
 		{Idle, EvIdleTimeout, Completed},
 		{Running, EvSessionEnd, Completed},
 		{Idle, EvError, Errored},
+		// Terminal states must not be resurrected by hook events.
+		{Dead, EvNotification, Dead},
+		{Dead, EvStop, Dead},
+		{Dead, EvSessionStart, Dead},
+		{Dead, EvUserResume, Dead},
+		{Dead, EvPreToolUse, Dead},
+		{Dead, EvPostToolUse, Dead},
+		{Dead, EvSessionEnd, Dead},
+		{Completed, EvNotification, Completed},
+		{Completed, EvStop, Completed},
+		{Completed, EvSessionStart, Completed},
+		{Errored, EvNotification, Errored},
+		{Errored, EvStop, Errored},
+		// EvDead is still allowed — idempotent and absorbing.
+		{Dead, EvDead, Dead},
+		{Completed, EvDead, Dead},
+		{Errored, EvDead, Dead},
 	}
 	for _, c := range cases {
 		got := NextState(c.from, c.ev)
@@ -103,12 +120,10 @@ func TestStoreConcurrentApply(t *testing.T) {
 	_ = store.Put(Session{ID: "x", State: Running, Agent: "claude"})
 
 	var wg sync.WaitGroup
-	for i := 0; i < 50; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	for range 50 {
+		wg.Go(func() {
 			_, _ = store.Apply("x", EvPostToolUse, "")
-		}()
+		})
 	}
 	wg.Wait()
 	got, _ := store.Get("x")

@@ -312,4 +312,104 @@ func lastTraceRow(t *testing.T, path string) traceRowForTest {
 	return row
 }
 
+func TestClaudeStaleSidFallsBackToCwd(t *testing.T) {
+	deps, st, _ := setup(t)
+	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
+
+	// Simulate: env var is set but points to a session not in the store (stale).
+	deps.Now = func() (string, error) { return "stale-session-id", nil }
+	deps.FindByCwd = func(cwd, agent string) (string, error) {
+		if cwd == "/tmp/myproject" && agent == "claude" {
+			return "cleo-x-claude-1", nil
+		}
+		return "", nil
+	}
+
+	payload := []byte(`{"cwd":"/tmp/myproject","message":"Need approval"}`)
+	if err := Handle(deps, "claude", "Notification", payload); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := st.Get("cleo-x-claude-1")
+	if got.State != state.WaitingForInput {
+		t.Errorf("expected WaitingForInput via stale-sid CWD fallback, got %s", got.State)
+	}
+}
+
 var errNoSessionTest = errors.New("no session")
+
+type errStateStore struct{ inner *state.Store }
+
+func (e *errStateStore) Apply(_ string, _ state.Event, _ string) (state.Session, error) {
+	return state.Session{}, fmt.Errorf("disk full")
+}
+func (e *errStateStore) Get(id string) (state.Session, error) { return e.inner.Get(id) }
+
+func TestSoundPlaysEvenWhenStateApplyFails(t *testing.T) {
+	deps, st, _ := setup(t)
+	player := &recordingPlayer{}
+	deps.Sound = player
+	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
+	deps.State = &errStateStore{inner: st}
+
+	err := Handle(deps, "claude", "Notification", []byte(`{"message":"Need approval"}`))
+	if err == nil {
+		t.Error("expected error from failed state apply")
+	}
+	if len(player.played) != 1 {
+		t.Errorf("expected sound to play despite state error, played %v", player.played)
+	}
+}
+
+func TestIdleNudgeNotificationDoesNotPlaySound(t *testing.T) {
+	deps, st, _ := setup(t)
+	player := &recordingPlayer{}
+	deps.Sound = player
+	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
+	_, _ = st.Apply("cleo-x-claude-1", state.EvStop, "")
+	// Simulate Claude's ~60s idle nudge arriving after Stop.
+	if err := Handle(deps, "claude", "Notification", []byte(`{"message":"Claude is waiting for your input"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if len(player.played) != 0 {
+		t.Errorf("idle-nudge Notification (from Idle state) must not play sound, played %v", player.played)
+	}
+	// State transition to WaitingForInput must still happen for TUI visibility.
+	got, _ := st.Get("cleo-x-claude-1")
+	if got.State != state.WaitingForInput {
+		t.Errorf("state should be WaitingForInput after Notification, got %s", got.State)
+	}
+}
+
+func TestGenuineNotificationFromRunningPlaysSound(t *testing.T) {
+	deps, st, _ := setup(t)
+	player := &recordingPlayer{}
+	deps.Sound = player
+	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
+	// Session is Running — Claude needs tool approval (genuine blocking request).
+	if err := Handle(deps, "claude", "Notification", []byte(`{"message":"Approve Bash command?"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if len(player.played) != 1 {
+		t.Errorf("genuine Notification (from Running state) must play sound, played %v", player.played)
+	}
+}
+
+func TestCodexPermissionRequestFromIdleStillPlaysSound(t *testing.T) {
+	deps, st, _ := setup(t)
+	player := &recordingPlayer{}
+	deps.Sound = player
+	// Use a genuine Codex session — the test fires a codex protocol event.
+	_ = st.Put(state.Session{ID: "cleo-x-codex-1", Agent: "codex", State: state.Spawning})
+	deps.Now = func() (string, error) { return "cleo-x-codex-1", nil }
+	_, _ = st.Apply("cleo-x-codex-1", state.EvSessionStart, "")
+	_, _ = st.Apply("cleo-x-codex-1", state.EvStop, "")
+	// Codex PermissionRequest is a genuine blocking request, not an idle nudge.
+	// Sound must play even when the session is Idle.
+	payload := []byte(`{"tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/foo"}}`)
+	if err := Handle(deps, "codex", "PermissionRequest", payload); err != nil {
+		t.Fatal(err)
+	}
+	if len(player.played) != 1 {
+		t.Errorf("Codex PermissionRequest from Idle state must play sound, played %v", player.played)
+	}
+}

@@ -1,0 +1,6 @@
+# Backlog
+
+1. Ability to remove project from cleo using cli and tui
+2. Handle configuration directly from tui 
+3. Worktree support configurable
+4. Optimize v2 configurations 

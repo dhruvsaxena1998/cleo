@@ -10,12 +10,13 @@ import (
 // its raw payload. Handle() consumes only this — no protocol-specific logic lives
 // outside the Protocol implementation.
 type NormalizedEvent struct {
-	StateEvent state.Event // empty = no state transition
-	SoundEvent string      // empty = no sound
-	Message    string      // Notification / PermissionRequest text
-	ToolName   string      // written to the event log
-	LogOnly    bool        // log entry only, no state transition (e.g. SubagentStop)
-	LogType    string      // events.Entry.Type override when LogOnly=true; defaults to string(StateEvent)
+	StateEvent       state.Event // empty = no state transition
+	SoundEvent       string      // empty = no sound
+	Message          string      // Notification / PermissionRequest text
+	ToolName         string      // written to the event log
+	LogOnly          bool        // log entry only, no state transition (e.g. SubagentStop)
+	LogType          string      // events.Entry.Type override when LogOnly=true; defaults to string(StateEvent)
+	SuppressWhenIdle bool        // suppress sound when session is already Idle; set by protocols that emit idle-nudge events
 }
 
 // Protocol describes a supported agent integration. Implement this interface to
@@ -55,15 +56,6 @@ func findProtocol(protos []Protocol, name string) (Protocol, bool) {
 		}
 	}
 	return nil, false
-}
-
-// protocolNames returns names for error messages.
-func protocolNames(protos []Protocol) []string {
-	names := make([]string, len(protos))
-	for i, p := range protos {
-		names[i] = p.Name()
-	}
-	return names
 }
 
 var errUnknownProtocol = func(name string) error {

@@ -41,7 +41,7 @@ func (ClaudeProtocol) Normalize(event string, payload []byte) (NormalizedEvent, 
 	case "PostToolUse":
 		return NormalizedEvent{StateEvent: state.EvPostToolUse, ToolName: p.ToolName}, true
 	case "Notification":
-		return NormalizedEvent{StateEvent: state.EvNotification, SoundEvent: "needs_input", Message: p.Message, ToolName: p.ToolName}, true
+		return NormalizedEvent{StateEvent: state.EvNotification, SoundEvent: "needs_input", Message: p.Message, ToolName: p.ToolName, SuppressWhenIdle: true}, true
 	case "Stop":
 		return NormalizedEvent{StateEvent: state.EvStop, SoundEvent: "session_idle", ToolName: p.ToolName}, true
 	case "SessionEnd":

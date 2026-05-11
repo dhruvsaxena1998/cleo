@@ -22,7 +22,7 @@ type Defaults struct {
 }
 
 type Sound struct {
-	Enabled      bool              `toml:"enabled"`
+	Enabled      *bool             `toml:"enabled"`
 	Volume       float64           `toml:"volume"`
 	Events       map[string]string `toml:"events"`
 	EventEnabled map[string]bool   `toml:"event_enabled"`
@@ -81,7 +81,7 @@ func Save(path string, c Config) error {
 }
 
 func (c Config) SoundEventEnabled(event string) bool {
-	if !c.Sound.Enabled {
+	if c.Sound.Enabled != nil && !*c.Sound.Enabled {
 		return false
 	}
 	if c.Sound.EventEnabled == nil {

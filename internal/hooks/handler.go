@@ -13,6 +13,12 @@ import (
 	"github.com/dhruvsaxena1998/cleo/internal/state"
 )
 
+// StateStore is the subset of *state.Store used by the hook handler.
+type StateStore interface {
+	Apply(id string, ev state.Event, msg string) (state.Session, error)
+	Get(id string) (state.Session, error)
+}
+
 type Player interface {
 	Play(file string) error
 	Available() bool
@@ -20,7 +26,7 @@ type Player interface {
 
 type Deps struct {
 	Paths  paths.Paths
-	State  *state.Store
+	State  StateStore
 	Config config.Config
 	Events func(sid string) *events.Log
 	Sound  Player
@@ -87,7 +93,8 @@ func resolveSession(d Deps, proto Protocol, event string, payload []byte) string
 		trace.FallbackReason = "env_missing"
 	}
 
-	if (err != nil || sid == "") && proto.UsesCwdFallback() && d.FindByCwd != nil {
+	staleSid := trace.FallbackReason == "env_unknown_session"
+	if (err != nil || sid == "") && d.FindByCwd != nil && (proto.UsesCwdFallback() || staleSid) {
 		var base struct {
 			Cwd string `json:"cwd"`
 		}
@@ -127,9 +134,20 @@ func resolveSession(d Deps, proto Protocol, event string, payload []byte) string
 
 // applyNormalized applies a NormalizedEvent to state, event log, and sound.
 func applyNormalized(d Deps, sid string, norm NormalizedEvent) error {
+	// Read the pre-transition state so idle-nudge detection can check the
+	// "from" state after Apply has already mutated it.
+	var fromState state.State
+	if d.State != nil {
+		if sess, err := d.State.Get(sid); err == nil {
+			fromState = sess.State
+		}
+	}
+
+	var applyErr error
 	if !norm.LogOnly && d.State != nil {
 		if _, err := d.State.Apply(sid, norm.StateEvent, norm.Message); err != nil {
-			return err
+			applyErr = err
+			// continue — still log event and play sound; the agent notified us
 		}
 	}
 	entryType := string(norm.StateEvent)
@@ -141,10 +159,17 @@ func applyNormalized(d Deps, sid string, norm NormalizedEvent) error {
 		Tool:   norm.ToolName,
 		Detail: norm.Message,
 	})
-	if norm.SoundEvent != "" && d.Config.SoundEventEnabled(norm.SoundEvent) && !sessionFocused(d, sid) {
+
+	// Idle-nudge suppression: a Notification that arrives while the session is
+	// already Idle (set by the preceding Stop) is Claude's ~60s internal timer,
+	// not a genuine blocking request. Suppress the sound; the state transition to
+	// WaitingForInput still happens so the TUI shows the visual indicator.
+	idleNudge := norm.SuppressWhenIdle && fromState == state.Idle
+
+	if norm.SoundEvent != "" && d.Config.SoundEventEnabled(norm.SoundEvent) && !sessionFocused(d, sid) && !idleNudge {
 		playSound(d, norm.SoundEvent)
 	}
-	return nil
+	return applyErr
 }
 
 func sessionFocused(d Deps, sid string) bool {
