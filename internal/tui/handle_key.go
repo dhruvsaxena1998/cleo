@@ -208,7 +208,7 @@ func (m Model) attachSelectedAgent() (Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
-	if sess.State.IsFinished() {
+	if sess.State == state.Dead || sess.State == state.Errored {
 		m.status = fmt.Sprintf("%s is %s; press K to remove it", sess.ID, sess.State)
 		return m, nil
 	}
@@ -217,6 +217,10 @@ func (m Model) attachSelectedAgent() (Model, tea.Cmd) {
 		_, _ = m.ctx.State.Apply(sess.ID, state.EvDead, "")
 		m.status = fmt.Sprintf("%s is no longer running; marked dead", sess.ID)
 		return m, loadStateCmd(m.ctx)
+	}
+	// Session was marked completed by idle timeout but tmux is still alive — revive it.
+	if sess.State == state.Completed {
+		_, _ = m.ctx.State.Apply(sess.ID, state.EvUserResume, "re-attached by user")
 	}
 	cliInstallFocusHooks(m.ctx)
 	_ = m.ctx.Focus.Set(sess.ID, true)
