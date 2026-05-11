@@ -336,3 +336,26 @@ func TestClaudeStaleSidFallsBackToCwd(t *testing.T) {
 }
 
 var errNoSessionTest = errors.New("no session")
+
+type errStateStore struct{ inner *state.Store }
+
+func (e *errStateStore) Apply(_ string, _ state.Event, _ string) (state.Session, error) {
+	return state.Session{}, fmt.Errorf("disk full")
+}
+func (e *errStateStore) Get(id string) (state.Session, error) { return e.inner.Get(id) }
+
+func TestSoundPlaysEvenWhenStateApplyFails(t *testing.T) {
+	deps, st, _ := setup(t)
+	player := &recordingPlayer{}
+	deps.Sound = player
+	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
+	deps.State = &errStateStore{inner: st}
+
+	err := Handle(deps, "claude", "Notification", []byte(`{"message":"Need approval"}`))
+	if err == nil {
+		t.Error("expected error from failed state apply")
+	}
+	if len(player.played) != 1 {
+		t.Errorf("expected sound to play despite state error, played %v", player.played)
+	}
+}

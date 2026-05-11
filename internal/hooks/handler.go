@@ -13,6 +13,12 @@ import (
 	"github.com/dhruvsaxena1998/cleo/internal/state"
 )
 
+// StateStore is the subset of *state.Store used by the hook handler.
+type StateStore interface {
+	Apply(id string, ev state.Event, msg string) (state.Session, error)
+	Get(id string) (state.Session, error)
+}
+
 type Player interface {
 	Play(file string) error
 	Available() bool
@@ -20,7 +26,7 @@ type Player interface {
 
 type Deps struct {
 	Paths  paths.Paths
-	State  *state.Store
+	State  StateStore
 	Config config.Config
 	Events func(sid string) *events.Log
 	Sound  Player
@@ -128,9 +134,11 @@ func resolveSession(d Deps, proto Protocol, event string, payload []byte) string
 
 // applyNormalized applies a NormalizedEvent to state, event log, and sound.
 func applyNormalized(d Deps, sid string, norm NormalizedEvent) error {
+	var applyErr error
 	if !norm.LogOnly && d.State != nil {
 		if _, err := d.State.Apply(sid, norm.StateEvent, norm.Message); err != nil {
-			return err
+			applyErr = err
+			// continue — still log event and play sound; the agent notified us
 		}
 	}
 	entryType := string(norm.StateEvent)
@@ -145,7 +153,7 @@ func applyNormalized(d Deps, sid string, norm NormalizedEvent) error {
 	if norm.SoundEvent != "" && d.Config.SoundEventEnabled(norm.SoundEvent) && !sessionFocused(d, sid) {
 		playSound(d, norm.SoundEvent)
 	}
-	return nil
+	return applyErr
 }
 
 func sessionFocused(d Deps, sid string) bool {
