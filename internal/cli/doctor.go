@@ -399,6 +399,8 @@ func protocolTitle(protocol string) string {
 		return "Codex"
 	case "claude":
 		return "Claude"
+	case "opencode":
+		return "OpenCode"
 	default:
 		return protocol
 	}
