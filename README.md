@@ -2,11 +2,11 @@
 
 Terminal session manager for AI coding agents.
 
-> **Status:** v0.1.0-beta.1 — beta on the road to v0.1.0 stable. Config and CLI surface may still change. Bug reports and feedback welcome before the stable cut.
+> **Status:** v0.1.0-beta.3 — beta on the road to v0.1.0 stable. Config and CLI surface may still change. Bug reports and feedback welcome before the stable cut.
 
 Cleo lets you run Claude Code, Codex, opencode, pi, or any other terminal-based agent in named tmux sessions, then watch and manage those sessions from one TUI dashboard. Sessions live in tmux, so you can close Cleo, reopen it later, and keep long-running agent work intact.
 
-In v0.1, hook-based lifecycle tracking is implemented for **Claude Code** and **Codex**. **opencode** and **pi** are supported as managed tmux sessions (you can spawn, attach, kill, prune them) but Cleo cannot observe their fine-grained state — they remain `running` until the underlying tmux session ends.
+In v0.1, hook-based lifecycle tracking is implemented for **Claude Code**, **Codex**, and **Pi** (via a TypeScript extension installed by `cleo init`). **opencode** is supported as a managed tmux session (you can spawn, attach, kill, prune it) but Cleo cannot observe its fine-grained state — it remains `running` until the underlying tmux session ends.
 
 ## What Cleo Does
 
@@ -136,6 +136,7 @@ The dashboard shows registered projects, their sessions, current state, and a pr
 | `r` | Rename a session |
 | `K` or `ctrl+k` | Kill or remove the selected session |
 | `/` | Filter projects and sessions |
+| `P` | Prune finished sessions for the focused project |
 | `m` | Toggle sound for the running Cleo process |
 | `?` | Show help |
 | `esc` | Cancel the current popup/filter mode |
@@ -786,9 +787,9 @@ Approve the Cleo hook names if Codex lists them under review. Restart any Codex 
 
 ### Sessions stay `running`
 
-For agents configured with `hooks = "none"`, this is expected. Cleo can manage the tmux session but cannot observe fine-grained lifecycle events.
+For agents configured with `hooks = "none"` (e.g. opencode), this is expected. Cleo can manage the tmux session but cannot observe fine-grained lifecycle events.
 
-For Claude Code or Codex, run `cleo doctor` and check `~/.config/cleo/hook-trace.log` and `~/.config/cleo/hook-errors.log`.
+For Claude Code, Codex, or Pi, run `cleo doctor` and check `~/.config/cleo/hook-trace.log` and `~/.config/cleo/hook-errors.log`.
 
 ### A session is `dead`
 

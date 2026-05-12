@@ -462,7 +462,7 @@ html { scroll-behavior: smooth; }
         <line x1="29.5" y1="22.5" x2="24" y2="21.6" stroke-width="0.7" opacity="0.55"/>
       </svg>
       <span>cleo</span>
-      <span class="nav-version">v0.1.0-beta.1</span>
+      <span class="nav-version">v0.1.0-beta.3</span>
     </a>
     <div class="nav-links">
       <a href="docs.html" class="active">docs</a>
@@ -588,7 +588,7 @@ $ ./bin/cleo --version</pre>
 
       <h3 id="verify">Verify the install</h3>
 <pre>$ cleo --version
-<span class="ok">0.1.0-beta.1</span></pre>
+<span class="ok">0.1.0-beta.3</span></pre>
 
       <p class="muted">If <code>cleo --version</code> prints anything else, see <a href="#troubleshooting" class="link">Troubleshooting</a>.</p>
 
@@ -724,6 +724,7 @@ $ cleo run codex --yes</pre>
         <div class="cmd-row"><span class="cmd">K &nbsp;/ ctrl-k</span><span class="desc">Kill or remove the selected session.</span></div>
         <div class="cmd-row"><span class="cmd">space</span><span class="desc">Expand or collapse a project.</span></div>
         <div class="cmd-row"><span class="cmd">/</span><span class="desc">Filter projects and sessions.</span></div>
+        <div class="cmd-row"><span class="cmd">P</span><span class="desc">Prune finished sessions for the focused project.</span></div>
         <div class="cmd-row"><span class="cmd">m</span><span class="desc">Toggle sound for the running Cleo process.</span></div>
         <div class="cmd-row"><span class="cmd">↑ ↓ &nbsp;/ k j</span><span class="desc">Move selection.</span></div>
         <div class="cmd-row"><span class="cmd">?</span><span class="desc">Show help.</span></div>
@@ -736,7 +737,7 @@ $ cleo run codex --yes</pre>
     <section id="hooks">
       <h2><span class="lbl">04 / hooks &amp; state</span>How Cleo knows what's happening</h2>
       <p>
-        Cleo treats sessions as objects with state. It learns that state by listening to the hook events your agent emits. <strong>Claude Code</strong> and <strong>Codex</strong> are first-class: Cleo speaks their hook protocols natively. <strong>opencode</strong> and <strong>pi</strong> can be spawned and managed as tmux sessions, but Cleo can't observe their fine-grained lifecycle, so they read as <code>running</code> until tmux says otherwise.
+        Cleo treats sessions as objects with state. It learns that state by listening to the hook events your agent emits. <strong>Claude Code</strong>, <strong>Codex</strong>, and <strong>Pi</strong> are first-class: Cleo speaks their hook protocols natively (Pi via a TypeScript extension installed by <code>cleo init</code>). <strong>opencode</strong> can be spawned and managed as a tmux session, but Cleo can't observe its fine-grained lifecycle, so it reads as <code>running</code> until tmux says otherwise.
       </p>
       <p>Run <code>cleo init</code> once per machine. Cleo writes hook entries to the agent config files, then writes <code>CLEO_SESSION_ID</code> into each tmux session's environment so hook payloads can be attributed to the right session.</p>
 
@@ -1014,7 +1015,7 @@ default_agent = <span class="a">"codex"</span></pre>
       <p>Run <code>cleo doctor</code>, then open Codex and run <code>/hooks</code>; approve the Cleo hook names if they're under review. Restart any Codex sessions opened before <code>cleo init</code>; they may not have loaded the updated <code>~/.codex/config.toml</code>.</p>
 
       <h3>Sessions stay <code>running</code></h3>
-      <p>Expected for agents configured with <code>hooks = "none"</code> (opencode, pi). For Claude Code or Codex, run <code>cleo doctor</code> and check:</p>
+      <p>Expected for agents configured with <code>hooks = "none"</code> (opencode). For Claude Code, Codex, or Pi, run <code>cleo doctor</code> and check:</p>
 <pre>$ tail -n 50 ~/.config/cleo/hook-trace.log
 $ tail -n 50 ~/.config/cleo/hook-errors.log</pre>
 
