@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"runtime"
+
 	"github.com/charmbracelet/bubbles/help"
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -35,6 +37,14 @@ type Model struct {
 	// processed. The handler uses it to fire one immediate pane capture on
 	// startup instead of waiting for the first previewTickCmd interval.
 	firstStateLoaded bool
+
+	heapAlloc uint64 // updated once per state tick via runtime.ReadMemStats
+}
+
+func readHeapAlloc() uint64 {
+	var ms runtime.MemStats
+	runtime.ReadMemStats(&ms)
+	return ms.HeapAlloc
 }
 
 type Mode int
@@ -57,6 +67,7 @@ func New(ctx *cli.Ctx) Model {
 		expanded:  map[string]bool{},
 		paneCache: map[string]string{},
 		help:      help.New(),
+		heapAlloc: readHeapAlloc(),
 	}
 }
 

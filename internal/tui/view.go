@@ -67,10 +67,12 @@ func (m Model) renderTopbar(width int) string {
 	}
 	left := lipgloss.NewStyle().Foreground(m.theme.Mauve).Bold(true).Render("cleo") +
 		lipgloss.NewStyle().Foreground(m.theme.Overlay0).Render("  ai agents")
-	right := fmt.Sprintf("%s  %s  %s  %s",
+	memMB := float64(m.heapAlloc) / (1024 * 1024)
+	right := fmt.Sprintf("%s  %s  %s  %s  %s",
 		m.theme.Pill(fmt.Sprintf("%d projects", len(m.projects)), m.theme.Subtext0),
 		m.theme.Pill(fmt.Sprintf("%d live", stats.live), m.theme.Green),
 		m.theme.Pill(fmt.Sprintf("%d waiting", stats.waiting), m.theme.Peach),
+		m.theme.Pill(fmt.Sprintf("%.1f MB", memMB), m.theme.Overlay0),
 		sound,
 	)
 	space := width - lipgloss.Width(left) - lipgloss.Width(right) - 2
