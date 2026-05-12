@@ -46,6 +46,7 @@ func Protocols() []Protocol {
 		ClaudeProtocol{},
 		CodexProtocol{},
 		PiProtocol{},
+		OpenCodeProtocol{},
 	}
 }
 
@@ -63,6 +64,6 @@ var errUnknownProtocol = func(name string) error {
 }
 
 // Protocol type declarations. Methods are implemented in each protocol's own
-// file (claude.go, codex.go, pi.go).
+// file (claude.go, codex.go, pi.go, opencode.go).
 type ClaudeProtocol struct{}
 type CodexProtocol struct{}

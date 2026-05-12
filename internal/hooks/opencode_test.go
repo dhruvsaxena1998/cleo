@@ -1,6 +1,9 @@
 package hooks
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/dhruvsaxena1998/cleo/internal/state"
@@ -100,5 +103,141 @@ func TestOpenCodeProtocol_Metadata(t *testing.T) {
 		if events[i] != want {
 			t.Errorf("Events()[%d] = %q, want %q", i, events[i], want)
 		}
+	}
+}
+
+func TestOpenCodeProtocol_Install_WritesPlugin(t *testing.T) {
+	dir := t.TempDir()
+	plugDir := filepath.Join(dir, "plugins")
+
+	origDir := openCodePluginsDir
+	openCodePluginsDir = plugDir
+	defer func() { openCodePluginsDir = origDir }()
+
+	proto := OpenCodeProtocol{}
+	if err := proto.Install("/usr/local/bin/cleo", false); err != nil {
+		t.Fatalf("Install: %v", err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(plugDir, "cleo.ts"))
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	if string(got) != openCodePluginTemplate {
+		t.Errorf("installed content does not match template\ngot:\n%s\nwant:\n%s", got, openCodePluginTemplate)
+	}
+}
+
+func TestOpenCodeProtocol_Install_Idempotent(t *testing.T) {
+	dir := t.TempDir()
+	plugDir := filepath.Join(dir, "plugins")
+	origDir := openCodePluginsDir
+	openCodePluginsDir = plugDir
+	defer func() { openCodePluginsDir = origDir }()
+
+	proto := OpenCodeProtocol{}
+	if err := proto.Install("/usr/local/bin/cleo", false); err != nil {
+		t.Fatal(err)
+	}
+	if err := proto.Install("/usr/local/bin/cleo", false); err != nil {
+		t.Errorf("re-install with same content should not fail: %v", err)
+	}
+}
+
+func TestOpenCodeProtocol_Install_ConflictWithoutForce(t *testing.T) {
+	dir := t.TempDir()
+	plugDir := filepath.Join(dir, "plugins")
+	origDir := openCodePluginsDir
+	openCodePluginsDir = plugDir
+	defer func() { openCodePluginsDir = origDir }()
+
+	_ = os.MkdirAll(plugDir, 0o755)
+	_ = os.WriteFile(filepath.Join(plugDir, "cleo.ts"), []byte("// different content"), 0o644)
+
+	proto := OpenCodeProtocol{}
+	if err := proto.Install("/usr/local/bin/cleo", false); err == nil {
+		t.Error("expected conflict error, got nil")
+	}
+}
+
+func TestOpenCodeProtocol_Install_ForceOverwrites(t *testing.T) {
+	dir := t.TempDir()
+	plugDir := filepath.Join(dir, "plugins")
+	origDir := openCodePluginsDir
+	openCodePluginsDir = plugDir
+	defer func() { openCodePluginsDir = origDir }()
+
+	_ = os.MkdirAll(plugDir, 0o755)
+	_ = os.WriteFile(filepath.Join(plugDir, "cleo.ts"), []byte("// different content"), 0o644)
+
+	proto := OpenCodeProtocol{}
+	if err := proto.Install("/usr/local/bin/cleo", true); err != nil {
+		t.Fatalf("Install with --force: %v", err)
+	}
+	got, _ := os.ReadFile(filepath.Join(plugDir, "cleo.ts"))
+	if string(got) != openCodePluginTemplate {
+		t.Error("force install did not overwrite with template")
+	}
+}
+
+func TestOpenCodeProtocol_Cleanup_RemovesMatchingFile(t *testing.T) {
+	dir := t.TempDir()
+	plugDir := filepath.Join(dir, "plugins")
+	origDir := openCodePluginsDir
+	openCodePluginsDir = plugDir
+	defer func() { openCodePluginsDir = origDir }()
+
+	proto := OpenCodeProtocol{}
+	_ = proto.Install("/usr/local/bin/cleo", false)
+
+	if err := proto.Cleanup(); err != nil {
+		t.Fatalf("Cleanup: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(plugDir, "cleo.ts")); !os.IsNotExist(err) {
+		t.Error("expected cleo.ts to be removed after Cleanup")
+	}
+}
+
+func TestOpenCodeProtocol_Cleanup_SkipsModifiedFile(t *testing.T) {
+	dir := t.TempDir()
+	plugDir := filepath.Join(dir, "plugins")
+	origDir := openCodePluginsDir
+	openCodePluginsDir = plugDir
+	defer func() { openCodePluginsDir = origDir }()
+
+	_ = os.MkdirAll(plugDir, 0o755)
+	dest := filepath.Join(plugDir, "cleo.ts")
+	_ = os.WriteFile(dest, []byte("// user-modified"), 0o644)
+
+	proto := OpenCodeProtocol{}
+	if err := proto.Cleanup(); err != nil {
+		t.Fatalf("Cleanup returned error for modified file: %v", err)
+	}
+	if _, err := os.Stat(dest); os.IsNotExist(err) {
+		t.Error("Cleanup must NOT remove a user-modified file")
+	}
+}
+
+func TestExpectedOpenCodeEntry_MatchesTemplate(t *testing.T) {
+	if ExpectedOpenCodeEntry() != openCodePluginTemplate {
+		t.Error("ExpectedOpenCodeEntry() must return the embedded template")
+	}
+}
+
+func TestResolveSession_CwdFallbackCalledForOpenCode(t *testing.T) {
+	deps, st, _ := setup(t)
+	_ = st.Put(state.Session{ID: "cleo-x-opencode-1", Agent: "opencode", State: state.Running})
+	deps.Now = func() (string, error) { return "", fmt.Errorf("not set") }
+	called := false
+	deps.FindByCwd = func(cwd, agent string) (string, error) {
+		called = true
+		if agent == "opencode" {
+			return "cleo-x-opencode-1", nil
+		}
+		return "", nil
+	}
+	_ = Handle(deps, "opencode", "session.created", []byte(`{"cwd":"/proj"}`))
+	if !called {
+		t.Error("FindByCwd must be called for OpenCodeProtocol (UsesCwdFallback=true) when env absent")
 	}
 }
