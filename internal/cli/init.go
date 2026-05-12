@@ -171,11 +171,13 @@ func printInitSummary(w io.Writer, results []initInstallResult) {
 }
 
 func promptYN(w io.Writer, br *bufio.Reader, label string, defaultYes bool) (bool, error) {
-	bracket := "[Y/n]"
-	if !defaultYes {
-		bracket = "[y/N]"
+	var bracket string
+	if defaultYes {
+		bracket = lipgloss.NewStyle().Foreground(lipgloss.Color("#a6e3a1")).Render("[Y/n]")
+	} else {
+		bracket = initDimStyle.Render("[y/N]")
 	}
-	fmt.Fprintf(w, "  %s %s\n", bracket, label)
+	fmt.Fprintf(w, "  %s %s ", bracket, label)
 	line, err := br.ReadString('\n')
 	if err != nil && err != io.EOF {
 		return false, err
@@ -191,7 +193,7 @@ func promptYN(w io.Writer, br *bufio.Reader, label string, defaultYes bool) (boo
 }
 
 func promptHookSelection(w io.Writer, br *bufio.Reader, selected *[]string) error {
-	fmt.Fprintln(w, "Which hook systems to install?")
+	fmt.Fprintln(w, initAgentStyle.Render("Which hook systems to install?"))
 	type hookOpt struct {
 		key    string
 		label  string

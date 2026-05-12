@@ -95,7 +95,7 @@ func printCleanupSummary(w io.Writer, results []cleanupResult) {
 }
 
 func promptCleanupSelection(w io.Writer, br *bufio.Reader, selected *[]string) error {
-	fmt.Fprintln(w, "Which hook systems to clean up?")
+	fmt.Fprintln(w, initAgentStyle.Render("Which hook systems to clean up?"))
 	type hookOpt struct {
 		key    string
 		label  string
