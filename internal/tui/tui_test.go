@@ -527,3 +527,55 @@ func TestFilterSurvivesExpandCollapse(t *testing.T) {
 		t.Errorf("expected p1 collapsed after second toggle, got %v", m3.expanded)
 	}
 }
+
+// TestCursorUpDownNavigation locks in symmetric up/down navigation across
+// project headers and session rows (issue #24). Uses direct method calls —
+// no teatest harness required.
+func TestCursorUpDownNavigation(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	m.projects = []projects.Project{{ID: "p1"}, {ID: "p2"}}
+	now := time.Now()
+	m.sessions = []state.Session{
+		{ID: "s1a", ProjectID: "p1", StartedAt: now},
+		{ID: "s1b", ProjectID: "p1", StartedAt: now.Add(time.Second)},
+		{ID: "s2a", ProjectID: "p2", StartedAt: now},
+		{ID: "s2b", ProjectID: "p2", StartedAt: now.Add(time.Second)},
+	}
+	m.expanded = map[string]bool{"p1": true, "p2": true}
+	// Start on p2 header row.
+	m.cursor.projectIdx = 1
+	m.cursor.agentIdx = -1
+
+	type pos struct{ proj, agent int }
+	steps := []struct {
+		dir  string
+		want pos
+	}{
+		{"up", pos{0, 1}},  // p1 last session
+		{"up", pos{0, 0}},  // p1 first session
+		{"up", pos{0, -1}}, // p1 header
+		{"up", pos{0, -1}}, // no movement — already at top
+		// reverse: navigate back down
+		{"down", pos{0, 0}},  // p1 first session
+		{"down", pos{0, 1}},  // p1 last session
+		{"down", pos{1, -1}}, // p2 header
+		{"down", pos{1, 0}},  // p2 first session
+		{"down", pos{1, 1}},  // p2 last session
+		{"down", pos{1, 1}},  // no movement — already at bottom
+	}
+
+	for i, s := range steps {
+		var cmd tea.Cmd
+		if s.dir == "up" {
+			m, cmd = m.cursorUp()
+		} else {
+			m, cmd = m.cursorDown()
+		}
+		_ = cmd
+		if m.cursor.projectIdx != s.want.proj || m.cursor.agentIdx != s.want.agent {
+			t.Errorf("step %d (%s): want {proj=%d agent=%d}, got {proj=%d agent=%d}",
+				i+1, s.dir, s.want.proj, s.want.agent, m.cursor.projectIdx, m.cursor.agentIdx)
+		}
+	}
+}

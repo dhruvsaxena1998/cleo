@@ -1,6 +1,130 @@
 # Backlog
 
-1. Ability to remove project from cleo using cli and tui
-2. Handle configuration directly from tui 
+# DEPRECATED - see github issues for current status
+
+1. Ability to remove project from cleo using CLI and TUI
+
+Problem:
+Cleo currently lists projects, but there is no clear way to remove a project from Cleo once it is no longer needed.
+
+Expected behavior:
+Users should be able to remove a project from Cleo from both the CLI and the TUI. Removing a project should remove Cleo's project record and associated inactive session records, but it should not delete the project directory from disk.
+
+Acceptance criteria:
+- CLI supports removing a project by name or path.
+- TUI exposes a remove-project action for the selected project.
+- The user must confirm before removal.
+- Active/live sessions are protected: either block removal with a clear message or require an explicit force option.
+- Removing a project does not delete source files or directories.
+- Removed projects no longer appear in the project/session list after refresh.
+
+Notes:
+- Consider whether stale tmux sessions should be detached, killed, or left alone. Default should be non-destructive.
+
+2. Handle configuration directly from TUI
+
+Problem:
+Configuration currently requires leaving the TUI or editing config files manually, which makes common setup changes slower and less discoverable.
+
+Expected behavior:
+The TUI should provide a configuration view or modal where users can inspect and update common Cleo settings.
+
+Acceptance criteria:
+- TUI has a reachable configuration screen or panel.
+- Users can view current config values.
+- Users can update supported settings and persist them.
+- Invalid values are rejected with clear feedback.
+- Changes that require restart or reload are clearly indicated.
+- Existing config file format remains compatible.
+
+Notes:
+- Start with high-value settings only instead of exposing every internal option.
+- Keep manual config editing supported.
+
 3. Worktree support configurable
-4. Optimize v2 configurations 
+
+Problem:
+Worktree behavior should be configurable because different projects and users may want different defaults for session isolation.
+
+Expected behavior:
+Users should be able to enable, disable, or tune Cleo's worktree support through configuration.
+
+Acceptance criteria:
+- Config supports a worktree setting with documented values.
+- New sessions respect the configured worktree behavior.
+- Existing sessions are not unexpectedly moved or rewritten when the setting changes.
+- TUI and CLI display enough context to understand whether a session is using a worktree.
+- Invalid worktree configuration fails early with a useful error.
+
+Notes:
+- Decide whether this is global-only, project-level, or both.
+- Consider default behavior carefully to avoid surprising existing users.
+
+4. Optimize v2 configurations
+
+Problem:
+The current v2 configuration flow may have redundant fields, unclear defaults, or expensive loading/normalization paths.
+
+Expected behavior:
+V2 configuration should be simpler to reason about, faster to load, and easier to extend without breaking existing configs.
+
+Acceptance criteria:
+- Identify current v2 config pain points before implementation.
+- Remove or consolidate redundant config handling where possible.
+- Preserve backward compatibility or provide a migration path.
+- Add tests for config loading, defaults, and override precedence.
+- Document the final config precedence model.
+
+Notes:
+- This issue needs investigation before implementation.
+- Define what "optimize" means before starting: performance, ergonomics, schema cleanup, or all of the above.
+
+5. Fix `up/k` selection jump behavior in project/session list
+
+Problem:
+When pressing `up` or `k`, selection moves session by session until it reaches a project row, then jumps directly to the previous project instead of moving predictably through adjacent rows. This is asymmetric with `down` or `j`.
+
+Example:
+If the selection is highlighted on a session and the user presses `up/k`, it moves session by session. As soon as the selection reaches a project, it jumps directly to the project above. This does not happen with `down/j`.
+
+Expected behavior:
+`up/k` and `down/j` navigation should be symmetric and predictable. Moving up should select the previous visible row, just as moving down selects the next visible row.
+
+Acceptance criteria:
+- Pressing `up/k` moves to the immediately previous visible selectable row.
+- Pressing `down/j` continues to move to the immediately next visible selectable row.
+- Navigation behaves correctly across project rows, session rows, collapsed projects, and expanded projects.
+- Selection does not skip visible rows unless those rows are intentionally non-selectable.
+- Add a focused test for project/session list navigation if the UI state model supports it.
+
+Notes:
+- This is likely a TUI list indexing or selectable-row calculation bug.
+
+6. Keep tmux-backed sessions attachable when Cleo marks them done incorrectly
+
+Problem:
+Sessions left idle for too long can move to `done` state in Cleo even though the underlying tmux session is still alive and attachable. Cleo then does not allow attaching, but `tmux attach-session -t ...` works.
+
+Example:
+Cleo shows sessions as `done` and does not allow attaching, but `tmux ls` still lists them:
+`cleo-cleo-codex-focused-yonath`
+`cleo-interviews-claude-parth-laravel`
+`cleo-pickup-api-claude-gentle-darwin`
+
+The user can still run:
+`tmux attach-session -t cleo-pickup-api-claude-gentle-darwin`
+
+Expected behavior:
+If the tmux session still exists, Cleo should keep the session attachable or refresh the state from tmux before deciding it is done.
+
+Acceptance criteria:
+- Cleo checks tmux session existence before blocking attach for a `done` session.
+- If tmux still has the session, Cleo allows attach.
+- Cleo state refresh reconciles stale `done` records with live tmux sessions.
+- TUI status should not show a tmux-backed session as terminally done while tmux reports it alive.
+- If tmux no longer has the session, Cleo can keep showing it as done and offer cleanup/removal.
+- Add regression coverage for stale Cleo state plus live tmux session.
+
+Notes:
+- Reproduction signal: Cleo state says `done`, but `tmux ls` still contains the session name.
+- This may be related to stale event parsing, heartbeat timeout, or session-state reconciliation.
