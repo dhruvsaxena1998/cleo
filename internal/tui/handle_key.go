@@ -243,7 +243,7 @@ func (m Model) confirmKill() (Model, tea.Cmd) {
 	// Status clear comes after the early return: pressing 'K' on an empty
 	// row is a no-op and shouldn't clear an existing status message.
 	m.status = ""
-	m.popup = NewConfirmPopup("Confirm Kill", "confirm kill", fmt.Sprintf("kill %q?", sess.ID), sess.ID, "kill", m.theme)
+	m.popup = NewConfirmPopup("Confirm Kill", "confirm kill", fmt.Sprintf("kill %q?", sess.ID), sess.ID, confirmKindKill, m.theme)
 	m.mode = ModePopup
 	return m, m.popup.Init()
 }
@@ -357,8 +357,8 @@ func (m Model) confirmPrune() (Model, tea.Cmd) {
 		return m, nil
 	}
 	m.status = ""
-	prompt := fmt.Sprintf("prune %d finished session(s) in %q?", count, pid)
-	m.popup = NewConfirmPopup("Confirm Prune", "confirm prune", prompt, pid, "prune", m.theme)
+	prompt := fmt.Sprintf("prune all %d finished session(s) in %q?", count, pid)
+	m.popup = NewConfirmPopup("Confirm Prune", "confirm prune", prompt, pid, confirmKindPrune, m.theme)
 	m.mode = ModePopup
 	return m, m.popup.Init()
 }

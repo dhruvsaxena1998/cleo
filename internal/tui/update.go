@@ -49,7 +49,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case ConfirmYes:
 		switch msg.Kind {
-		case "prune":
+		case confirmKindPrune:
 			return m.performPrune(msg.Target)
 		default:
 			return m.performKill(msg.Target)

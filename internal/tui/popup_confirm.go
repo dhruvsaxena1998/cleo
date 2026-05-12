@@ -20,6 +20,11 @@ func NewConfirmPopup(title, actionLabel, prompt, target, kind string, theme Them
 	return ConfirmPopup{title: title, actionLabel: actionLabel, prompt: prompt, target: target, kind: kind, theme: theme}
 }
 
+const (
+	confirmKindKill  = "kill"
+	confirmKindPrune = "prune"
+)
+
 type ConfirmYes struct {
 	Target string
 	Kind   string
