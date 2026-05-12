@@ -60,10 +60,20 @@ func (m Model) renderFilterPanel(w, h int) string {
 
 func (m Model) renderTreePanel(w, h int) string {
 	total := len(m.sessions)
-	stats := m.sessionStats()
 	hint := fmt.Sprintf("%d sessions", total)
-	lines := m.renderTreeContent(w - 4)
-	return m.theme.PanelBox("Projects / Sessions", hint, splitLines(lines, stats.live, stats.waiting), w, h)
+	contentH := h - 4
+	if contentH < 1 {
+		contentH = 1
+	}
+	allLines := strings.Split(m.renderTreeContent(w-4), "\n")
+	scrollOff := m.cursorFlatIdx() - contentH + 1
+	if scrollOff < 0 {
+		scrollOff = 0
+	}
+	if scrollOff > len(allLines) {
+		scrollOff = len(allLines)
+	}
+	return m.theme.PanelBox("Projects / Sessions", hint, allLines[scrollOff:], w, h)
 }
 
 func (m Model) renderTreeContent(innerW int) string {
@@ -309,9 +319,24 @@ func shortState(s state.State) string {
 	return shortStateLabel(s)
 }
 
-// splitLines converts a multi-line string to a slice.
-func splitLines(s string, _, _ int) []string {
-	return strings.Split(s, "\n")
+// cursorFlatIdx returns the 0-based row index of the cursor in the full
+// rendered tree (one row per project header, one per expanded session).
+func (m Model) cursorFlatIdx() int {
+	projs := m.visibleProjects()
+	row := 0
+	for pi, p := range projs {
+		if pi == m.cursor.projectIdx {
+			if m.cursor.agentIdx < 0 {
+				return row // on the project header
+			}
+			return row + 1 + m.cursor.agentIdx // +1 for the header row
+		}
+		row++ // project header
+		if m.expanded[p.ID] {
+			row += len(m.sessionsFor(p.ID))
+		}
+	}
+	return 0
 }
 
 // sessionAge returns the age string for a session row (last event or start).
