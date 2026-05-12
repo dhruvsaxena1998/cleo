@@ -135,6 +135,12 @@ func (m Model) cursorUp() (Model, tea.Cmd) {
 	}
 	if m.cursor.projectIdx > 0 {
 		m.cursor.projectIdx--
+		prevPID := m.visibleProjectIDs()[m.cursor.projectIdx]
+		if m.expanded[prevPID] {
+			if ss := m.sessionsFor(prevPID); len(ss) > 0 {
+				m.cursor.agentIdx = len(ss) - 1
+			}
+		}
 	}
 	return m, m.autoCaptureCmd()
 }
