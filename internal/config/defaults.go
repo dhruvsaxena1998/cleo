@@ -27,7 +27,7 @@ func Defaults_() Config {
 		Agents: map[string]Agent{
 			"claude":   {Command: "claude", Label: "cl", Color: "#CC785C", Hooks: "claude"},
 			"codex":    {Command: "codex", Label: "cx", Color: "#10A37F", Hooks: "codex"},
-			"opencode": {Command: "opencode", Label: "oc", Color: "#FF6B35", Hooks: "none"},
+			"opencode": {Command: "opencode", Label: "oc", Color: "#FF6B35", Hooks: "opencode"},
 			"pi":       {Command: "pi", Label: "pi", Color: "#7C3AED", Hooks: "none"},
 		},
 		UI: UI{
