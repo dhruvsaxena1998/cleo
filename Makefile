@@ -1,7 +1,10 @@
-.PHONY: build test lint run clean
+.PHONY: build build-release test lint run clean
 
 build:
 	go build -o bin/cleo ./cmd/cleo
+
+build-release:
+	go build -ldflags="-s -w" -o bin/cleo ./cmd/cleo
 
 test:
 	go test ./...
