@@ -8,16 +8,22 @@ import (
 )
 
 type ConfirmPopup struct {
-	prompt string
-	target string
-	theme  Theme
+	title       string
+	actionLabel string
+	kind        string
+	prompt      string
+	target      string
+	theme       Theme
 }
 
-func NewConfirmPopup(prompt, target string, theme Theme) ConfirmPopup {
-	return ConfirmPopup{prompt: prompt, target: target, theme: theme}
+func NewConfirmPopup(title, actionLabel, prompt, target, kind string, theme Theme) ConfirmPopup {
+	return ConfirmPopup{title: title, actionLabel: actionLabel, prompt: prompt, target: target, kind: kind, theme: theme}
 }
 
-type ConfirmYes struct{ Target string }
+type ConfirmYes struct {
+	Target string
+	Kind   string
+}
 type ConfirmNo struct{}
 
 func (p ConfirmPopup) Init() tea.Cmd { return nil }
@@ -29,7 +35,7 @@ func (p ConfirmPopup) View() string {
 
 	var b strings.Builder
 	b.WriteString(bdr.Render("┌"+strings.Repeat("─", iw)+"┐") + "\n")
-	titleLeft := lipgloss.NewStyle().Foreground(p.theme.Red).Render("Confirm Kill")
+	titleLeft := lipgloss.NewStyle().Foreground(p.theme.Red).Render(p.title)
 	titleRight := lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("destructive")
 	gap := iw - lipgloss.Width(titleLeft) - lipgloss.Width(titleRight) - 2
 	if gap < 1 {
@@ -44,7 +50,7 @@ func (p ConfirmPopup) View() string {
 	b.WriteString(bdr.Render("│") + " " + padRight(lipgloss.NewStyle().Foreground(p.theme.Subtext0).Render(prompt), cw) + " " + bdr.Render("│") + "\n")
 	b.WriteString(bdr.Render("│") + " " + strings.Repeat(" ", cw) + " " + bdr.Render("│") + "\n")
 	b.WriteString(bdr.Render("├"+strings.Repeat("─", iw)+"┤") + "\n")
-	foot := p.theme.KeyHint("y", "confirm kill") + "   " + p.theme.KeyHint("esc", "cancel") + lipgloss.NewStyle().Foreground(p.theme.Subtext0).Render(" / ") + p.theme.KeyHint("n", "cancel")
+	foot := p.theme.KeyHint("y", p.actionLabel) + "   " + p.theme.KeyHint("esc", "cancel") + lipgloss.NewStyle().Foreground(p.theme.Subtext0).Render(" / ") + p.theme.KeyHint("n", "cancel")
 	b.WriteString(bdr.Render("│") + " " + padRight(truncateWidth(foot, cw), cw) + " " + bdr.Render("│") + "\n")
 	b.WriteString(bdr.Render("└" + strings.Repeat("─", iw) + "┘"))
 	return b.String()
@@ -54,7 +60,7 @@ func (p ConfirmPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if k, ok := msg.(tea.KeyMsg); ok {
 		switch k.String() {
 		case "y", "Y":
-			return p, func() tea.Msg { return ConfirmYes{Target: p.target} }
+			return p, func() tea.Msg { return ConfirmYes{Target: p.target, Kind: p.kind} }
 		case "esc", "n", "N":
 			return p, func() tea.Msg { return ConfirmNo{} }
 		}

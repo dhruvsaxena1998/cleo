@@ -102,6 +102,7 @@ func (m Model) renderFooter(width int) string {
 				hints = []string{
 					faint.Render(m.statusOr(fmt.Sprintf("%s is %s", sess.ID, sess.State))),
 					m.theme.KeyHint("K", "remove"),
+					m.theme.KeyHint("P", "prune project"),
 					m.theme.KeyHint("n", "new sibling"),
 					m.theme.KeyHint("/", "filter"),
 					m.theme.KeyHint("q", "quit"),
@@ -120,6 +121,14 @@ func (m Model) renderFooter(width int) string {
 				}
 			}
 		} else {
+			pid, _ := m.projectAtCursor()
+			var hasFinished bool
+			for _, s := range m.sessions {
+				if s.ProjectID == pid && s.State.IsFinished() {
+					hasFinished = true
+					break
+				}
+			}
 			hints = []string{
 				m.theme.KeyHint("n", "new session"),
 				m.theme.KeyHint("space", "expand"),
@@ -128,6 +137,9 @@ func (m Model) renderFooter(width int) string {
 				m.theme.KeyHint("/", "filter"),
 				m.theme.KeyHint("m", "mute"),
 				m.theme.KeyHint("q", "quit"),
+			}
+			if hasFinished {
+				hints = append(hints, m.theme.KeyHint("P", "prune"))
 			}
 		}
 	}

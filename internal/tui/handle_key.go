@@ -13,6 +13,7 @@ import (
 
 	"github.com/dhruvsaxena1998/cleo/internal/cli"
 	"github.com/dhruvsaxena1998/cleo/internal/config"
+	"github.com/dhruvsaxena1998/cleo/internal/events"
 	"github.com/dhruvsaxena1998/cleo/internal/ids"
 	"github.com/dhruvsaxena1998/cleo/internal/state"
 	"github.com/dhruvsaxena1998/cleo/internal/tmux"
@@ -61,6 +62,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.attachSelectedAgent()
 	case key.Matches(msg, km.Kill):
 		return m.confirmKill()
+	case key.Matches(msg, km.Prune):
+		return m.confirmPrune()
 	case key.Matches(msg, km.Rename):
 		return m.openRenamePopup()
 	case key.Matches(msg, km.Mute):
@@ -240,7 +243,7 @@ func (m Model) confirmKill() (Model, tea.Cmd) {
 	// Status clear comes after the early return: pressing 'K' on an empty
 	// row is a no-op and shouldn't clear an existing status message.
 	m.status = ""
-	m.popup = NewConfirmPopup(fmt.Sprintf("kill %q?", sess.ID), sess.ID, m.theme)
+	m.popup = NewConfirmPopup("Confirm Kill", "confirm kill", fmt.Sprintf("kill %q?", sess.ID), sess.ID, "kill", m.theme)
 	m.mode = ModePopup
 	return m, m.popup.Init()
 }
@@ -333,6 +336,41 @@ func (m Model) performSpawn(s SpawnSubmitted) (Model, tea.Cmd) {
 func (m Model) performKill(target string) (Model, tea.Cmd) {
 	_ = m.ctx.Tmux.Kill(target)
 	_ = m.ctx.State.Delete(target)
+	m.mode = ModeNormal
+	m.popup = nil
+	return m, loadStateCmd(m.ctx)
+}
+
+func (m Model) confirmPrune() (Model, tea.Cmd) {
+	pid, ok := m.projectAtCursor()
+	if !ok {
+		return m, nil
+	}
+	var count int
+	for _, s := range m.sessions {
+		if s.ProjectID == pid && s.State.IsFinished() {
+			count++
+		}
+	}
+	if count == 0 {
+		m.status = "no finished sessions to prune"
+		return m, nil
+	}
+	m.status = ""
+	prompt := fmt.Sprintf("prune %d finished session(s) in %q?", count, pid)
+	m.popup = NewConfirmPopup("Confirm Prune", "confirm prune", prompt, pid, "prune", m.theme)
+	m.mode = ModePopup
+	return m, m.popup.Init()
+}
+
+func (m Model) performPrune(projectID string) (Model, tea.Cmd) {
+	for _, s := range m.sessions {
+		if s.ProjectID != projectID || !s.State.IsFinished() {
+			continue
+		}
+		_ = events.Archive(m.ctx.Paths.EventsLog(s.ID), m.ctx.Paths.ArchiveDir())
+		_ = m.ctx.State.Delete(s.ID)
+	}
 	m.mode = ModeNormal
 	m.popup = nil
 	return m, loadStateCmd(m.ctx)

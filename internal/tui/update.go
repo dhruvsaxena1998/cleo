@@ -48,7 +48,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.popup = nil
 		return m, nil
 	case ConfirmYes:
-		return m.performKill(msg.Target)
+		switch msg.Kind {
+		case "prune":
+			return m.performPrune(msg.Target)
+		default:
+			return m.performKill(msg.Target)
+		}
 	case ConfirmNo:
 		m.status = ""
 		m.mode = ModeNormal
