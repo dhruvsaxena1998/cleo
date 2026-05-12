@@ -58,7 +58,7 @@ func TestDiagnoseHooksReportsHealthySetup(t *testing.T) {
 
 	report := diagnoseHooks(claudePath, codexHooksPath, codexConfigPath, tracePath, piExtPath, openCodePlugPath)
 	got := fmt.Sprint(report.Checks)
-	for _, want := range []string{"Claude hook activity", "Codex hook activity", "opencode hook activity"} {
+	for _, want := range []string{"Claude hook activity", "Codex hook activity", "OpenCode hook activity"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("expected %q in diagnose checks, got %+v", want, report.Checks)
 		}
