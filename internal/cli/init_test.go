@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"bytes"
 	"strings"
 	"testing"
@@ -24,6 +25,89 @@ func stripANSI(s string) string {
 		out.WriteRune(r)
 	}
 	return out.String()
+}
+
+func TestPromptYN_YesInput(t *testing.T) {
+	br := bufio.NewReader(strings.NewReader("y\n"))
+	var w bytes.Buffer
+	got, err := promptYN(&w, br, "Some option", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got {
+		t.Error("expected true for 'y' input")
+	}
+}
+
+func TestPromptYN_NoInput(t *testing.T) {
+	br := bufio.NewReader(strings.NewReader("n\n"))
+	var w bytes.Buffer
+	got, err := promptYN(&w, br, "Some option", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got {
+		t.Error("expected false for 'n' input")
+	}
+}
+
+func TestPromptYN_BlankDefaultYes(t *testing.T) {
+	br := bufio.NewReader(strings.NewReader("\n"))
+	var w bytes.Buffer
+	got, err := promptYN(&w, br, "Some option", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got {
+		t.Error("expected true for blank input when defaultYes=true")
+	}
+}
+
+func TestPromptYN_BlankDefaultNo(t *testing.T) {
+	br := bufio.NewReader(strings.NewReader("\n"))
+	var w bytes.Buffer
+	got, err := promptYN(&w, br, "Some option", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got {
+		t.Error("expected false for blank input when defaultYes=false")
+	}
+}
+
+func TestPromptYN_UppercaseYN(t *testing.T) {
+	for _, input := range []string{"Y\n", "N\n"} {
+		br := bufio.NewReader(strings.NewReader(input))
+		var w bytes.Buffer
+		got, err := promptYN(&w, br, "opt", true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := strings.ToLower(strings.TrimSpace(input)) == "y"
+		if got != want {
+			t.Errorf("input %q: expected %v", input, want)
+		}
+	}
+}
+
+func TestPromptYN_PrintsBracket(t *testing.T) {
+	br := bufio.NewReader(strings.NewReader("\n"))
+	var w bytes.Buffer
+	if _, err := promptYN(&w, br, "My option", true); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(w.String(), "[Y/n]") {
+		t.Errorf("expected [Y/n] in output, got: %s", w.String())
+	}
+
+	var w2 bytes.Buffer
+	br2 := bufio.NewReader(strings.NewReader("\n"))
+	if _, err := promptYN(&w2, br2, "My option", false); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(w2.String(), "[y/N]") {
+		t.Errorf("expected [y/N] in output, got: %s", w2.String())
+	}
 }
 
 func TestPrintInitSummaryIncludesCodexReviewStep(t *testing.T) {
@@ -140,5 +224,52 @@ func TestPrintInitSummary_CodexApprovalBlock(t *testing.T) {
 	}
 	if !strings.Contains(out, "/usr/local/bin/cleo hook codex") {
 		t.Errorf("output missing review command\ngot:\n%s", out)
+	}
+}
+
+func TestPromptHookSelection(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string // one line per agent: claude, codex, pi
+		wantKeys []string
+	}{
+		{
+			name:     "all defaults (enter×3)",
+			input:    "\n\n\n",
+			wantKeys: []string{hookClaude, hookCodex}, // pi defaults to no
+		},
+		{
+			name:     "select all",
+			input:    "y\ny\ny\n",
+			wantKeys: []string{hookClaude, hookCodex, hookPi},
+		},
+		{
+			name:     "claude only",
+			input:    "y\nn\nn\n",
+			wantKeys: []string{hookClaude},
+		},
+		{
+			name:     "none selected",
+			input:    "n\nn\nn\n",
+			wantKeys: []string{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			br := bufio.NewReader(strings.NewReader(tt.input))
+			var w bytes.Buffer
+			var selected []string
+			if err := promptHookSelection(&w, br, &selected); err != nil {
+				t.Fatal(err)
+			}
+			if len(selected) != len(tt.wantKeys) {
+				t.Fatalf("got %v, want %v", selected, tt.wantKeys)
+			}
+			for i, k := range tt.wantKeys {
+				if selected[i] != k {
+					t.Errorf("index %d: got %q, want %q", i, selected[i], k)
+				}
+			}
+		})
 	}
 }

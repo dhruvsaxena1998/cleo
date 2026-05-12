@@ -1,13 +1,13 @@
 package cli
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 
@@ -51,7 +51,8 @@ func newInitCmd(getCtx func() *Ctx) *cobra.Command {
 
 			selected := []string{hookClaude, hookCodex}
 			if !yes {
-				if err := promptHookSelection(&selected); err != nil {
+				br := bufio.NewReader(cmd.InOrStdin())
+				if err := promptHookSelection(cmd.OutOrStdout(), br, &selected); err != nil {
 					return err
 				}
 			}
@@ -169,17 +170,48 @@ func printInitSummary(w io.Writer, results []initInstallResult) {
 	}
 }
 
-func promptHookSelection(selected *[]string) error {
-	return huh.NewForm(
-		huh.NewGroup(
-			huh.NewMultiSelect[string]().
-				Title("Which hook systems would you like to install?").
-				Options(
-					huh.NewOption("Claude Code  (~/.claude/settings.json)", hookClaude),
-					huh.NewOption("Codex        (~/.codex/hooks.json)", hookCodex),
-					huh.NewOption("Pi           (~/.pi/agent/extensions/cleo.ts)", hookPi),
-				).
-				Value(selected),
-		),
-	).Run()
+func promptYN(w io.Writer, br *bufio.Reader, label string, defaultYes bool) (bool, error) {
+	bracket := "[Y/n]"
+	if !defaultYes {
+		bracket = "[y/N]"
+	}
+	fmt.Fprintf(w, "  %s %s\n", bracket, label)
+	line, err := br.ReadString('\n')
+	if err != nil && err != io.EOF {
+		return false, err
+	}
+	switch strings.ToLower(strings.TrimSpace(line)) {
+	case "y":
+		return true, nil
+	case "n":
+		return false, nil
+	default:
+		return defaultYes, nil
+	}
+}
+
+func promptHookSelection(w io.Writer, br *bufio.Reader, selected *[]string) error {
+	fmt.Fprintln(w, "Which hook systems to install?")
+	type hookOpt struct {
+		key    string
+		label  string
+		defYes bool
+	}
+	opts := []hookOpt{
+		{hookClaude, "Claude Code  (~/.claude/settings.json)", true},
+		{hookCodex, "Codex        (~/.codex/hooks.json)", true},
+		{hookPi, "Pi           (~/.pi/agent/extensions/cleo.ts)", false},
+	}
+	var out []string
+	for _, o := range opts {
+		yes, err := promptYN(w, br, o.label, o.defYes)
+		if err != nil {
+			return err
+		}
+		if yes {
+			out = append(out, o.key)
+		}
+	}
+	*selected = out
+	return nil
 }
