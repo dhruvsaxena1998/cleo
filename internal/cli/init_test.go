@@ -230,27 +230,27 @@ func TestPrintInitSummary_CodexApprovalBlock(t *testing.T) {
 func TestPromptHookSelection(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    string // one line per agent: claude, codex, pi
+		input    string // one line per agent: claude, codex, pi, opencode
 		wantKeys []string
 	}{
 		{
-			name:     "all defaults (enter×3)",
-			input:    "\n\n\n",
-			wantKeys: []string{hookClaude, hookCodex}, // pi defaults to no
+			name:     "all defaults (enter×4)",
+			input:    "\n\n\n\n",
+			wantKeys: []string{hookClaude, hookCodex}, // pi and opencode default to no
 		},
 		{
 			name:     "select all",
-			input:    "y\ny\ny\n",
-			wantKeys: []string{hookClaude, hookCodex, hookPi},
+			input:    "y\ny\ny\ny\n",
+			wantKeys: []string{hookClaude, hookCodex, hookPi, hookOpenCode},
 		},
 		{
 			name:     "claude only",
-			input:    "y\nn\nn\n",
+			input:    "y\nn\nn\nn\n",
 			wantKeys: []string{hookClaude},
 		},
 		{
 			name:     "none selected",
-			input:    "n\nn\nn\n",
+			input:    "n\nn\nn\nn\n",
 			wantKeys: []string{},
 		},
 	}
@@ -271,5 +271,34 @@ func TestPromptHookSelection(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestPrintInitSummary_OpenCode(t *testing.T) {
+	var buf bytes.Buffer
+	printInitSummary(&buf, []initInstallResult{
+		{
+			Name:           "OpenCode",
+			Files:          []string{"plugin: /home/user/.config/opencode/plugins/cleo.ts"},
+			InstalledHooks: []string{"session.created", "tool.execute.before", "tool.execute.after", "permission.asked", "session.idle", "session.deleted", "session.error"},
+		},
+	})
+	out := stripANSI(buf.String())
+
+	for _, want := range []string{
+		"Cleo hooks initialized",
+		"OpenCode",
+		"/home/user/.config/opencode/plugins/cleo.ts",
+		"7 events",
+		"session.created",
+		"session.idle",
+		"session.deleted",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q\ngot:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "manual hook approval") {
+		t.Errorf("opencode should not show the Codex approval step:\n%s", out)
 	}
 }

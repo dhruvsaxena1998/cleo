@@ -16,9 +16,10 @@ import (
 )
 
 const (
-	hookClaude = "claude"
-	hookCodex  = "codex"
-	hookPi     = "pi"
+	hookClaude   = "claude"
+	hookCodex    = "codex"
+	hookPi       = "pi"
+	hookOpenCode = "opencode"
 )
 
 var (
@@ -99,6 +100,17 @@ func newInitCmd(getCtx func() *Ctx) *cobra.Command {
 							fmt.Sprintf("extension: %s", filepath.Join(home, ".pi", "agent", "extensions", "cleo.ts")),
 						},
 						InstalledHooks: hooks.PiEvents(),
+					})
+				case hookOpenCode:
+					if err := (hooks.OpenCodeProtocol{}).Install(cleoBin, force); err != nil {
+						return err
+					}
+					results = append(results, initInstallResult{
+						Name: "OpenCode",
+						Files: []string{
+							fmt.Sprintf("plugin: %s", filepath.Join(home, ".config", "opencode", "plugins", "cleo.ts")),
+						},
+						InstalledHooks: hooks.OpenCodeEvents(),
 					})
 				}
 			}
@@ -203,6 +215,7 @@ func promptHookSelection(w io.Writer, br *bufio.Reader, selected *[]string) erro
 		{hookClaude, "Claude Code  (~/.claude/settings.json)", true},
 		{hookCodex, "Codex        (~/.codex/hooks.json)", true},
 		{hookPi, "Pi           (~/.pi/agent/extensions/cleo.ts)", false},
+		{hookOpenCode, "OpenCode     (~/.config/opencode/plugins/cleo.ts)", false},
 	}
 	var out []string
 	for _, o := range opts {
