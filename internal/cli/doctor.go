@@ -29,12 +29,14 @@ func newDoctorCmd(getCtx func() *Ctx) *cobra.Command {
 			c := getCtx()
 			home, _ := os.UserHomeDir()
 			piExtPath := filepath.Join(home, ".pi", "agent", "extensions", "cleo.ts")
+			openCodePlugPath := filepath.Join(home, ".config", "opencode", "plugins", "cleo.ts")
 			report := diagnoseHooks(
 				filepath.Join(home, ".claude", "settings.json"),
 				filepath.Join(home, ".codex", "hooks.json"),
 				filepath.Join(home, ".codex", "config.toml"),
 				c.Paths.HookTraceLog(),
 				piExtPath,
+				openCodePlugPath,
 			)
 			if exe, err := os.Executable(); err == nil {
 				report.CleoBin = exe
@@ -56,7 +58,8 @@ type doctorReport struct {
 	HookTracePath      string
 	ClaudeSettingsPath string
 	CodexHooksPath     string
-	PiExtensionPath    string // ← new
+	PiExtensionPath    string
+	OpenCodePluginPath string
 	CleoBin            string
 }
 
@@ -67,7 +70,7 @@ type doctorCheck struct {
 	Protocol string // "claude" | "codex" | "" — used to attach trace inline
 }
 
-func diagnoseHooks(claudeSettingsPath, codexHooksPath, codexConfigPath, hookTracePath, piExtPath string) doctorReport {
+func diagnoseHooks(claudeSettingsPath, codexHooksPath, codexConfigPath, hookTracePath, piExtPath, openCodePlugPath string) doctorReport {
 	claude := checkClaudeHooks(claudeSettingsPath)
 	claude.Protocol = "claude"
 	codexFlag := checkCodexFeatureFlag(codexConfigPath)
@@ -75,16 +78,21 @@ func diagnoseHooks(claudeSettingsPath, codexHooksPath, codexConfigPath, hookTrac
 	codexHooks.Protocol = "codex"
 	pi := checkPiExtension(piExtPath)
 	pi.Protocol = "pi"
+	openCode := checkOpenCodeExtension(openCodePlugPath)
+	openCode.Protocol = "opencode"
 	claudeAct := checkHookTrace(hookTracePath, "claude")
 	claudeAct.Protocol = "claude"
 	codexAct := checkHookTrace(hookTracePath, "codex")
 	codexAct.Protocol = "codex"
+	openCodeAct := checkHookTrace(hookTracePath, "opencode")
+	openCodeAct.Protocol = "opencode"
 	return doctorReport{
-		Checks:             []doctorCheck{claude, codexFlag, codexHooks, pi, claudeAct, codexAct},
+		Checks:             []doctorCheck{claude, codexFlag, codexHooks, pi, openCode, claudeAct, codexAct, openCodeAct},
 		HookTracePath:      hookTracePath,
 		ClaudeSettingsPath: claudeSettingsPath,
 		CodexHooksPath:     codexHooksPath,
 		PiExtensionPath:    piExtPath,
+		OpenCodePluginPath: openCodePlugPath,
 	}
 }
 
@@ -106,6 +114,26 @@ func checkPiExtension(path string) doctorCheck {
 		}
 	}
 	return doctorCheck{Label: "Pi extension", OK: true, Detail: path}
+}
+
+func checkOpenCodeExtension(path string) doctorCheck {
+	content, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return doctorCheck{
+			Label:  "OpenCode plugin",
+			Detail: fmt.Sprintf("not found at %s — run cleo init to install", path),
+		}
+	}
+	if err != nil {
+		return doctorCheck{Label: "OpenCode plugin", Detail: err.Error()}
+	}
+	if string(content) != hooks.ExpectedOpenCodeEntry() {
+		return doctorCheck{
+			Label:  "OpenCode plugin",
+			Detail: fmt.Sprintf("stale — re-run cleo init to update %s", path),
+		}
+	}
+	return doctorCheck{Label: "OpenCode plugin", OK: true, Detail: path}
 }
 
 func checkClaudeHooks(path string) doctorCheck {
