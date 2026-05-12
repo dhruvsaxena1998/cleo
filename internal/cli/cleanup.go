@@ -1,12 +1,12 @@
 package cli
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 
-	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"
 
 	"github.com/dhruvsaxena1998/cleo/internal/hooks"
@@ -25,7 +25,8 @@ func newCleanupCmd(getCtx func() *Ctx) *cobra.Command {
 
 			selected := []string{hookClaude, hookCodex}
 			if !yes {
-				if err := promptCleanupSelection(&selected); err != nil {
+				br := bufio.NewReader(cmd.InOrStdin())
+				if err := promptCleanupSelection(cmd.OutOrStdout(), br, &selected); err != nil {
 					return err
 				}
 			}
@@ -93,16 +94,27 @@ func printCleanupSummary(w io.Writer, results []cleanupResult) {
 	fmt.Fprintln(w, "  - Run cleo init again if you want to reinstall Cleo hooks later.")
 }
 
-func promptCleanupSelection(selected *[]string) error {
-	return huh.NewForm(
-		huh.NewGroup(
-			huh.NewMultiSelect[string]().
-				Title("Which hook systems would you like to clean up?").
-				Options(
-					huh.NewOption("Claude Code  (~/.claude/settings.json)", hookClaude),
-					huh.NewOption("Codex        (~/.codex/hooks.json)", hookCodex),
-				).
-				Value(selected),
-		),
-	).Run()
+func promptCleanupSelection(w io.Writer, br *bufio.Reader, selected *[]string) error {
+	fmt.Fprintln(w, "Which hook systems to clean up?")
+	type hookOpt struct {
+		key    string
+		label  string
+		defYes bool
+	}
+	opts := []hookOpt{
+		{hookClaude, "Claude Code  (~/.claude/settings.json)", true},
+		{hookCodex, "Codex        (~/.codex/hooks.json)", true},
+	}
+	var out []string
+	for _, o := range opts {
+		yes, err := promptYN(w, br, o.label, o.defYes)
+		if err != nil {
+			return err
+		}
+		if yes {
+			out = append(out, o.key)
+		}
+	}
+	*selected = out
+	return nil
 }

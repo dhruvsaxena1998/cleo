@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"bytes"
 	"strings"
 	"testing"
@@ -38,5 +39,47 @@ func TestPrintCleanupSummary(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Fatalf("output missing %q:\n%s", want, got)
 		}
+	}
+}
+
+func TestPromptCleanupSelection(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		wantKeys []string
+	}{
+		{
+			name:     "all defaults (enter×2)",
+			input:    "\n\n",
+			wantKeys: []string{hookClaude, hookCodex},
+		},
+		{
+			name:     "claude only",
+			input:    "y\nn\n",
+			wantKeys: []string{hookClaude},
+		},
+		{
+			name:     "none selected",
+			input:    "n\nn\n",
+			wantKeys: []string{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			br := bufio.NewReader(strings.NewReader(tt.input))
+			var w bytes.Buffer
+			var selected []string
+			if err := promptCleanupSelection(&w, br, &selected); err != nil {
+				t.Fatal(err)
+			}
+			if len(selected) != len(tt.wantKeys) {
+				t.Fatalf("got %v, want %v", selected, tt.wantKeys)
+			}
+			for i, k := range tt.wantKeys {
+				if selected[i] != k {
+					t.Errorf("index %d: got %q, want %q", i, selected[i], k)
+				}
+			}
+		})
 	}
 }
