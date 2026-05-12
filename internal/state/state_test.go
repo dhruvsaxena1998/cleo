@@ -35,6 +35,10 @@ func TestNextState(t *testing.T) {
 		{Completed, EvNotification, Completed},
 		{Completed, EvStop, Completed},
 		{Completed, EvSessionStart, Completed},
+		// Completed can be revived by EvUserResume (user re-attach or reconciler).
+		{Completed, EvUserResume, Idle},
+		// Dead and Errored resist EvUserResume (hard terminal).
+		{Errored, EvUserResume, Errored},
 		{Errored, EvNotification, Errored},
 		{Errored, EvStop, Errored},
 		// EvDead is still allowed — idempotent and absorbing.

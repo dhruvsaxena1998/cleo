@@ -110,6 +110,51 @@ func TestSpawningTimeoutAdvanceSetsLastMessage(t *testing.T) {
 	}
 }
 
+func TestReconcileRevivesCompletedSessionWithLiveTmux(t *testing.T) {
+	dir := t.TempDir()
+	st := state.NewStore(filepath.Join(dir, "state.json"), filepath.Join(dir, "state.json.lock"))
+	tx := &fakeTmux{existing: []string{"s1"}}
+
+	oldTime := time.Now().Add(-30 * time.Minute)
+	if err := st.Put(state.Session{
+		ID: "s1", State: state.Completed, LastEventAt: oldTime,
+	}); err != nil {
+		t.Fatalf("put: %v", err)
+	}
+
+	if err := RunOpts(st, tx, Options{IdleTimeout: 10 * time.Minute, SpawningTimeout: 30 * time.Second}); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	got, _ := st.Get("s1")
+	if got.State != state.Idle {
+		t.Fatalf("want Idle (revived), got %s", got.State)
+	}
+	// LastEventAt must be bumped so the idle clock restarts (no immediate re-timeout).
+	if !got.LastEventAt.After(oldTime) {
+		t.Fatalf("LastEventAt not bumped: want after %v, got %v", oldTime, got.LastEventAt)
+	}
+}
+
+func TestReconcileDoesNotReviveCompletedWithDeadTmux(t *testing.T) {
+	dir := t.TempDir()
+	st := state.NewStore(filepath.Join(dir, "state.json"), filepath.Join(dir, "state.json.lock"))
+	tx := &fakeTmux{existing: []string{}} // tmux reports session gone
+
+	if err := st.Put(state.Session{
+		ID: "s1", State: state.Completed, LastEventAt: time.Now().Add(-30 * time.Minute),
+	}); err != nil {
+		t.Fatalf("put: %v", err)
+	}
+
+	if err := RunOpts(st, tx, Options{IdleTimeout: 10 * time.Minute, SpawningTimeout: 30 * time.Second}); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	got, _ := st.Get("s1")
+	if got.State != state.Dead {
+		t.Fatalf("want Dead (tmux gone), got %s", got.State)
+	}
+}
+
 func TestRunOptsUsesProvidedSpawningTimeout(t *testing.T) {
 	dir := t.TempDir()
 	st := state.NewStore(filepath.Join(dir, "state.json"), filepath.Join(dir, "state.json.lock"))
