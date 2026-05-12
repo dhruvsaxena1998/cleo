@@ -1,10 +1,15 @@
 package state
 
 func NextState(from State, ev Event) State {
-	// Terminal states ignore hook events. Only EvDead can still transition
-	// (Dead absorbs all terminal states; the reconciler guards against
-	// redundant EvDead applications separately).
-	if from.IsFinished() && ev != EvDead {
+	// Dead and Errored are hard terminal: only EvDead escapes them.
+	// Completed can be revived by EvUserResume (user re-attach or reconciler
+	// detecting a live tmux session on a stale done record).
+	if from == Dead || from == Errored {
+		if ev != EvDead {
+			return from
+		}
+	}
+	if from == Completed && ev != EvDead && ev != EvUserResume {
 		return from
 	}
 	switch ev {
@@ -30,6 +35,11 @@ func NextState(from State, ev Event) State {
 	case EvStop:
 		return Idle
 	case EvUserResume:
+		// Reviving a Completed session: go to Idle so the idle clock restarts
+		// and subsequent hook events can update the state normally.
+		if from == Completed {
+			return Idle
+		}
 		return Running
 	case EvPreToolUse, EvPostToolUse:
 		if from == Spawning {

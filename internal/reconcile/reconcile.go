@@ -33,6 +33,12 @@ func RunOpts(st *state.Store, tx TmuxLs, opts Options) error {
 			_, _ = st.ApplySynthetic(s.ID, state.EvDead, "")
 			continue
 		}
+		// Completed session still has a live tmux — stale done record.
+		// Revive to Idle and bump LastEventAt so the idle clock restarts.
+		if liveSet[s.ID] && s.State == state.Completed {
+			_, _ = st.Apply(s.ID, state.EvUserResume, "")
+			continue
+		}
 		// If the agent has been spawning for longer than SpawningTimeout and
 		// the tmux session is still alive, the hooks likely didn't fire.
 		// Advance to Running so the TUI shows meaningful state. This is a
