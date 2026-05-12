@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-beta.3] - 2026-05-12
+
+### Added
+- Heap memory usage displayed in the TUI topbar.
+- `P` keybind to prune finished sessions for the focused project directly from the tree panel.
+- `init` and `cleanup` CLI commands now use inline y/N prompts instead of the huh multi-select widget.
+
+### Fixed
+- Cursor navigation: viewport now scrolls to keep the cursor row visible when moving up/down through the tree.
+- Cursor navigation: `cursorUp` from the first session of an expanded project correctly lands on the previous project's last session.
+- Completed sessions are revived in the TUI when the underlying tmux pane is still alive.
+- Terminal states (`Dead`, `Completed`, `Errored`) now ignore late-arriving hook events to prevent accidental resurrection.
+- `re-attach` to completed sessions works again when the tmux pane is still alive.
+- Hooks: idle-nudge suppression is now scoped to Claude `Notification` events via `SuppressWhenIdle`; other events are unaffected.
+- Hooks: notification sound plays even when `state.Apply` fails.
+- Hooks: CWD fallback attempted for Claude when `CLEO_SESSION_ID` is stale or unknown.
+- Hooks: Claude/Codex hook timeout raised from 2s to 5s to reduce lock-contention drops.
+- Config: UI fields are merged individually so a partial `ui:` block no longer wipes unrelated keys.
+- Config: `sound.enabled` is now a `*bool`; an absent key defaults to `true` instead of `false`.
+- Focus: stale `focused=true` entries expire after 30 minutes.
+- Focus: `client-focus-out` hook registered so focus clears on tmux window switch.
+
+### Changed
+- Dropped `charmbracelet/huh` dependency; replaced with lightweight inline prompts.
+
+## [0.1.0-beta.2] - 2026-05-11
+
+### Added
+- Unified `Protocol` interface for hook handling; `ClaudeProtocol`, `CodexProtocol`, and `PiProtocol` each implement `Normalize()` and `Install()`/`Cleanup()`.
+- Pi hook support: `PiProtocol` with install/cleanup and a TypeScript extension template.
+- `doctor` now checks whether the Pi extension file exists and diffs its content against the expected template.
+- `init` includes Pi in the hook-installation selection and reformats output with lipgloss colors.
+- `--payload` flag on `cleo hooks handle` for manual event injection during debugging.
+- Tmux presence check on startup — cleo exits with a clear message if tmux is not found.
+- Help keybinds panel in the TUI (`?`).
+- curl one-liner installer (`install.sh`).
+
+### Fixed
+- Hook trace now populates the `event` field; nil `State` guarded in `applyNormalized`.
+
 ## [0.1.0-beta.1] - 2026-05-10
 
 Beta on the road to v0.1.0 stable. Stability fixes, observability tooling, and TUI polish driven by friction surfaced during real cleo use. See [docs/superpowers/specs/2026-05-10-v02-design.md](docs/superpowers/specs/2026-05-10-v02-design.md) for the design rationale (the spec was authored under a "v0.2" working title before the version was reframed; the content still applies).
