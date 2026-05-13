@@ -528,6 +528,52 @@ func TestFilterSurvivesExpandCollapse(t *testing.T) {
 	}
 }
 
+func TestToDisplayState(t *testing.T) {
+	cases := []struct {
+		in   state.State
+		want DisplayState
+	}{
+		{state.WaitingForInput, DisplayNeedsInput},
+		{state.Running, DisplayWorking},
+		{state.Spawning, DisplayWorking},
+		{state.Idle, DisplayIdle},
+		{state.Completed, DisplayCompleted},
+		{state.Errored, DisplayFailed},
+		{state.Dead, DisplayStopped},
+	}
+	for _, c := range cases {
+		got := ToDisplayState(c.in)
+		if got != c.want {
+			t.Errorf("ToDisplayState(%s): want %d, got %d", c.in, c.want, got)
+		}
+	}
+}
+
+func TestUrgencyOrder(t *testing.T) {
+	order := []DisplayState{DisplayNeedsInput, DisplayWorking, DisplayIdle, DisplayCompleted, DisplayFailed, DisplayStopped}
+	for i := 1; i < len(order); i++ {
+		if urgencyOrder(order[i-1]) >= urgencyOrder(order[i]) {
+			t.Errorf("urgency: %d (%d) should be < %d (%d)", order[i-1], urgencyOrder(order[i-1]), order[i], urgencyOrder(order[i]))
+		}
+	}
+}
+
+func TestDisplayStateGlyph(t *testing.T) {
+	want := map[DisplayState]string{
+		DisplayNeedsInput: "⚠",
+		DisplayWorking:    "✽",
+		DisplayIdle:       "∙",
+		DisplayCompleted:  "✓",
+		DisplayFailed:     "✗",
+		DisplayStopped:    "○",
+	}
+	for ds, g := range want {
+		if got := displayStateGlyph(ds); got != g {
+			t.Errorf("displayStateGlyph(%d): want %q, got %q", ds, g, got)
+		}
+	}
+}
+
 // TestCursorUpDownNavigation locks in symmetric up/down navigation across
 // project headers and session rows (issue #24). Uses direct method calls —
 // no teatest harness required.
