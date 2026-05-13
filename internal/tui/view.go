@@ -136,6 +136,7 @@ func (m Model) renderFooter(width int) string {
 				m.theme.KeyHint("space", "expand"),
 				m.theme.KeyHint("j/k", "move"),
 				m.theme.KeyHint("↵ ", "attach"),
+				m.theme.KeyHint("D", "remove project"),
 				m.theme.KeyHint("/", "filter"),
 				m.theme.KeyHint("m", "mute"),
 				m.theme.KeyHint("q", "quit"),

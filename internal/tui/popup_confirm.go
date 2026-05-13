@@ -21,8 +21,9 @@ func NewConfirmPopup(title, actionLabel, prompt, target, kind string, theme Them
 }
 
 const (
-	confirmKindKill  = "kill"
-	confirmKindPrune = "prune"
+	confirmKindKill          = "kill"
+	confirmKindPrune         = "prune"
+	confirmKindRemoveProject = "remove-project"
 )
 
 type ConfirmYes struct {
@@ -34,7 +35,7 @@ type ConfirmNo struct{}
 func (p ConfirmPopup) Init() tea.Cmd { return nil }
 
 func (p ConfirmPopup) View() string {
-	const popW = 44
+	const popW = 58
 	bdr := lipgloss.NewStyle().Foreground(p.theme.Overlay1)
 	iw := popW - 2
 

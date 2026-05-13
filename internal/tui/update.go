@@ -52,6 +52,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Kind {
 		case confirmKindPrune:
 			return m.performPrune(msg.Target)
+		case confirmKindRemoveProject:
+			return m.performRemoveProject(msg.Target)
 		default:
 			return m.performKill(msg.Target)
 		}

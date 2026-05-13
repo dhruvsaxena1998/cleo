@@ -64,6 +64,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.confirmKill()
 	case key.Matches(msg, km.Prune):
 		return m.confirmPrune()
+	case key.Matches(msg, km.Remove):
+		return m.confirmRemoveProject()
 	case key.Matches(msg, km.Rename):
 		return m.openRenamePopup()
 	case key.Matches(msg, km.Mute):
@@ -377,6 +379,50 @@ func (m Model) performPrune(projectID string) (Model, tea.Cmd) {
 		_ = events.Archive(m.ctx.Paths.EventsLog(s.ID), m.ctx.Paths.ArchiveDir())
 		_ = m.ctx.State.Delete(s.ID)
 	}
+	m.mode = ModeNormal
+	m.popup = nil
+	return m, loadStateCmd(m.ctx)
+}
+
+func (m Model) confirmRemoveProject() (Model, tea.Cmd) {
+	pid, ok := m.projectAtCursor()
+	if !ok {
+		return m, nil
+	}
+	m.status = ""
+	var activeCnt, finishedCnt int
+	for _, s := range m.sessions {
+		if s.ProjectID != pid {
+			continue
+		}
+		if s.State.IsFinished() {
+			finishedCnt++
+		} else {
+			activeCnt++
+		}
+	}
+	var prompt string
+	if activeCnt > 0 {
+		prompt = fmt.Sprintf("remove %q? kills %d active session(s)", pid, activeCnt)
+	} else {
+		prompt = fmt.Sprintf("remove %q and %d session(s)?", pid, finishedCnt)
+	}
+	m.popup = NewConfirmPopup("Remove Project", "confirm remove", prompt, pid, confirmKindRemoveProject, m.theme)
+	m.mode = ModePopup
+	return m, m.popup.Init()
+}
+
+func (m Model) performRemoveProject(pid string) (Model, tea.Cmd) {
+	for _, s := range m.sessions {
+		if s.ProjectID != pid {
+			continue
+		}
+		if !s.State.IsFinished() {
+			_ = m.ctx.Tmux.Kill(s.ID)
+		}
+		_ = m.ctx.State.Delete(s.ID)
+	}
+	_ = m.ctx.Projects.Remove(pid)
 	m.mode = ModeNormal
 	m.popup = nil
 	return m, loadStateCmd(m.ctx)

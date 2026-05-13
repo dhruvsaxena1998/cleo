@@ -57,6 +57,8 @@ func (p HelpPopup) View() string {
 			{"n", "new session"},
 			{"r", "rename"},
 			{"K", "kill session"},
+			{"P", "prune finished"},
+			{"D", "remove project"},
 		}},
 		{"Global", []row{
 			{"/", "filter"},
