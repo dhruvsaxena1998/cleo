@@ -197,8 +197,8 @@ func (m Model) renderDashboard(width int) string {
 	b.WriteString("  " + faint.Render("overview") + "\n")
 	b.WriteString("  " +
 		m.theme.Pill(fmt.Sprintf("%d sessions", len(m.sessions)), m.theme.Subtext0) + " " +
-		m.theme.Pill(fmt.Sprintf("%d live", stats.live), m.theme.Green) + " " +
-		m.theme.Pill(fmt.Sprintf("%d waiting", stats.waiting), m.theme.Peach) + "\n\n")
+		m.theme.Pill(fmt.Sprintf("%d working", stats.working), m.theme.Green) + " " +
+		m.theme.Pill(fmt.Sprintf("%d needs input", stats.needsInput), m.theme.Peach) + "\n\n")
 	for _, s := range m.sessions {
 		cfgAgent := m.ctx.Config.Agents[s.Agent]
 		badge := agentLabel(cfgAgent.Label, cfgAgent.Color)

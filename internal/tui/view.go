@@ -61,26 +61,62 @@ func renderFrame(m Model) string {
 
 func (m Model) renderTopbar(width int) string {
 	stats := m.sessionStats()
-	sound := lipgloss.NewStyle().Foreground(m.theme.Overlay0).Render("sound on")
-	if m.ctx.Config.Sound.Enabled != nil && !*m.ctx.Config.Sound.Enabled {
-		sound = lipgloss.NewStyle().Foreground(m.theme.Overlay0).Render("muted")
+
+	accent := lipgloss.NewStyle().Foreground(m.theme.Mauve).Bold(true)
+	faint := lipgloss.NewStyle().Foreground(m.theme.Overlay0)
+
+	left := accent.Render("◈ cleo") +
+		faint.Render("  ·  ") +
+		faint.Render(fmt.Sprintf("%d projects", len(m.projects))) +
+		faint.Render(" · ") +
+		faint.Render(fmt.Sprintf("%d sessions", stats.total))
+
+	var rightParts []string
+
+	if stats.needsInput > 0 {
+		var badge string
+		if m.animFrame%2 == 0 {
+			badge = lipgloss.NewStyle().
+				Background(m.theme.Gold).
+				Foreground(lipgloss.Color("#11111b")).
+				Bold(true).
+				Padding(0, 1).
+				Render(fmt.Sprintf("⚠ %d needs input", stats.needsInput))
+		} else {
+			badge = lipgloss.NewStyle().
+				Foreground(m.theme.Gold).
+				Bold(true).
+				Render(fmt.Sprintf("⚠ %d needs input", stats.needsInput))
+		}
+		rightParts = append(rightParts, badge)
 	}
-	left := lipgloss.NewStyle().Foreground(m.theme.Mauve).Bold(true).Render("cleo") +
-		lipgloss.NewStyle().Foreground(m.theme.Overlay0).Render("  ai agents")
+
+	if stats.working > 0 {
+		badge := lipgloss.NewStyle().
+			Foreground(m.theme.Blue).
+			Render(fmt.Sprintf("✽ %d working", stats.working))
+		rightParts = append(rightParts, badge)
+	}
+
 	memMB := float64(m.heapAlloc) / (1024 * 1024)
-	right := fmt.Sprintf("%s  %s  %s  %s  %s",
-		m.theme.Pill(fmt.Sprintf("%d projects", len(m.projects)), m.theme.Subtext0),
-		m.theme.Pill(fmt.Sprintf("%d live", stats.live), m.theme.Green),
-		m.theme.Pill(fmt.Sprintf("%d waiting", stats.waiting), m.theme.Peach),
-		m.theme.Pill(fmt.Sprintf("%.1f MB", memMB), m.theme.Overlay0),
-		sound,
-	)
+	rightParts = append(rightParts, faint.Render(fmt.Sprintf("%.1fMB", memMB)))
+
+	soundLabel := "♪ on"
+	if m.ctx.Config.Sound.Enabled != nil && !*m.ctx.Config.Sound.Enabled {
+		soundLabel = "♪ off"
+	}
+	rightParts = append(rightParts, faint.Render(soundLabel))
+
+	sep := faint.Render("  ·  ")
+	right := strings.Join(rightParts, sep)
+
 	space := width - lipgloss.Width(left) - lipgloss.Width(right) - 2
 	if space < 1 {
 		space = 1
 	}
-	return lipgloss.NewStyle().Background(m.theme.Mantle).Foreground(m.theme.Text).Padding(0, 1).
-		Width(width).Render(left + strings.Repeat(" ", space) + right)
+	return lipgloss.NewStyle().Background(m.theme.Mantle).Foreground(m.theme.Text).
+		Padding(0, 1).Width(width).
+		Render(left + strings.Repeat(" ", space) + right)
 }
 
 // ── Footer ────────────────────────────────────────────────────────────────────
@@ -187,22 +223,18 @@ func (m Model) retentionBanner(width int) string {
 // ── Session stats ─────────────────────────────────────────────────────────────
 
 type sessionSummary struct {
-	live, waiting, finished, errored int
+	total, needsInput, working int
 }
 
 func (m Model) sessionStats() sessionSummary {
 	var s sessionSummary
+	s.total = len(m.sessions)
 	for _, sess := range m.sessions {
-		switch sess.State {
-		case "running", "spawning", "idle":
-			s.live++
-		case "waiting_for_input":
-			s.waiting++
-		case "error":
-			s.errored++
-			s.finished++
-		case "completed", "dead":
-			s.finished++
+		switch ToDisplayState(sess.State) {
+		case DisplayNeedsInput:
+			s.needsInput++
+		case DisplayWorking:
+			s.working++
 		}
 	}
 	return s
