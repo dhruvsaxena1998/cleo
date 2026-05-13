@@ -55,6 +55,10 @@ func InstallClaude(settingsPath, cleoBin string, force bool) error {
 	expected := ExpectedClaudeEntries(cleoBin)
 	for _, ev := range claudeEvents {
 		want := expected[ev]
+		cmd := fmt.Sprintf("%s hook claude %s", cleoBin, ev)
+		if hookCommandPresent(hooks[ev], cmd) {
+			continue // already installed — skip, don't overwrite
+		}
 		if existing, ok := hooks[ev]; ok {
 			if !equalsHook(existing, want) && !force {
 				return fmt.Errorf("conflict: %s already has a different hook (re-run with --force to overwrite)", ev)
@@ -115,6 +119,10 @@ func InstallCodex(hooksPath, configPath, cleoBin string, force bool) error {
 	expected := ExpectedCodexEntries(cleoBin)
 	for _, ev := range codexEvents {
 		want := expected[ev]
+		cmd := fmt.Sprintf("%s hook codex %s", cleoBin, ev)
+		if hookCommandPresent(hooks[ev], cmd) {
+			continue // already installed — skip, don't overwrite
+		}
 		if existing, ok := hooks[ev]; ok {
 			if !equalsHook(existing, want) && !force {
 				return fmt.Errorf("conflict: %s already has a different hook (re-run with --force to overwrite)", ev)
@@ -264,4 +272,35 @@ func equalsHook(a, b any) bool {
 	aj, _ := json.Marshal(a)
 	bj, _ := json.Marshal(b)
 	return string(aj) == string(bj)
+}
+
+// hookCommandPresent reports whether cmd already appears as a command string
+// in any hook inside the existing event entry. The entry is the value stored
+// at hooks["EventName"] — a []any of hook-group objects, each with a "hooks"
+// []any of individual hook maps.
+func hookCommandPresent(entry any, cmd string) bool {
+	groups, ok := entry.([]any)
+	if !ok {
+		return false
+	}
+	for _, rawGroup := range groups {
+		group, ok := rawGroup.(map[string]any)
+		if !ok {
+			continue
+		}
+		rawHooks, ok := group["hooks"].([]any)
+		if !ok {
+			continue
+		}
+		for _, rawHook := range rawHooks {
+			h, ok := rawHook.(map[string]any)
+			if !ok {
+				continue
+			}
+			if c, _ := h["command"].(string); c == cmd {
+				return true
+			}
+		}
+	}
+	return false
 }

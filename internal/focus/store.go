@@ -10,7 +10,7 @@ import (
 
 // focusTTL is the maximum age of a focused=true entry before it is treated as
 // stale. Self-heals crash scenarios where the Set(false) callback never ran.
-const focusTTL = 30 * time.Minute
+const focusTTL = 5 * time.Minute
 
 type Store struct {
 	path string

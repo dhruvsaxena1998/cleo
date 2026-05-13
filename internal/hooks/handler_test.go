@@ -335,6 +335,122 @@ func TestClaudeStaleSidFallsBackToCwd(t *testing.T) {
 	}
 }
 
+func readTraceLines(t *testing.T, p paths.Paths) []map[string]any {
+	t.Helper()
+	b, err := os.ReadFile(p.HookTraceLog())
+	if err != nil {
+		return nil
+	}
+	var out []map[string]any
+	for line := range strings.SplitSeq(strings.TrimSpace(string(b)), "\n") {
+		if line == "" {
+			continue
+		}
+		var m map[string]any
+		if err := json.Unmarshal([]byte(line), &m); err != nil {
+			t.Fatalf("bad trace line: %v\nline: %s", err, line)
+		}
+		out = append(out, m)
+	}
+	return out
+}
+
+func soundTraceLines(lines []map[string]any) []map[string]any {
+	var out []map[string]any
+	for _, l := range lines {
+		if _, ok := l["sound_event"]; ok {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
+func TestSoundDecisionLoggedAsPlayed(t *testing.T) {
+	deps, st, p := setup(t)
+	player := &recordingPlayer{}
+	deps.Sound = player
+	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
+
+	if err := Handle(deps, "claude", "SessionEnd", []byte(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+
+	lines := soundTraceLines(readTraceLines(t, p))
+	if len(lines) == 0 {
+		t.Fatal("expected a sound decision trace line")
+	}
+	last := lines[len(lines)-1]
+	if reason, _ := last["reason"].(string); reason != "played" {
+		t.Errorf("expected reason=played, got %q", reason)
+	}
+	if se, _ := last["sound_event"].(string); se == "" {
+		t.Errorf("expected sound_event to be set")
+	}
+}
+
+func TestSoundDecisionLoggedAsFocus(t *testing.T) {
+	deps, st, p := setup(t)
+	player := &recordingPlayer{}
+	deps.Sound = player
+	deps.Focused = func(sid string) bool { return sid == "cleo-x-claude-1" }
+	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
+
+	if err := Handle(deps, "claude", "SessionEnd", []byte(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+
+	lines := soundTraceLines(readTraceLines(t, p))
+	if len(lines) == 0 {
+		t.Fatal("expected a sound decision trace line")
+	}
+	last := lines[len(lines)-1]
+	if reason, _ := last["reason"].(string); reason != "focus" {
+		t.Errorf("expected reason=focus, got %q", reason)
+	}
+}
+
+func TestSoundDecisionLoggedAsDisabled(t *testing.T) {
+	deps, st, p := setup(t)
+	player := &recordingPlayer{}
+	deps.Sound = player
+	deps.Config.Sound.EventEnabled = map[string]bool{"session_completed": false}
+	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
+
+	if err := Handle(deps, "claude", "SessionEnd", []byte(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+
+	lines := soundTraceLines(readTraceLines(t, p))
+	if len(lines) == 0 {
+		t.Fatal("expected a sound decision trace line")
+	}
+	last := lines[len(lines)-1]
+	if reason, _ := last["reason"].(string); reason != "disabled" {
+		t.Errorf("expected reason=disabled, got %q", reason)
+	}
+}
+
+func TestSoundDecisionLoggedAsIdleNudge(t *testing.T) {
+	deps, st, p := setup(t)
+	player := &recordingPlayer{}
+	deps.Sound = player
+	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
+	_, _ = st.Apply("cleo-x-claude-1", state.EvStop, "")
+
+	if err := Handle(deps, "claude", "Notification", []byte(`{"message":"nudge"}`)); err != nil {
+		t.Fatal(err)
+	}
+
+	lines := soundTraceLines(readTraceLines(t, p))
+	if len(lines) == 0 {
+		t.Fatal("expected a sound decision trace line")
+	}
+	last := lines[len(lines)-1]
+	if reason, _ := last["reason"].(string); reason != "idle-nudge" {
+		t.Errorf("expected reason=idle-nudge, got %q", reason)
+	}
+}
+
 var errNoSessionTest = errors.New("no session")
 
 type errStateStore struct{ inner *state.Store }

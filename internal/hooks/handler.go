@@ -166,8 +166,24 @@ func applyNormalized(d Deps, sid string, norm NormalizedEvent) error {
 	// WaitingForInput still happens so the TUI shows the visual indicator.
 	idleNudge := norm.SuppressWhenIdle && fromState == state.Idle
 
-	if norm.SoundEvent != "" && d.Config.SoundEventEnabled(norm.SoundEvent) && !sessionFocused(d, sid) && !idleNudge {
-		playSound(d, norm.SoundEvent)
+	if norm.SoundEvent != "" {
+		var reason string
+		switch {
+		case !d.Config.SoundEventEnabled(norm.SoundEvent):
+			reason = "disabled"
+		case sessionFocused(d, sid):
+			reason = "focus"
+		case idleNudge:
+			reason = "idle-nudge"
+		default:
+			reason = "played"
+			playSound(d, norm.SoundEvent)
+		}
+		logSoundDecision(d.Paths, soundDecision{
+			SessionID:  sid,
+			SoundEvent: norm.SoundEvent,
+			Reason:     reason,
+		})
 	}
 	return applyErr
 }
@@ -189,6 +205,29 @@ func playSound(d Deps, soundEvent string) {
 		full = filepath.Join(d.Paths.SoundsDir(), file)
 	}
 	_ = d.Sound.Play(full)
+}
+
+type soundDecision struct {
+	SessionID  string `json:"session_id"`
+	SoundEvent string `json:"sound_event"`
+	Reason     string `json:"reason"` // played | focus | idle-nudge | disabled
+}
+
+func logSoundDecision(p paths.Paths, d soundDecision) {
+	f, err := os.OpenFile(p.HookTraceLog(), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	row := struct {
+		At string `json:"at"`
+		soundDecision
+	}{
+		At:            time.Now().Format(time.RFC3339),
+		soundDecision: d,
+	}
+	b, _ := json.Marshal(row)
+	fmt.Fprintln(f, string(b))
 }
 
 type hookTrace struct {
