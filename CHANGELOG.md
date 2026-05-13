@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-beta.4] - 2026-05-13
+
+### Added
+- OpenCode hook integration: `cleo init` installs a TypeScript plugin to `~/.config/opencode/plugins/cleo.ts`; `cleo doctor` checks plugin status and hook activity; 7 lifecycle events mapped to cleo state transitions and sound events.
+
 ## [0.1.0-beta.3] - 2026-05-12
 
 ### Added
