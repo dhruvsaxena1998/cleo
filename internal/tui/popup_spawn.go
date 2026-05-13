@@ -144,12 +144,18 @@ func (p SpawnPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		case "up", "k":
-			if !p.focusName && p.cursor > 0 {
+			if p.focusName {
+				break
+			}
+			if p.cursor > 0 {
 				p.cursor--
 			}
 			return p, nil
 		case "down", "j":
-			if !p.focusName && p.cursor < len(p.agents)-1 {
+			if p.focusName {
+				break
+			}
+			if p.cursor < len(p.agents)-1 {
 				p.cursor++
 			}
 			return p, nil
