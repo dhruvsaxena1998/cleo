@@ -669,3 +669,22 @@ func TestAnimFrameIncrementsOnTick(t *testing.T) {
 		t.Fatalf("after second tick, animFrame should cycle back to 0, got %d", m3model.animFrame)
 	}
 }
+
+func TestEnterOnErroredSessionWithLiveTmuxAttaches(t *testing.T) {
+	c := newTestCtx(t)
+	c.Tmux.(*fakeTmux).live["cleo-myapp-claude-1"] = true
+	m := New(c)
+	m.projects = []projects.Project{{ID: "myapp"}}
+	m.sessions = []state.Session{{
+		ID: "cleo-myapp-claude-1", ProjectID: "myapp", Agent: "claude",
+		State: state.Errored, StartedAt: time.Now(), LastEventAt: time.Now(),
+	}}
+	m.expanded["myapp"] = true
+	m.cursor.projectIdx = 0
+	m.cursor.agentIdx = 0
+
+	got, _ := m.attachSelectedAgent()
+	if strings.Contains(got.status, "press K") {
+		t.Fatal("errored session with live tmux should not be blocked from attach")
+	}
+}

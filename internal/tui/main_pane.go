@@ -136,8 +136,8 @@ func (m Model) renderPreviewPanel(w, h int, sess state.Session, has bool) string
 			[]string{faint.Render("navigate to a session to view its terminal")}, w, h)
 	}
 
-	if sess.State.IsFinished() {
-		return m.theme.PanelBox("Terminal Preview", "session finished",
+	if sess.State == state.Dead {
+		return m.theme.PanelBox("Terminal Preview", "session stopped",
 			[]string{faint.Render("tmux session is gone; press K to remove this record")}, w, h)
 	}
 

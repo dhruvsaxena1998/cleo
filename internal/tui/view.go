@@ -6,6 +6,8 @@ import (
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/dhruvsaxena1998/cleo/internal/state"
 )
 
 func (m Model) View() string {
@@ -136,11 +138,11 @@ func (m Model) renderFooter(width int) string {
 	default:
 		sess, hasSess := m.sessionAtCursor()
 		if hasSess {
-			if sess.State.IsFinished() {
+			if sess.State == state.Dead {
 				hints = []string{
-					faint.Render(m.statusOr(fmt.Sprintf("%s is %s", sess.ID, sess.State))),
+					faint.Render(m.statusOr(fmt.Sprintf("%s is stopped", sess.ID))),
 					m.theme.KeyHint("K", "remove"),
-					m.theme.KeyHint("P", "prune project"),
+					m.theme.KeyHint("P", "prune stopped"),
 					m.theme.KeyHint("n", "new sibling"),
 					m.theme.KeyHint("/", "filter"),
 					m.theme.KeyHint("q", "quit"),
@@ -160,10 +162,10 @@ func (m Model) renderFooter(width int) string {
 			}
 		} else {
 			pid, _ := m.projectAtCursor()
-			var hasFinished bool
+			var hasStopped bool
 			for _, s := range m.sessions {
-				if s.ProjectID == pid && s.State.IsFinished() {
-					hasFinished = true
+				if s.ProjectID == pid && s.State == state.Dead {
+					hasStopped = true
 					break
 				}
 			}
@@ -177,8 +179,8 @@ func (m Model) renderFooter(width int) string {
 				m.theme.KeyHint("m", "mute"),
 				m.theme.KeyHint("q", "quit"),
 			}
-			if hasFinished {
-				hints = append(hints, m.theme.KeyHint("P", "prune"))
+			if hasStopped {
+				hints = append(hints, m.theme.KeyHint("P", "prune stopped"))
 			}
 		}
 	}

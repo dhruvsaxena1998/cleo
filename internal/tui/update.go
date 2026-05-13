@@ -2,6 +2,8 @@ package tui
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/dhruvsaxena1998/cleo/internal/state"
 )
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -88,7 +90,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, next
 		}
 		sess, ok := m.selectedSession()
-		if !ok || sess.State.IsFinished() || m.paneCaptureInFlight {
+		if !ok || sess.State == state.Dead || m.paneCaptureInFlight {
 			return m, next
 		}
 		m.paneCaptureInFlight = true

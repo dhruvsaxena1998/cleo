@@ -178,7 +178,7 @@ func (m Model) autoCaptureCmd() tea.Cmd {
 	if !ok {
 		return nil
 	}
-	if sess.State.IsFinished() {
+	if sess.State == state.Dead {
 		return nil
 	}
 	return capturePaneCmd(m.ctx, sess.ID, m.ctx.Config.UI.PanePreviewLines)
@@ -206,8 +206,8 @@ func (m Model) viewSelectedAgent() (Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
-	if sess.State.IsFinished() {
-		m.status = fmt.Sprintf("%s is %s; terminal is no longer attached", sess.ID, sess.State)
+	if sess.State == state.Dead {
+		m.status = fmt.Sprintf("%s is stopped; terminal is gone", sess.ID)
 		return m, nil
 	}
 	m.selected = sess.ID
@@ -219,8 +219,8 @@ func (m Model) attachSelectedAgent() (Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
-	if sess.State == state.Dead || sess.State == state.Errored {
-		m.status = fmt.Sprintf("%s is %s; press K to remove it", sess.ID, sess.State)
+	if sess.State == state.Dead {
+		m.status = fmt.Sprintf("%s is stopped; press K to remove it", sess.ID)
 		return m, nil
 	}
 	live, err := m.ctx.Tmux.HasSession(sess.ID)
@@ -261,10 +261,8 @@ func (m Model) openRenamePopup() (Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
-	if sess.State.IsFinished() {
-		// Replace status with the finished-session warning rather than clearing
-		// first; otherwise a reader sees status= "" then immediately reassigned.
-		m.status = fmt.Sprintf("%s is %s; finished sessions cannot be renamed", sess.ID, sess.State)
+	if sess.State == state.Dead {
+		m.status = fmt.Sprintf("%s is stopped; remove it with K", sess.ID)
 		return m, nil
 	}
 	// Clear stale status only on the success path (popup actually opens).
@@ -356,16 +354,16 @@ func (m Model) confirmPrune() (Model, tea.Cmd) {
 	}
 	var count int
 	for _, s := range m.sessions {
-		if s.ProjectID == pid && s.State.IsFinished() {
+		if s.ProjectID == pid && s.State == state.Dead {
 			count++
 		}
 	}
 	if count == 0 {
-		m.status = "no finished sessions to prune"
+		m.status = "no stopped sessions to prune"
 		return m, nil
 	}
 	m.status = ""
-	prompt := fmt.Sprintf("prune all %d finished session(s) in %q?", count, pid)
+	prompt := fmt.Sprintf("prune %d stopped session(s) in %q?", count, pid)
 	m.popup = NewConfirmPopup("Confirm Prune", "confirm prune", prompt, pid, confirmKindPrune, m.theme)
 	m.mode = ModePopup
 	return m, m.popup.Init()
@@ -373,7 +371,7 @@ func (m Model) confirmPrune() (Model, tea.Cmd) {
 
 func (m Model) performPrune(projectID string) (Model, tea.Cmd) {
 	for _, s := range m.sessions {
-		if s.ProjectID != projectID || !s.State.IsFinished() {
+		if s.ProjectID != projectID || s.State != state.Dead {
 			continue
 		}
 		_ = events.Archive(m.ctx.Paths.EventsLog(s.ID), m.ctx.Paths.ArchiveDir())
