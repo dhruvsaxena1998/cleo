@@ -80,7 +80,7 @@ func TestRenamePopupOpensAndUpdatesSessionName(t *testing.T) {
 
 	// Wait for session to render, then navigate to it and press r
 	teatest.WaitFor(t, tm.Output(), func(b []byte) bool {
-		return contains(b, "cl") && contains(b, "run")
+		return contains(b, "cl") && contains(b, "✽")
 	}, teatest.WithDuration(3*time.Second))
 
 	// Navigate down to the session row (project is expanded with one session)
@@ -132,7 +132,7 @@ func TestSidebarRendersProjectsAndSessions(t *testing.T) {
 
 	// Auto-expand fires on first state load; just wait for agent and state to appear.
 	teatest.WaitFor(t, tm.Output(), func(b []byte) bool {
-		return contains(b, "cl") && contains(b, "run")
+		return contains(b, "cl") && contains(b, "✽")
 	}, teatest.WithDuration(3*time.Second))
 
 	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
@@ -622,6 +622,32 @@ func TestCursorUpDownNavigation(t *testing.T) {
 		if m.cursor.projectIdx != s.want.proj || m.cursor.agentIdx != s.want.agent {
 			t.Errorf("step %d (%s): want {proj=%d agent=%d}, got {proj=%d agent=%d}",
 				i+1, s.dir, s.want.proj, s.want.agent, m.cursor.projectIdx, m.cursor.agentIdx)
+		}
+	}
+}
+
+func TestSessionsForSortsByUrgency(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	m.projects = []projects.Project{{ID: "p1"}}
+	now := time.Now()
+	m.sessions = []state.Session{
+		{ID: "s-idle", ProjectID: "p1", State: state.Idle, StartedAt: now},
+		{ID: "s-run", ProjectID: "p1", State: state.Running, StartedAt: now},
+		{ID: "s-wait", ProjectID: "p1", State: state.WaitingForInput, StartedAt: now},
+		{ID: "s-done", ProjectID: "p1", State: state.Completed, StartedAt: now},
+		{ID: "s-err", ProjectID: "p1", State: state.Errored, StartedAt: now},
+		{ID: "s-dead", ProjectID: "p1", State: state.Dead, StartedAt: now},
+	}
+	got := m.sessionsFor("p1")
+	wantOrder := []string{"s-wait", "s-run", "s-idle", "s-done", "s-err", "s-dead"}
+	for i, want := range wantOrder {
+		if i >= len(got) {
+			t.Errorf("position %d: want %s, got <missing>", i, want)
+			continue
+		}
+		if got[i].ID != want {
+			t.Errorf("position %d: want %s, got %s", i, want, got[i].ID)
 		}
 	}
 }
