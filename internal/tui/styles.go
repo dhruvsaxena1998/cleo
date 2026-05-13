@@ -6,7 +6,63 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dhruvsaxena1998/cleo/internal/events"
+	"github.com/dhruvsaxena1998/cleo/internal/state"
 )
+
+// ── Display state taxonomy ────────────────────────────────────────────────────
+
+// DisplayState is the 6-value visual taxonomy shown in the TUI.
+// Internal state.State enum values are NOT renamed — mapping happens here only.
+type DisplayState int
+
+const (
+	DisplayNeedsInput DisplayState = iota // waiting_for_input → yellow ⚠
+	DisplayWorking                        // running, spawning  → blue animated ✽
+	DisplayIdle                           // idle               → dimmed ∙
+	DisplayCompleted                      // completed          → green ✓
+	DisplayFailed                         // error              → red ✗
+	DisplayStopped                        // dead               → grey ○
+)
+
+// ToDisplayState maps internal state.State to one of the six display states.
+func ToDisplayState(s state.State) DisplayState {
+	switch s {
+	case state.WaitingForInput:
+		return DisplayNeedsInput
+	case state.Running, state.Spawning:
+		return DisplayWorking
+	case state.Idle:
+		return DisplayIdle
+	case state.Completed:
+		return DisplayCompleted
+	case state.Errored:
+		return DisplayFailed
+	case state.Dead:
+		return DisplayStopped
+	}
+	return DisplayStopped
+}
+
+// urgencyOrder returns a sort key: lower = higher urgency (sorts first).
+func urgencyOrder(ds DisplayState) int { return int(ds) }
+
+func displayStateGlyph(ds DisplayState) string {
+	switch ds {
+	case DisplayNeedsInput:
+		return "⚠"
+	case DisplayWorking:
+		return "◉"
+	case DisplayIdle:
+		return "∙"
+	case DisplayCompleted:
+		return "✓"
+	case DisplayFailed:
+		return "✗"
+	case DisplayStopped:
+		return "○"
+	}
+	return "○"
+}
 
 // ── State helpers ─────────────────────────────────────────────────────────────
 
@@ -90,8 +146,28 @@ func (t Theme) StateColor(s string) lipgloss.Color {
 	return t.Subtext0
 }
 
+// DisplayStateColor returns the theme color for a DisplayState.
+func (t Theme) DisplayStateColor(ds DisplayState) lipgloss.Color {
+	switch ds {
+	case DisplayNeedsInput:
+		return t.Gold
+	case DisplayWorking:
+		return t.Blue
+	case DisplayIdle:
+		return t.Surf2
+	case DisplayCompleted:
+		return t.Green
+	case DisplayFailed:
+		return t.Red
+	case DisplayStopped:
+		return t.Overlay0
+	}
+	return t.Subtext0
+}
+
 func (t Theme) StyledGlyph(s string) string {
-	return lipgloss.NewStyle().Foreground(t.StateColor(s)).Render(stateGlyph(s))
+	ds := ToDisplayState(state.State(s))
+	return lipgloss.NewStyle().Foreground(t.DisplayStateColor(ds)).Render(displayStateGlyph(ds))
 }
 
 func (t Theme) StyledStateText(s string) string {

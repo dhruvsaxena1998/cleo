@@ -80,7 +80,7 @@ func TestRenamePopupOpensAndUpdatesSessionName(t *testing.T) {
 
 	// Wait for session to render, then navigate to it and press r
 	teatest.WaitFor(t, tm.Output(), func(b []byte) bool {
-		return contains(b, "cl") && contains(b, "run")
+		return contains(b, "cl") && contains(b, "◉")
 	}, teatest.WithDuration(3*time.Second))
 
 	// Navigate down to the session row (project is expanded with one session)
@@ -132,7 +132,7 @@ func TestSidebarRendersProjectsAndSessions(t *testing.T) {
 
 	// Auto-expand fires on first state load; just wait for agent and state to appear.
 	teatest.WaitFor(t, tm.Output(), func(b []byte) bool {
-		return contains(b, "cl") && contains(b, "run")
+		return contains(b, "cl") && contains(b, "◉")
 	}, teatest.WithDuration(3*time.Second))
 
 	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
@@ -528,6 +528,52 @@ func TestFilterSurvivesExpandCollapse(t *testing.T) {
 	}
 }
 
+func TestToDisplayState(t *testing.T) {
+	cases := []struct {
+		in   state.State
+		want DisplayState
+	}{
+		{state.WaitingForInput, DisplayNeedsInput},
+		{state.Running, DisplayWorking},
+		{state.Spawning, DisplayWorking},
+		{state.Idle, DisplayIdle},
+		{state.Completed, DisplayCompleted},
+		{state.Errored, DisplayFailed},
+		{state.Dead, DisplayStopped},
+	}
+	for _, c := range cases {
+		got := ToDisplayState(c.in)
+		if got != c.want {
+			t.Errorf("ToDisplayState(%s): want %d, got %d", c.in, c.want, got)
+		}
+	}
+}
+
+func TestUrgencyOrder(t *testing.T) {
+	order := []DisplayState{DisplayNeedsInput, DisplayWorking, DisplayIdle, DisplayCompleted, DisplayFailed, DisplayStopped}
+	for i := 1; i < len(order); i++ {
+		if urgencyOrder(order[i-1]) >= urgencyOrder(order[i]) {
+			t.Errorf("urgency: %d (%d) should be < %d (%d)", order[i-1], urgencyOrder(order[i-1]), order[i], urgencyOrder(order[i]))
+		}
+	}
+}
+
+func TestDisplayStateGlyph(t *testing.T) {
+	want := map[DisplayState]string{
+		DisplayNeedsInput: "⚠",
+		DisplayWorking:    "◉",
+		DisplayIdle:       "∙",
+		DisplayCompleted:  "✓",
+		DisplayFailed:     "✗",
+		DisplayStopped:    "○",
+	}
+	for ds, g := range want {
+		if got := displayStateGlyph(ds); got != g {
+			t.Errorf("displayStateGlyph(%d): want %q, got %q", ds, g, got)
+		}
+	}
+}
+
 // TestCursorUpDownNavigation locks in symmetric up/down navigation across
 // project headers and session rows (issue #24). Uses direct method calls —
 // no teatest harness required.
@@ -577,5 +623,68 @@ func TestCursorUpDownNavigation(t *testing.T) {
 			t.Errorf("step %d (%s): want {proj=%d agent=%d}, got {proj=%d agent=%d}",
 				i+1, s.dir, s.want.proj, s.want.agent, m.cursor.projectIdx, m.cursor.agentIdx)
 		}
+	}
+}
+
+func TestSessionsForSortsByUrgency(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	m.projects = []projects.Project{{ID: "p1"}}
+	now := time.Now()
+	m.sessions = []state.Session{
+		{ID: "s-idle", ProjectID: "p1", State: state.Idle, StartedAt: now},
+		{ID: "s-run", ProjectID: "p1", State: state.Running, StartedAt: now},
+		{ID: "s-wait", ProjectID: "p1", State: state.WaitingForInput, StartedAt: now},
+		{ID: "s-done", ProjectID: "p1", State: state.Completed, StartedAt: now},
+		{ID: "s-err", ProjectID: "p1", State: state.Errored, StartedAt: now},
+		{ID: "s-dead", ProjectID: "p1", State: state.Dead, StartedAt: now},
+	}
+	got := m.sessionsFor("p1")
+	wantOrder := []string{"s-wait", "s-run", "s-idle", "s-done", "s-err", "s-dead"}
+	for i, want := range wantOrder {
+		if i >= len(got) {
+			t.Errorf("position %d: want %s, got <missing>", i, want)
+			continue
+		}
+		if got[i].ID != want {
+			t.Errorf("position %d: want %s, got %s", i, want, got[i].ID)
+		}
+	}
+}
+
+func TestAnimFrameIncrementsOnTick(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	if m.animFrame != 0 {
+		t.Fatalf("initial animFrame should be 0, got %d", m.animFrame)
+	}
+	m2, _ := m.Update(tickStateMsg{})
+	m2model := m2.(Model)
+	if m2model.animFrame != 1 {
+		t.Fatalf("after first tick, animFrame should be 1, got %d", m2model.animFrame)
+	}
+	m3, _ := m2model.Update(tickStateMsg{})
+	m3model := m3.(Model)
+	if m3model.animFrame != 0 {
+		t.Fatalf("after second tick, animFrame should cycle back to 0, got %d", m3model.animFrame)
+	}
+}
+
+func TestEnterOnErroredSessionWithLiveTmuxAttaches(t *testing.T) {
+	c := newTestCtx(t)
+	c.Tmux.(*fakeTmux).live["cleo-myapp-claude-1"] = true
+	m := New(c)
+	m.projects = []projects.Project{{ID: "myapp"}}
+	m.sessions = []state.Session{{
+		ID: "cleo-myapp-claude-1", ProjectID: "myapp", Agent: "claude",
+		State: state.Errored, StartedAt: time.Now(), LastEventAt: time.Now(),
+	}}
+	m.expanded["myapp"] = true
+	m.cursor.projectIdx = 0
+	m.cursor.agentIdx = 0
+
+	got, _ := m.attachSelectedAgent()
+	if strings.Contains(got.status, "press K") {
+		t.Fatal("errored session with live tmux should not be blocked from attach")
 	}
 }

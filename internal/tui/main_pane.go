@@ -136,8 +136,8 @@ func (m Model) renderPreviewPanel(w, h int, sess state.Session, has bool) string
 			[]string{faint.Render("navigate to a session to view its terminal")}, w, h)
 	}
 
-	if sess.State.IsFinished() {
-		return m.theme.PanelBox("Terminal Preview", "session finished",
+	if sess.State == state.Dead {
+		return m.theme.PanelBox("Terminal Preview", "session stopped",
 			[]string{faint.Render("tmux session is gone; press K to remove this record")}, w, h)
 	}
 
@@ -197,8 +197,8 @@ func (m Model) renderDashboard(width int) string {
 	b.WriteString("  " + faint.Render("overview") + "\n")
 	b.WriteString("  " +
 		m.theme.Pill(fmt.Sprintf("%d sessions", len(m.sessions)), m.theme.Subtext0) + " " +
-		m.theme.Pill(fmt.Sprintf("%d live", stats.live), m.theme.Green) + " " +
-		m.theme.Pill(fmt.Sprintf("%d waiting", stats.waiting), m.theme.Peach) + "\n\n")
+		m.theme.Pill(fmt.Sprintf("%d working", stats.working), m.theme.Green) + " " +
+		m.theme.Pill(fmt.Sprintf("%d needs input", stats.needsInput), m.theme.Peach) + "\n\n")
 	for _, s := range m.sessions {
 		cfgAgent := m.ctx.Config.Agents[s.Agent]
 		badge := agentLabel(cfgAgent.Label, cfgAgent.Color)

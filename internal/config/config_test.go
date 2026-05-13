@@ -146,3 +146,29 @@ func TestUISettingsPreservedWhenSidebarWidthAbsent(t *testing.T) {
 		t.Error("sidebar_width should be filled from defaults when absent")
 	}
 }
+
+func TestAgentIconRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	content := "[agents.claude]\ncommand = \"claude\"\nlabel = \"cl\"\ncolor = \"#CC785C\"\nicon = \"◈\"\nhooks = \"claude\"\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Agents["claude"].Icon != "◈" {
+		t.Errorf("icon: want %q, got %q", "◈", c.Agents["claude"].Icon)
+	}
+}
+
+func TestAgentIconDefaultsEmpty(t *testing.T) {
+	dir := t.TempDir()
+	c, _ := Load(filepath.Join(dir, "config.toml"))
+	for name, agent := range c.Agents {
+		if agent.Icon != "" {
+			t.Errorf("agent %s: default icon should be empty, got %q", name, agent.Icon)
+		}
+	}
+}

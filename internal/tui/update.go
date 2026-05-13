@@ -2,6 +2,8 @@ package tui
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/dhruvsaxena1998/cleo/internal/state"
 )
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -38,6 +40,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tickStateMsg:
 		m.heapAlloc = readHeapAlloc()
+		m.animFrame = (m.animFrame + 1) % 2
 		return m, tea.Batch(loadStateCmd(m.ctx), tickStateCmd())
 	case tea.KeyMsg:
 		return m.handleKey(msg)
@@ -87,7 +90,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, next
 		}
 		sess, ok := m.selectedSession()
-		if !ok || sess.State.IsFinished() || m.paneCaptureInFlight {
+		if !ok || sess.State == state.Dead || m.paneCaptureInFlight {
 			return m, next
 		}
 		m.paneCaptureInFlight = true

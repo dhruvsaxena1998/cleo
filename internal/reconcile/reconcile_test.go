@@ -110,7 +110,7 @@ func TestSpawningTimeoutAdvanceSetsLastMessage(t *testing.T) {
 	}
 }
 
-func TestReconcileRevivesCompletedSessionWithLiveTmux(t *testing.T) {
+func TestReconcileCompletedSessionWithLiveTmuxStaysCompleted(t *testing.T) {
 	dir := t.TempDir()
 	st := state.NewStore(filepath.Join(dir, "state.json"), filepath.Join(dir, "state.json.lock"))
 	tx := &fakeTmux{existing: []string{"s1"}}
@@ -126,12 +126,12 @@ func TestReconcileRevivesCompletedSessionWithLiveTmux(t *testing.T) {
 		t.Fatalf("reconcile: %v", err)
 	}
 	got, _ := st.Get("s1")
-	if got.State != state.Idle {
-		t.Fatalf("want Idle (revived), got %s", got.State)
+	if got.State != state.Completed {
+		t.Fatalf("completed session with live tmux should stay Completed, got %s", got.State)
 	}
-	// LastEventAt must be bumped so the idle clock restarts (no immediate re-timeout).
-	if !got.LastEventAt.After(oldTime) {
-		t.Fatalf("LastEventAt not bumped: want after %v, got %v", oldTime, got.LastEventAt)
+	// LastEventAt must NOT be bumped — nothing changed.
+	if !got.LastEventAt.Equal(oldTime) {
+		t.Fatalf("LastEventAt must not be bumped, want %v, got %v", oldTime, got.LastEventAt)
 	}
 }
 

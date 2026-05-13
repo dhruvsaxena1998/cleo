@@ -97,14 +97,38 @@ func (m Model) renderTreeContent(innerW int) string {
 
 		active := 0
 		for _, s := range ss {
-			if !s.State.IsFinished() {
+			if s.State != state.Dead {
 				active++
 			}
 		}
 
-		caret := faint.Render("▸")
-		if expanded {
-			caret = dimmed.Render("▾")
+		// compute alert badge for this project
+		var needsInputN, workingN int
+		for _, s := range ss {
+			switch ToDisplayState(s.State) {
+			case DisplayNeedsInput:
+				needsInputN++
+			case DisplayWorking:
+				workingN++
+			}
+		}
+
+		var borderChar, badgeStr string
+		if needsInputN > 0 {
+			borderChar = lipgloss.NewStyle().Foreground(m.theme.Gold).Render("│")
+			badgeStr = " " + lipgloss.NewStyle().
+				Background(m.theme.Gold).
+				Foreground(lipgloss.Color("#11111b")).
+				Bold(true).
+				Padding(0, 1).
+				Render(fmt.Sprintf("⚠ %d input", needsInputN))
+		} else if workingN > 0 {
+			borderChar = lipgloss.NewStyle().Foreground(m.theme.Blue).Render("│")
+			badgeStr = " " + lipgloss.NewStyle().
+				Foreground(m.theme.Blue).
+				Render(fmt.Sprintf("◉ %d work", workingN))
+		} else {
+			borderChar = lipgloss.NewStyle().Foreground(m.theme.Overlay0).Render("│")
 		}
 
 		countColor := m.theme.Subtext0
@@ -114,16 +138,25 @@ func (m Model) renderTreeContent(innerW int) string {
 
 		var projLine string
 		if onProject {
-			arrow := "▸"
+			arrow := "▶"
 			if expanded {
-				arrow = "▾"
+				arrow = "▼"
 			}
 			inner := fmt.Sprintf("%s %s", arrow, p.ID)
-			projLine = selectedSt.Width(innerW).Render(inner)
+			projLine = borderChar + selectedSt.Width(innerW-1).Render(inner)
 		} else {
-			name := projectSt.Render(truncateWidth(p.ID, innerW-6))
+			caret := faint.Render("▶")
+			if expanded {
+				caret = dimmed.Render("▼")
+			}
+			badgeW := lipgloss.Width(badgeStr)
+			nameAvail := innerW - 1 - 2 - badgeW - 3
+			if nameAvail < 4 {
+				nameAvail = 4
+			}
+			name := projectSt.Render(truncateWidth(p.ID, nameAvail))
 			countStr := lipgloss.NewStyle().Foreground(countColor).Render(fmt.Sprintf("%d", len(ss)))
-			projLine = caret + " " + padRight(name, innerW-4) + countStr
+			projLine = borderChar + " " + caret + " " + name + badgeStr + " " + countStr
 		}
 		b.WriteString(projLine + "\n")
 
@@ -134,50 +167,132 @@ func (m Model) renderTreeContent(innerW int) string {
 		for ai, s := range ss {
 			cfgAgent := m.ctx.Config.Agents[s.Agent]
 			onAgent := pi == m.cursor.projectIdx && ai == m.cursor.agentIdx
+			ds := ToDisplayState(s.State)
 
-			connector := "├"
-			if ai == len(ss)-1 {
-				connector = "└"
+			// agent badge text: icon if set, else label
+			badgeText := cfgAgent.Label
+			if cfgAgent.Icon != "" {
+				badgeText = cfgAgent.Icon
+			}
+			bracketed := "[" + badgeText + "]"
+			badgeW := len(bracketed)
+
+			// right-side fixed parts
+			ageStr := sessionAge(s)
+			ageW := lipgloss.Width(ageStr)
+			toolStr := ""
+			toolW := 0
+			if s.ToolCount > 0 {
+				toolStr = fmt.Sprintf("⚒ %d", s.ToolCount)
+				toolW = lipgloss.Width(toolStr) + 1 // +1 for space before
 			}
 
-			ageStr := sessionAge(s)
-			shortSt := shortStateLabel(s.State)
-			stColor := m.theme.StateColor(string(s.State))
-			ageW := lipgloss.Width(ageStr)
-
-			bracketed := "[" + cfgAgent.Label + "]"
-			agentLbl := lipgloss.NewStyle().
-				Foreground(lipgloss.Color(cfgAgent.Color)).Bold(true).
-				Render(bracketed)
-			labelW := len(bracketed)
-
-			overhead := 1 + 1 + labelW + 1 + 4 + 1 + ageW
-			nameW := innerW - overhead
-			if nameW < 3 {
-				nameW = 3
+			// compute available width for name + message
+			// overhead: indent(2) + glyph(1) + sp(1) + badge + sp(1) + sp(1) + toolW + ageW
+			overhead := 2 + 1 + 1 + badgeW + 1 + 1 + toolW + ageW
+			avail := innerW - overhead
+			if avail < 4 {
+				avail = 4
+			}
+			nameW := avail * 40 / 100
+			if nameW < 6 {
+				nameW = avail
+			}
+			msgW := avail - nameW - 1
+			if msgW < 0 {
+				msgW = 0
 			}
 
 			truncName := truncateWidth(s.Name, nameW)
-			lPart := connector + " " + bracketed + " " + truncName
-			rPart := fmt.Sprintf("%-4s", shortSt) + " " + ageStr
-			gap := innerW - lipgloss.Width(lPart) - lipgloss.Width(rPart)
-			if gap < 1 {
-				gap = 1
+			truncMsg := ""
+			if msgW > 2 && s.LastMessage != "" {
+				truncMsg = truncateWidth(s.LastMessage, msgW)
 			}
 
-			var row string
-			if onAgent {
-				plain := lPart + strings.Repeat(" ", gap) + rPart
-				row = selectedSt.Width(innerW).Render(plain)
-			} else {
-				stLabel := lipgloss.NewStyle().Foreground(stColor).Render(fmt.Sprintf("%-4s", shortSt))
-				left := faint.Render(connector) + " " +
-					agentLbl + " " +
-					dimmed.Render(truncName)
-				right := stLabel + " " + faint.Render(ageStr)
-				row = left + strings.Repeat(" ", gap) + right
+			// plain (unstyled) for selected-row rendering
+			plainGlyph := displayStateGlyph(ds)
+			plainLeft := "  " + plainGlyph + " " + bracketed + " " + truncName
+			if truncMsg != "" {
+				plainLeft += " " + truncMsg
 			}
-			b.WriteString(row + "\n")
+			var rParts []string
+			if toolStr != "" {
+				rParts = append(rParts, toolStr)
+			}
+			rParts = append(rParts, ageStr)
+			plainRight := strings.Join(rParts, " ")
+			plainGap := innerW - lipgloss.Width(plainLeft) - lipgloss.Width(plainRight)
+			if plainGap < 1 {
+				plainGap = 1
+			}
+
+			if onAgent {
+				plain := plainLeft + strings.Repeat(" ", plainGap) + plainRight
+				b.WriteString(selectedSt.Width(innerW).Render(plain) + "\n")
+				continue
+			}
+
+			// styled (non-selected) version
+			stColor := m.theme.DisplayStateColor(ds)
+
+			// glyph: ✽ pulses via animFrame
+			var styledGlyph string
+			if ds == DisplayWorking {
+				if m.animFrame%2 == 0 {
+					styledGlyph = lipgloss.NewStyle().Foreground(m.theme.Blue).Bold(true).Render("◉")
+				} else {
+					styledGlyph = lipgloss.NewStyle().Foreground(m.theme.Overlay1).Render("◉")
+				}
+			} else {
+				styledGlyph = lipgloss.NewStyle().Foreground(stColor).Render(plainGlyph)
+			}
+
+			agentLbl := lipgloss.NewStyle().Foreground(lipgloss.Color(cfgAgent.Color)).Bold(true).Render(bracketed)
+
+			// intensity varies by urgency
+			var nameStyle, msgStyle, metaStyle lipgloss.Style
+			switch ds {
+			case DisplayNeedsInput:
+				nameStyle = lipgloss.NewStyle().Foreground(m.theme.Text).Bold(true)
+				msgStyle = lipgloss.NewStyle().Foreground(m.theme.Gold).Italic(true)
+				metaStyle = lipgloss.NewStyle().Foreground(m.theme.Subtext0)
+			case DisplayWorking:
+				nameStyle = lipgloss.NewStyle().Foreground(m.theme.Text)
+				msgStyle = lipgloss.NewStyle().Foreground(m.theme.Subtext0)
+				metaStyle = lipgloss.NewStyle().Foreground(m.theme.Subtext0)
+			case DisplayIdle:
+				nameStyle = lipgloss.NewStyle().Foreground(m.theme.Subtext0)
+				msgStyle = lipgloss.NewStyle().Foreground(m.theme.Overlay0)
+				metaStyle = lipgloss.NewStyle().Foreground(m.theme.Overlay0)
+			case DisplayCompleted:
+				nameStyle = lipgloss.NewStyle().Foreground(m.theme.Subtext0)
+				msgStyle = lipgloss.NewStyle().Foreground(m.theme.Overlay0)
+				metaStyle = lipgloss.NewStyle().Foreground(m.theme.Overlay0)
+			case DisplayFailed:
+				nameStyle = lipgloss.NewStyle().Foreground(m.theme.Subtext1)
+				msgStyle = lipgloss.NewStyle().Foreground(m.theme.Subtext0)
+				metaStyle = lipgloss.NewStyle().Foreground(m.theme.Subtext0)
+			default: // DisplayStopped
+				faded := lipgloss.NewStyle().Foreground(m.theme.Overlay0)
+				nameStyle, msgStyle, metaStyle = faded, faded, faded
+			}
+
+			styledLeft := "  " + styledGlyph + " " + agentLbl + " " + nameStyle.Render(truncName)
+			if truncMsg != "" {
+				styledLeft += " " + msgStyle.Render(truncMsg)
+			}
+			var styledRParts []string
+			if toolStr != "" {
+				styledRParts = append(styledRParts, metaStyle.Render(toolStr))
+			}
+			styledRParts = append(styledRParts, metaStyle.Render(ageStr))
+			styledRight := strings.Join(styledRParts, " ")
+
+			styledGap := innerW - lipgloss.Width(styledLeft) - lipgloss.Width(styledRight)
+			if styledGap < 1 {
+				styledGap = 1
+			}
+			b.WriteString(styledLeft + strings.Repeat(" ", styledGap) + styledRight + "\n")
 		}
 	}
 
@@ -262,10 +377,15 @@ func (m Model) sessionsFor(pid string) []state.Session {
 		}
 	}
 	sort.Slice(out, func(i, j int) bool {
+		oi := urgencyOrder(ToDisplayState(out[i].State))
+		oj := urgencyOrder(ToDisplayState(out[j].State))
+		if oi != oj {
+			return oi < oj
+		}
 		if !out[i].StartedAt.Equal(out[j].StartedAt) {
 			return out[i].StartedAt.Before(out[j].StartedAt)
 		}
-		return out[i].ID < out[j].ID // stable tiebreaker for sessions with equal/zero StartedAt
+		return out[i].ID < out[j].ID
 	})
 	return out
 }
