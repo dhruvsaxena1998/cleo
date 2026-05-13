@@ -231,6 +231,48 @@ func TestInstallCodexConflictRefused(t *testing.T) {
 	}
 }
 
+func TestInstallClaudeIdempotent(t *testing.T) {
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "settings.json")
+	_ = os.WriteFile(settingsPath, []byte("{}"), 0o644)
+
+	// First install
+	if err := InstallClaude(settingsPath, "/usr/local/bin/cleo", false); err != nil {
+		t.Fatalf("first install: %v", err)
+	}
+	b1, _ := os.ReadFile(settingsPath)
+
+	// Second install — must not error and must produce identical output
+	if err := InstallClaude(settingsPath, "/usr/local/bin/cleo", false); err != nil {
+		t.Fatalf("second install: %v", err)
+	}
+	b2, _ := os.ReadFile(settingsPath)
+
+	if string(b1) != string(b2) {
+		t.Errorf("second install mutated settings.json:\nbefore: %s\nafter:  %s", b1, b2)
+	}
+}
+
+func TestInstallCodexIdempotent(t *testing.T) {
+	dir := t.TempDir()
+	hooksPath := filepath.Join(dir, "hooks.json")
+	configPath := filepath.Join(dir, "config.toml")
+
+	if err := InstallCodex(hooksPath, configPath, "/usr/local/bin/cleo", false); err != nil {
+		t.Fatalf("first install: %v", err)
+	}
+	b1, _ := os.ReadFile(hooksPath)
+
+	if err := InstallCodex(hooksPath, configPath, "/usr/local/bin/cleo", false); err != nil {
+		t.Fatalf("second install: %v", err)
+	}
+	b2, _ := os.ReadFile(hooksPath)
+
+	if string(b1) != string(b2) {
+		t.Errorf("second install mutated hooks.json:\nbefore: %s\nafter:  %s", b1, b2)
+	}
+}
+
 func TestClaudeHookTimeoutIs5Seconds(t *testing.T) {
 	entries := ExpectedClaudeEntries("/usr/local/bin/cleo")
 	for ev, rawEntry := range entries {
