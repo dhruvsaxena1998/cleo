@@ -13,54 +13,70 @@ func TestOpenCodeProtocol_Normalize(t *testing.T) {
 	proto := OpenCodeProtocol{}
 
 	tests := []struct {
+		name    string
 		event   string
 		payload string
 		want    NormalizedEvent
 		wantOk  bool
 	}{
 		{
+			name:    "session.created",
 			event:   "session.created",
 			payload: `{"cwd":"/proj","session_id":"cleo-x-opencode-1"}`,
 			want:    NormalizedEvent{StateEvent: state.EvSessionStart, SoundEvent: "session_start"},
 			wantOk:  true,
 		},
 		{
+			name:    "tool.execute.before",
 			event:   "tool.execute.before",
 			payload: `{"cwd":"/proj","session_id":"cleo-x-opencode-1","tool_name":"write"}`,
 			want:    NormalizedEvent{StateEvent: state.EvPreToolUse, ToolName: "write"},
 			wantOk:  true,
 		},
 		{
+			name:    "tool.execute.before/question",
+			event:   "tool.execute.before",
+			payload: `{"cwd":"/proj","session_id":"cleo-x-opencode-1","tool_name":"question"}`,
+			want:    NormalizedEvent{StateEvent: state.EvNotification, SoundEvent: "needs_input", ToolName: "question"},
+			wantOk:  true,
+		},
+		{
+			name:    "tool.execute.after",
 			event:   "tool.execute.after",
 			payload: `{"cwd":"/proj","session_id":"cleo-x-opencode-1","tool_name":"write"}`,
 			want:    NormalizedEvent{StateEvent: state.EvPostToolUse, ToolName: "write"},
 			wantOk:  true,
 		},
 		{
+			name:    "permission.asked",
 			event:   "permission.asked",
 			payload: `{"cwd":"/proj","session_id":"cleo-x-opencode-1"}`,
 			want:    NormalizedEvent{StateEvent: state.EvNotification, SoundEvent: "needs_input", SuppressWhenIdle: false},
 			wantOk:  true,
 		},
 		{
+			name:    "session.idle",
 			event:   "session.idle",
 			payload: `{"cwd":"/proj","session_id":"cleo-x-opencode-1"}`,
 			want:    NormalizedEvent{StateEvent: state.EvStop, SoundEvent: "session_idle"},
 			wantOk:  true,
 		},
 		{
+			name:    "session.deleted",
 			event:   "session.deleted",
 			payload: `{"cwd":"/proj","session_id":"cleo-x-opencode-1"}`,
 			want:    NormalizedEvent{StateEvent: state.EvSessionEnd, SoundEvent: "session_completed"},
 			wantOk:  true,
 		},
 		{
+			name:    "session.error",
 			event:   "session.error",
 			payload: `{"cwd":"/proj","session_id":"cleo-x-opencode-1"}`,
 			want:    NormalizedEvent{StateEvent: state.EvError, SoundEvent: "session_error"},
 			wantOk:  true,
 		},
 		{
+			name:    "unknown_event",
 			event:   "unknown_event",
 			payload: `{}`,
 			wantOk:  false,
@@ -68,7 +84,7 @@ func TestOpenCodeProtocol_Normalize(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.event, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			got, ok := proto.Normalize(tt.event, []byte(tt.payload))
 			if ok != tt.wantOk {
 				t.Fatalf("ok = %v, want %v", ok, tt.wantOk)
