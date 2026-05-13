@@ -54,3 +54,21 @@ func TestIsFocusedReturnsTrueWhenFresh(t *testing.T) {
 		t.Error("just-set focused session should return true")
 	}
 }
+
+func TestFocusTTLIsUnder10Minutes(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "focus.json"))
+
+	// Simulate a session that was focused 6 minutes ago
+	staleTime := time.Now().Add(-6 * time.Minute)
+	f := fileFormat{
+		Sessions: map[string]sessionFocus{
+			"cleo-app-claude-1": {Focused: true, UpdatedAt: staleTime},
+		},
+	}
+	b, _ := json.MarshalIndent(f, "", "  ")
+	_ = os.WriteFile(store.path, b, 0o644)
+
+	if store.IsFocused("cleo-app-claude-1") {
+		t.Error("focused=true with UpdatedAt 6 min ago should be treated as stale (TTL must be <= 5 min)")
+	}
+}
