@@ -31,6 +31,7 @@ type Sound struct {
 type Agent struct {
 	Command string `toml:"command"`
 	Label   string `toml:"label"`
+	Icon    string `toml:"icon"`
 	Color   string `toml:"color"`
 	Hooks   string `toml:"hooks"` // "claude" | "codex" | "none"
 }
