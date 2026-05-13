@@ -625,3 +625,21 @@ func TestCursorUpDownNavigation(t *testing.T) {
 		}
 	}
 }
+
+func TestAnimFrameIncrementsOnTick(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	if m.animFrame != 0 {
+		t.Fatalf("initial animFrame should be 0, got %d", m.animFrame)
+	}
+	m2, _ := m.Update(tickStateMsg{})
+	m2model := m2.(Model)
+	if m2model.animFrame != 1 {
+		t.Fatalf("after first tick, animFrame should be 1, got %d", m2model.animFrame)
+	}
+	m3, _ := m2model.Update(tickStateMsg{})
+	m3model := m3.(Model)
+	if m3model.animFrame != 0 {
+		t.Fatalf("after second tick, animFrame should cycle back to 0, got %d", m3model.animFrame)
+	}
+}

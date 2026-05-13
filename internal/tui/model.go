@@ -39,6 +39,7 @@ type Model struct {
 	firstStateLoaded bool
 
 	heapAlloc uint64 // updated once per state tick via runtime.ReadMemStats
+	animFrame int    // cycles 0/1 on each tickStateMsg for ✽ animation
 }
 
 func readHeapAlloc() uint64 {

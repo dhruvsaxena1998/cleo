@@ -38,6 +38,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tickStateMsg:
 		m.heapAlloc = readHeapAlloc()
+		m.animFrame = (m.animFrame + 1) % 2
 		return m, tea.Batch(loadStateCmd(m.ctx), tickStateCmd())
 	case tea.KeyMsg:
 		return m.handleKey(msg)
