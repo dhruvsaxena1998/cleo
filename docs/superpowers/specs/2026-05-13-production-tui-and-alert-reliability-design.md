@@ -190,7 +190,15 @@ hooks   = "none"
 
 The reconciler (`internal/reconcile/reconcile.go`) already runs periodic tmux liveness checks. Three changes:
 
-1. **Remove `idle → completed` auto-timeout.** The reconciler currently transitions sessions from `idle` to `completed` after 10 minutes. This must be removed. Under the new taxonomy, `idle` means "ready for your next prompt" — auto-expiring it to `completed` after a timeout produces false positives (green ✓ badge without a SessionEnd ever firing). Sessions stay in `idle` indefinitely until one of: a new turn starts (`working`), SessionEnd fires (`completed`), or tmux dies (`stopped`). The `[retention].idle_to_completed_timeout` config key becomes unused and can be deprecated.
+1. **Keep `idle → completed` auto-timeout (10 min default).** `idle` means "just finished a turn, expecting more work soon." `completed` means "has been idle long enough to be considered done — but tmux is still alive and you can attach and continue." The existing `[retention].idle_to_completed_timeout` (default 10 min) drives this transition and stays. `SessionEnd` also moves directly to `completed`.
+
+   Session lifecycle:
+   - `running` → Stop hook → `idle` (turn done, agent alive)
+   - `idle` → new prompt → `running` (next turn)
+   - `idle` → 10 min elapses → `completed` (tmux alive → green ✓, still attachable)
+   - `idle` → SessionEnd fires → `completed` (same result, faster path)
+   - `completed` → tmux dies → `stopped` (reconciler detects, grey ○, prune only)
+   - `idle` → Ctrl+C (no SessionEnd) → tmux dies → `stopped` directly
 
 2. **`completed`/`error` → `stopped` transition:** After a session reaches `completed` or `error`, the reconciler continues checking tmux liveness on each tick. When tmux disappears, apply `EvDead` (synthetic) to transition to `stopped` (internal state name `dead` stays unchanged — this is display-layer only).
 
