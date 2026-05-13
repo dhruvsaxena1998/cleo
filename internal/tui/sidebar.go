@@ -126,7 +126,7 @@ func (m Model) renderTreeContent(innerW int) string {
 			borderChar = lipgloss.NewStyle().Foreground(m.theme.Blue).Render("│")
 			badgeStr = " " + lipgloss.NewStyle().
 				Foreground(m.theme.Blue).
-				Render(fmt.Sprintf("✽ %d work", workingN))
+				Render(fmt.Sprintf("◉ %d work", workingN))
 		} else {
 			borderChar = lipgloss.NewStyle().Foreground(m.theme.Overlay0).Render("│")
 		}
@@ -239,9 +239,9 @@ func (m Model) renderTreeContent(innerW int) string {
 			var styledGlyph string
 			if ds == DisplayWorking {
 				if m.animFrame%2 == 0 {
-					styledGlyph = lipgloss.NewStyle().Foreground(m.theme.Blue).Bold(true).Render("✽")
+					styledGlyph = lipgloss.NewStyle().Foreground(m.theme.Blue).Bold(true).Render("◉")
 				} else {
-					styledGlyph = lipgloss.NewStyle().Foreground(m.theme.Overlay1).Render("✽")
+					styledGlyph = lipgloss.NewStyle().Foreground(m.theme.Overlay1).Render("◉")
 				}
 			} else {
 				styledGlyph = lipgloss.NewStyle().Foreground(stColor).Render(plainGlyph)

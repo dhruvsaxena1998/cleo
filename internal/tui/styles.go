@@ -51,7 +51,7 @@ func displayStateGlyph(ds DisplayState) string {
 	case DisplayNeedsInput:
 		return "⚠"
 	case DisplayWorking:
-		return "✽"
+		return "◉"
 	case DisplayIdle:
 		return "∙"
 	case DisplayCompleted:

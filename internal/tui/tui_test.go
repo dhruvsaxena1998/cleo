@@ -80,7 +80,7 @@ func TestRenamePopupOpensAndUpdatesSessionName(t *testing.T) {
 
 	// Wait for session to render, then navigate to it and press r
 	teatest.WaitFor(t, tm.Output(), func(b []byte) bool {
-		return contains(b, "cl") && contains(b, "✽")
+		return contains(b, "cl") && contains(b, "◉")
 	}, teatest.WithDuration(3*time.Second))
 
 	// Navigate down to the session row (project is expanded with one session)
@@ -132,7 +132,7 @@ func TestSidebarRendersProjectsAndSessions(t *testing.T) {
 
 	// Auto-expand fires on first state load; just wait for agent and state to appear.
 	teatest.WaitFor(t, tm.Output(), func(b []byte) bool {
-		return contains(b, "cl") && contains(b, "✽")
+		return contains(b, "cl") && contains(b, "◉")
 	}, teatest.WithDuration(3*time.Second))
 
 	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
@@ -561,7 +561,7 @@ func TestUrgencyOrder(t *testing.T) {
 func TestDisplayStateGlyph(t *testing.T) {
 	want := map[DisplayState]string{
 		DisplayNeedsInput: "⚠",
-		DisplayWorking:    "✽",
+		DisplayWorking:    "◉",
 		DisplayIdle:       "∙",
 		DisplayCompleted:  "✓",
 		DisplayFailed:     "✗",

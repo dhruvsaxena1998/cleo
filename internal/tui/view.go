@@ -76,27 +76,17 @@ func (m Model) renderTopbar(width int) string {
 	var rightParts []string
 
 	if stats.needsInput > 0 {
-		var badge string
-		if m.animFrame%2 == 0 {
-			badge = lipgloss.NewStyle().
-				Background(m.theme.Gold).
-				Foreground(lipgloss.Color("#11111b")).
-				Bold(true).
-				Padding(0, 1).
-				Render(fmt.Sprintf("⚠ %d needs input", stats.needsInput))
-		} else {
-			badge = lipgloss.NewStyle().
-				Foreground(m.theme.Gold).
-				Bold(true).
-				Render(fmt.Sprintf("⚠ %d needs input", stats.needsInput))
-		}
+		badge := lipgloss.NewStyle().
+			Foreground(m.theme.Gold).
+			Bold(true).
+			Render(fmt.Sprintf("⚠ %d needs input", stats.needsInput))
 		rightParts = append(rightParts, badge)
 	}
 
 	if stats.working > 0 {
 		badge := lipgloss.NewStyle().
 			Foreground(m.theme.Blue).
-			Render(fmt.Sprintf("✽ %d working", stats.working))
+			Render(fmt.Sprintf("◉ %d working", stats.working))
 		rightParts = append(rightParts, badge)
 	}
 
