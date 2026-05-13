@@ -342,7 +342,7 @@ func readTraceLines(t *testing.T, p paths.Paths) []map[string]any {
 		return nil
 	}
 	var out []map[string]any
-	for _, line := range strings.Split(strings.TrimSpace(string(b)), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSpace(string(b)), "\n") {
 		if line == "" {
 			continue
 		}
