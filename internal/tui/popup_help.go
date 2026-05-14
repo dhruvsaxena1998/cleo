@@ -77,6 +77,7 @@ func (p HelpPopup) View() string {
 			{"?", "help"},
 			{"q", "quit"},
 		}},
+		// scroll mode (ctrl+b [) and zoom (ctrl+b z) omitted intentionally — detach only per design
 		{"tmux", []krow{
 			{p.detachKey, "detach — return to cleo"},
 		}},
