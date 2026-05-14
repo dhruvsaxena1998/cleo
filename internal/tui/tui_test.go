@@ -688,3 +688,52 @@ func TestEnterOnErroredSessionWithLiveTmuxAttaches(t *testing.T) {
 		t.Fatal("errored session with live tmux should not be blocked from attach")
 	}
 }
+
+// TestHelpPopupView locks in the two-column help panel layout.
+// It checks width, required sections, icons, and detach key substitution.
+func TestHelpPopupView(t *testing.T) {
+	theme := catppuccinMocha
+	popup := NewHelpPopup(theme, "C-b d")
+	out := popup.View()
+	lines := strings.Split(out, "\n")
+
+	// Every rendered line must fit within 91 terminal cells.
+	const maxW = 91
+	for i, line := range lines {
+		if w := lipgloss.Width(line); w > maxW {
+			t.Errorf("line %d too wide: %d > %d: %q", i, w, maxW, line)
+		}
+	}
+
+	// All required section headers must appear.
+	for _, want := range []string{
+		"Navigation", "Session Actions", "Global", "tmux",
+		"Icon Legend", "Filter", "Config",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing section %q in help output", want)
+		}
+	}
+
+	// All six status icons must appear.
+	for _, icon := range []string{"◉", "⚠", "✓", "✗", "∙", "○"} {
+		if !strings.Contains(out, icon) {
+			t.Errorf("missing icon %q in help output", icon)
+		}
+	}
+
+	// Detach key should be formatted and present.
+	if !strings.Contains(out, "ctrl+b d") {
+		t.Errorf("detach key 'ctrl+b d' not found in help output")
+	}
+
+	// Config path must appear.
+	if !strings.Contains(out, "~/.config/cleo/config.toml") {
+		t.Errorf("config path not found in help output")
+	}
+
+	// Filter description must appear.
+	if !strings.Contains(out, "project · session · agent") {
+		t.Errorf("filter description not found in help output")
+	}
+}
