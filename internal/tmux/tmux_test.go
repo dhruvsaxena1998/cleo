@@ -109,3 +109,18 @@ func TestRenameSession(t *testing.T) {
 		t.Errorf("expected new")
 	}
 }
+
+func TestNewSession_SetsAllowPassthrough(t *testing.T) {
+	c := newTestClient(t)
+	name := "cleo-pt-test-1"
+	if err := c.NewSession(NewSessionOpts{Name: name, Cwd: "/tmp", Cmd: "sleep 60"}); err != nil {
+		t.Fatal(err)
+	}
+	out, err := c.cmd("show-options", "-pt", name, "allow-passthrough").Output()
+	if err != nil {
+		t.Skipf("tmux version does not support allow-passthrough: %v", err)
+	}
+	if !strings.Contains(string(out), "allow-passthrough on") {
+		t.Errorf("expected allow-passthrough on, got: %q", string(out))
+	}
+}
