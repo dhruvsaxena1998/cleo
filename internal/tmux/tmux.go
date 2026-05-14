@@ -51,6 +51,7 @@ func (c *Client) NewSession(o NewSessionOpts) error {
 	if err != nil {
 		return fmt.Errorf("tmux new-session: %w (%s)", err, strings.TrimSpace(string(out)))
 	}
+	_ = c.cmd("set-option", "-pt", o.Name, "allow-passthrough", "on").Run()
 	return nil
 }
 
