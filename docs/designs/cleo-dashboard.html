@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>CLEO · Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,300&display=swap" rel="stylesheet">
+<style>
+/* ━━━ COLOR SYSTEM ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+:root {
+  --bg0:  #080B14;   /* base */
+  --bg1:  #0C0F1A;   /* panel bg */
+  --bg2:  #111520;   /* elevated / kbd bg */
+  --bgS:  #0D1928;   /* selected row / panel */
+  --bgH:  #0F1523;   /* hover */
+  --bd0:  #181F30;   /* default border */
+  --bd1:  #222A3E;   /* slightly brighter border */
+  --bdF:  #2C3C58;   /* focused border */
+  --tx0:  #DCE4F5;   /* bright text */
+  --tx1:  #9AACC0;   /* body text */
+  --tx2:  #506070;   /* muted */
+  --tx3:  #2C3848;   /* very muted */
+  --ac:   #00D4B4;   /* accent cyan */
+  --sA:   #2ECC7D;   /* active green */
+  --sI:   #E8A028;   /* idle amber */
+  --sD:   #3E5060;   /* detached grey */
+  --sE:   #E04060;   /* error/kill red */
+  /* agent palette */
+  --ccC:  #E8820C; --ccB: #1E1208;
+  --cxC:  #4A9EE0; --cxB: #081420;
+  --ocC:  #2A8878; --ocB: #081A18;
+  --piC:  #9060C8; --piB: #120E20;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.3;
+  background: var(--bg0);
+  color: var(--tx1);
+  width: 1280px;
+  height: 870px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+}
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-thumb { background: var(--bd1); border-radius: 2px; }
+
+/* ━━━ TOPBAR ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.topbar {
+  height: 40px; min-height: 40px;
+  background: var(--bg1);
+  border-bottom: 1px solid var(--bd0);
+  display: flex; align-items: center;
+  padding: 0 16px;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.brand { display: flex; align-items: baseline; gap: 8px; }
+.brand-name { font-size: 17px; font-weight: 700; color: var(--ac); letter-spacing: -0.3px; }
+.brand-sub  { font-size: 11px; color: var(--tx2); font-weight: 300; }
+.top-right  { display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--tx2); }
+.tmux-badge { display: flex; align-items: center; gap: 4px; }
+.tmux-check { color: var(--ac); }
+.tmux-conn  { color: var(--ac); }
+.top-sep    { color: var(--bd1); }
+
+/* ━━━ MAIN ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.main { flex: 1; display: flex; overflow: hidden; }
+
+/* ━━━ SIDEBAR ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.sidebar {
+  width: 236px; min-width: 236px;
+  border-right: 1px solid var(--bd0);
+  background: var(--bg1);
+  display: flex; flex-direction: column;
+}
+.pnl-hdr {
+  height: 30px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--bd0);
+  font-size: 10px; font-weight: 500; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--tx2);
+}
+.badge {
+  background: var(--bg2); border: 1px solid var(--bd1);
+  color: var(--tx2); font-size: 10px; padding: 0 6px;
+  border-radius: 2px; letter-spacing: 0; text-transform: none;
+}
+
+/* compact project row */
+.proj-list { flex: 1; overflow-y: auto; }
+.proj {
+  display: flex; align-items: center; gap: 7px;
+  padding: 5px 10px 5px 8px;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+}
+.proj:hover { background: var(--bgH); }
+.proj.sel { background: var(--bgS); border-left-color: var(--ac); }
+
+/* nerd-font-style type badge — 2 chars, colored bg */
+.ptype {
+  font-size: 10px; font-weight: 700;
+  padding: 2px 4px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  letter-spacing: -0.5px;
+  min-width: 22px; text-align: center;
+}
+.proj-body { flex: 1; min-width: 0; }
+.proj-name { font-size: 12px; font-weight: 500; color: var(--tx0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.proj-stat { font-size: 10px; color: var(--tx2); margin-top: 1px; }
+.pa { color: var(--sA); }
+.pi { color: var(--sI); }
+.chev { color: var(--ac); font-size: 12px; opacity: 0; margin-left: auto; }
+.proj.sel .chev { opacity: 1; }
+
+.sidebar-foot {
+  border-top: 1px solid var(--bd0);
+  padding: 7px 10px;
+}
+.new-btn {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 7px; border-radius: 3px; cursor: pointer;
+  font-size: 11px; color: var(--tx2);
+}
+.new-btn:hover { background: var(--bgH); color: var(--tx1); }
+.kbd {
+  background: var(--bg2); border: 1px solid var(--bd1);
+  color: var(--tx1); font-size: 10px; padding: 1px 5px; border-radius: 2px;
+}
+
+/* ━━━ CENTER ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.center { flex: 1; display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--bd0); }
+.center-top { flex: 1; display: flex; flex-direction: column; overflow: hidden; border-bottom: 1px solid var(--bd0); }
+
+.agt-hdr { padding: 8px 16px 0; border-bottom: 1px solid var(--bd0); }
+.agt-title { font-size: 12px; color: var(--tx1); margin-bottom: 6px; }
+.agt-title .plink { color: var(--ac); font-weight: 500; }
+.tab-row { display: flex; }
+.tab {
+  padding: 4px 12px; font-size: 11px; color: var(--tx2);
+  border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer;
+}
+.tab.on { color: var(--ac); border-bottom-color: var(--ac); font-weight: 500; }
+
+/* agent table — compact */
+.tbl-wrap { flex: 1; overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  padding: 5px 10px; font-size: 10px; font-weight: 400;
+  color: var(--tx2); text-align: left; letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--bd0); white-space: nowrap;
+  background: var(--bg1);
+}
+th:first-child { width: 18px; padding: 5px 2px 5px 10px; }
+tbody tr { border-bottom: 1px solid var(--bd0); cursor: pointer; }
+tbody tr:hover { background: var(--bgH); }
+tbody tr.sel { background: var(--bgS); box-shadow: inset 2px 0 0 var(--ac); }
+tbody td { padding: 6px 10px; font-size: 11.5px; color: var(--tx1); white-space: nowrap; }
+tbody td:first-child { padding: 6px 2px 6px 10px; color: var(--ac); font-size: 11px; width: 18px; }
+
+/* agent cell: inline badge + name */
+.ag-cell { display: flex; align-items: center; gap: 6px; }
+.ag-tag {
+  font-size: 9px; font-weight: 700; letter-spacing: -0.5px;
+  padding: 2px 4px; border-radius: 3px; flex-shrink: 0;
+  min-width: 22px; text-align: center;
+}
+.ag-name { font-weight: 500; color: var(--tx0); }
+
+.br-cell { display: flex; align-items: center; gap: 4px; color: var(--tx1); }
+.br-sym { color: var(--tx2); font-size: 10px; }
+
+.st-cell { display: flex; align-items: center; gap: 5px; }
+.dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.dot.a { background: var(--sA); box-shadow: 0 0 4px rgba(46,204,125,.5); }
+.dot.i { background: var(--sI); }
+.dot.d { background: var(--sD); }
+.st-a { color: var(--sA); } .st-i { color: var(--sI); } .st-d { color: var(--sD); }
+
+.td-dim { color: var(--tx2); font-size: 11px; }
+.td-tmux { font-size: 10.5px; color: var(--tx2); }
+
+/* table hint bar */
+.tbl-hint {
+  padding: 5px 16px; font-size: 10.5px; color: var(--tx2);
+  border-top: 1px solid var(--bd0); background: var(--bg1);
+  display: flex; align-items: center; gap: 0; white-space: nowrap;
+}
+.hp { display: flex; align-items: center; gap: 4px; }
+.hsep { color: var(--bd1); margin: 0 10px; }
+.hac { color: var(--ac); }
+.hrd { color: var(--sE); }
+
+/* ━━━ ACTIVITY ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.center-bot { height: 210px; min-height: 210px; display: flex; flex-direction: column; }
+.act-hdr {
+  height: 30px; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px; border-bottom: 1px solid var(--bd0);
+  font-size: 10px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--tx2); background: var(--bg1); flex-shrink: 0;
+}
+.clear-lnk { font-size: 10.5px; color: var(--tx2); cursor: pointer; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.clear-lnk:hover { color: var(--tx1); }
+.act-log { flex: 1; overflow-y: auto; }
+.log-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 2px 16px; font-size: 11px;
+}
+.log-row:hover { background: var(--bgH); }
+.log-ts { color: var(--tx3); font-size: 10px; min-width: 50px; }
+.log-tag {
+  font-size: 9px; font-weight: 700; letter-spacing: -0.5px;
+  padding: 1px 4px; border-radius: 2px; min-width: 28px; text-align: center; flex-shrink: 0;
+}
+.log-msg { color: var(--tx2); }
+.log-msg b { color: var(--tx1); font-weight: 400; }
+
+/* ━━━ RIGHT DETAIL PANEL (toggleable) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.detail {
+  width: 262px; min-width: 262px;
+  background: var(--bg1);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  transition: width 0.15s ease, min-width 0.15s ease, opacity 0.15s ease;
+}
+.detail.hidden { width: 0; min-width: 0; opacity: 0; overflow: hidden; }
+
+.det-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px; border-bottom: 1px solid var(--bd0);
+  gap: 6px; min-height: 40px; flex-shrink: 0;
+}
+.det-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.det-proj  { font-size: 10px; color: var(--tx2); }
+.det-agent { font-size: 12px; font-weight: 500; color: var(--tx0); }
+.act-badge {
+  border: 1px solid var(--ac); color: var(--ac); font-size: 9px;
+  padding: 1px 6px; border-radius: 2px; letter-spacing: 0.08em;
+  white-space: nowrap; flex-shrink: 0; font-weight: 500;
+}
+
+/* compact field list */
+.det-fields { flex: 1; overflow-y: auto; padding: 6px 0; }
+.drow {
+  display: flex; align-items: baseline;
+  padding: 2px 12px; font-size: 11px; gap: 0;
+}
+.drow:hover { background: var(--bgH); }
+.dlbl {
+  min-width: 68px; max-width: 68px;
+  font-size: 10px; color: var(--tx2);
+  white-space: nowrap; overflow: hidden;
+  padding-right: 8px;
+  flex-shrink: 0;
+}
+/* nerd-font icon prefix in label — tiny single-char icon */
+.dico { font-size: 11px; margin-right: 4px; }
+.dval { color: var(--tx0); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dval.ac { color: var(--ac); font-weight: 500; }
+.dval.dim { color: var(--tx1); }
+.dval.mono { font-size: 10.5px; color: var(--tx2); }
+
+.ag-mini-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.ag-mini-tag {
+  font-size: 9px; font-weight: 700; padding: 1px 4px; border-radius: 2px;
+  min-width: 20px; text-align: center; letter-spacing: -0.5px;
+}
+
+/* token bar */
+.tok-row { padding: 3px 12px 4px; }
+.tok-bar-bg { height: 4px; background: var(--bg2); border-radius: 2px; overflow: hidden; margin: 2px 0 3px; }
+.tok-fill { height: 100%; width: 17%; background: var(--ac); border-radius: 2px; }
+.tok-stats { display: flex; justify-content: space-between; font-size: 10px; color: var(--tx2); }
+.tok-pct { color: var(--tx3); }
+
+.pane-row { padding: 1px 12px 1px 20px; font-size: 10.5px; color: var(--tx2); }
+.pn { color: var(--sA); margin-right: 3px; }
+.pn-dim { color: var(--tx3); margin-right: 3px; }
+
+.dsep { border: none; border-top: 1px solid var(--bd0); margin: 5px 0; }
+
+/* Quick actions */
+.qa { padding: 8px 12px; border-top: 1px solid var(--bd0); flex-shrink: 0; }
+.qa-title {
+  font-size: 10px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--tx2); margin-bottom: 5px;
+}
+.qa-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 6px; border-radius: 3px; cursor: pointer; font-size: 11px;
+}
+.qa-item:hover { background: var(--bgH); }
+.qa-item.primary { background: var(--bgS); border: 1px solid var(--bdF); margin-bottom: 3px; }
+.qa-k   { color: var(--tx2); min-width: 14px; font-size: 11px; }
+.qa-arr { color: var(--ac); font-size: 13px; }
+.qa-l   { color: var(--tx1); flex: 1; }
+.qa-rec { font-size: 10px; color: var(--tx3); }
+.qa-red { color: var(--sE) !important; }
+
+/* collapsed indicator (visible when detail is hidden) */
+.detail-collapsed-hint {
+  display: none;
+  writing-mode: vertical-rl;
+  padding: 12px 6px;
+  font-size: 10px; color: var(--tx2);
+  border-left: 1px solid var(--bd0);
+  background: var(--bg1);
+  cursor: pointer;
+  white-space: nowrap;
+  align-items: center; gap: 6px;
+}
+.detail-collapsed-hint:hover { color: var(--tx1); }
+.detail.hidden + .detail-collapsed-hint { display: flex; }
+
+/* ━━━ STATUS BAR ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.statusbar {
+  height: 32px; min-height: 32px;
+  background: var(--bg1); border-top: 1px solid var(--bd0);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 14px; flex-shrink: 0;
+}
+.sb-l { display: flex; align-items: center; gap: 0; overflow: hidden; white-space: nowrap; }
+.sb-act { display: flex; align-items: center; gap: 4px; }
+.sb-key {
+  background: var(--bg2); border: 1px solid var(--bd1);
+  color: var(--tx0); font-size: 9.5px; padding: 1px 6px; border-radius: 2px;
+}
+.sb-lbl { font-size: 10.5px; color: var(--tx2); }
+.sb-div { color: var(--bd0); margin: 0 8px; }
+.sb-r { display: flex; align-items: center; gap: 0; font-size: 10.5px; color: var(--tx2); white-space: nowrap; flex-shrink: 0; }
+.sb-stat { display: flex; align-items: center; gap: 3px; }
+.n-a { color: var(--sA); font-weight: 500; }
+.n-i { color: var(--sI); }
+.n-d { color: var(--sD); }
+.sb-sdiv { color: var(--bd0); margin: 0 8px; }
+</style>
+</head>
+<body>
+
+<!-- ═══ TOPBAR ══════════════════════════════════════════════════════ -->
+<div class="topbar">
+  <div class="brand">
+    <span class="brand-name">CLEO</span>
+    <span class="brand-sub">AI Session Manager</span>
+  </div>
+  <div class="top-right">
+    <div class="tmux-badge">
+      <span style="color:var(--tx2)">TMUX:</span>
+      <span class="tmux-check">✓</span>
+      <span class="tmux-conn">connected</span>
+    </div>
+    <span class="top-sep">│</span>
+    <span>◷ 14:32:18</span>
+    <span class="top-sep">│</span>
+    <!-- toggle hint -->
+    <span style="color:var(--tx2)"><span class="kbd" style="cursor:pointer" onclick="toggleDetail()" title="Toggle detail panel">t</span> panel</span>
+  </div>
+</div>
+
+<div class="main">
+
+<!-- ═══ SIDEBAR ═════════════════════════════════════════════════════ -->
+<div class="sidebar">
+  <div class="pnl-hdr">Projects <span class="badge">6</span></div>
+  <div class="proj-list">
+
+    <!-- NF icons shown as compact 2-char colored tags -->
+    <!-- In actual TUI: nf-fa-server, nf-dev-terminal, nf-fa-globe, etc. -->
+
+    <div class="proj sel">
+      <span class="ptype" style="background:var(--ccB);color:var(--ccC)" title="nf-fa-server">󰒋</span>
+      <div class="proj-body">
+        <div class="proj-name">backend-api</div>
+        <div class="proj-stat"><span class="pa">2 active</span> · <span class="pi">1 idle</span></div>
+      </div>
+      <span class="chev">›</span>
+    </div>
+
+    <div class="proj">
+      <span class="ptype" style="background:var(--cxB);color:var(--cxC)" title="nf-dev-terminal">>_</span>
+      <div class="proj-body">
+        <div class="proj-name">cleo-tui</div>
+        <div class="proj-stat"><span class="pa">1 active</span> · <span style="color:var(--tx3)">0 idle</span></div>
+      </div>
+      <span class="chev">›</span>
+    </div>
+
+    <div class="proj">
+      <span class="ptype" style="background:#0E0C1E;color:#8060C0" title="nf-fa-globe">◉</span>
+      <div class="proj-body">
+        <div class="proj-name">docs-site</div>
+        <div class="proj-stat"><span class="pa">1 active</span> · <span class="pi">1 idle</span></div>
+      </div>
+      <span class="chev">›</span>
+    </div>
+
+    <div class="proj">
+      <span class="ptype" style="background:var(--ocB);color:var(--ocC)" title="nf-fa-flask">⚗</span>
+      <div class="proj-body">
+        <div class="proj-name">sandbox</div>
+        <div class="proj-stat"><span style="color:var(--tx3)">0 active</span> · <span class="pi">1 idle</span></div>
+      </div>
+      <span class="chev">›</span>
+    </div>
+
+    <div class="proj">
+      <span class="ptype" style="background:var(--piB);color:var(--piC)">π</span>
+      <div class="proj-body">
+        <div class="proj-name">research</div>
+        <div class="proj-stat"><span style="color:var(--tx3)">0 active</span> · <span class="pi">1 idle</span></div>
+      </div>
+      <span class="chev">›</span>
+    </div>
+
+    <div class="proj">
+      <span class="ptype" style="background:var(--ccB);color:var(--ccC)" title="nf-fa-database">⊟</span>
+      <div class="proj-body">
+        <div class="proj-name">data-pipeline</div>
+        <div class="proj-stat"><span style="color:var(--tx3)">0 active</span> · <span style="color:var(--tx3)">0 idle</span></div>
+      </div>
+      <span class="chev">›</span>
+    </div>
+
+  </div>
+  <div class="sidebar-foot">
+    <div class="new-btn">
+      <span>+ New Session</span>
+      <span class="kbd">N</span>
+    </div>
+  </div>
+</div><!-- /sidebar -->
+
+<!-- ═══ CENTER ══════════════════════════════════════════════════════ -->
+<div class="center">
+  <div class="center-top">
+
+    <div class="agt-hdr">
+      <div class="agt-title">Agents in <span class="plink">backend-api</span></div>
+      <div class="tab-row">
+        <div class="tab on">All (4)</div>
+        <div class="tab">Active (2)</div>
+        <div class="tab">Idle (1)</div>
+        <div class="tab">Detached (1)</div>
+      </div>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th></th>
+            <th>Agent</th>
+            <th>Session</th>
+            <th>Branch</th>
+            <th>Status</th>
+            <th>Last Activity</th>
+            <th>Tmux Session</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Claude Code — selected -->
+          <tr class="sel">
+            <td>›</td>
+            <td><div class="ag-cell">
+              <span class="ag-tag" style="background:var(--ccB);color:var(--ccC)">CC</span>
+              <span class="ag-name">Claude Code</span>
+            </div></td>
+            <td>backend-main</td>
+            <td><div class="br-cell"><span class="br-sym">⎇</span> main</div></td>
+            <td><div class="st-cell"><span class="dot a"></span><span class="st-a">active</span></div></td>
+            <td class="td-dim">2m ago</td>
+            <td class="td-tmux">cleo-backend-api-claude</td>
+          </tr>
+          <!-- Codex -->
+          <tr>
+            <td></td>
+            <td><div class="ag-cell">
+              <span class="ag-tag" style="background:var(--cxB);color:var(--cxC)">CX</span>
+              <span class="ag-name">Codex</span>
+            </div></td>
+            <td>api-refactor</td>
+            <td><div class="br-cell"><span class="br-sym">⎇</span> feat/auth</div></td>
+            <td><div class="st-cell"><span class="dot a"></span><span class="st-a">active</span></div></td>
+            <td class="td-dim">7m ago</td>
+            <td class="td-tmux">cleo-backend-api-codex</td>
+          </tr>
+          <!-- OpenCode -->
+          <tr>
+            <td></td>
+            <td><div class="ag-cell">
+              <span class="ag-tag" style="background:var(--ocB);color:var(--ocC)">OC</span>
+              <span class="ag-name">OpenCode</span>
+            </div></td>
+            <td>test-runner</td>
+            <td><div class="br-cell"><span class="br-sym">⎇</span> experiment</div></td>
+            <td><div class="st-cell"><span class="dot i"></span><span class="st-i">idle</span></div></td>
+            <td class="td-dim">18m ago</td>
+            <td class="td-tmux">cleo-backend-api-opencode</td>
+          </tr>
+          <!-- Pi -->
+          <tr>
+            <td></td>
+            <td><div class="ag-cell">
+              <span class="ag-tag" style="background:var(--piB);color:var(--piC);font-size:11px">π</span>
+              <span class="ag-name">Pi</span>
+            </div></td>
+            <td>research-helper</td>
+            <td><div class="br-cell"><span class="br-sym">⎇</span> docs</div></td>
+            <td><div class="st-cell"><span class="dot d"></span><span class="st-d">detached</span></div></td>
+            <td class="td-dim">2h ago</td>
+            <td class="td-tmux">cleo-backend-api-pi</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="tbl-hint">
+      <span class="hp">↑↓ Navigate</span>
+      <span class="hsep">·</span>
+      <span class="hp"><span class="kbd" style="font-size:9px">Enter</span> Select</span>
+      <span class="hsep">·</span>
+      <span class="hp"><span class="hac">r</span> Rename</span>
+      <span class="hsep">·</span>
+      <span class="hp"><span class="hac">d</span> Detach</span>
+      <span class="hsep">·</span>
+      <span class="hp"><span class="hrd">x</span> Kill</span>
+    </div>
+  </div><!-- /center-top -->
+
+  <!-- Activity log -->
+  <div class="center-bot">
+    <div class="act-hdr">
+      Activity
+      <span class="clear-lnk">Clear</span>
+    </div>
+    <div class="act-log">
+      <div class="log-row">
+        <span class="log-ts">14:31:55</span>
+        <span class="log-tag" style="background:var(--ccB);color:var(--ccC)">CC</span>
+        <span class="log-msg">[backend-api] Claude Code session active</span>
+      </div>
+      <div class="log-row">
+        <span class="log-ts">14:31:42</span>
+        <span class="log-tag" style="background:var(--cxB);color:var(--cxC)">CX</span>
+        <span class="log-msg">[backend-api] Codex session active</span>
+      </div>
+      <div class="log-row">
+        <span class="log-ts">14:31:02</span>
+        <span class="log-tag" style="background:var(--ocB);color:var(--ocC)">OC</span>
+        <span class="log-msg">[backend-api] OpenCode session idle for 15m</span>
+      </div>
+      <div class="log-row">
+        <span class="log-ts">14:30:10</span>
+        <span class="log-tag" style="background:#0A1A10;color:var(--sA);font-size:8px">TMUX</span>
+        <span class="log-msg">New tmux session: <b>cleo-backend-api-claude</b></span>
+      </div>
+      <div class="log-row">
+        <span class="log-ts">14:29:44</span>
+        <span class="log-tag" style="background:var(--ccB);color:var(--ccC)">CC</span>
+        <span class="log-msg">[backend-api] Claude Code attached (tmux)</span>
+      </div>
+      <div class="log-row">
+        <span class="log-ts">14:28:18</span>
+        <span class="log-tag" style="background:var(--cxB);color:var(--cxC)">CX</span>
+        <span class="log-msg">[backend-api] Codex session active</span>
+      </div>
+      <div class="log-row">
+        <span class="log-ts">14:27:59</span>
+        <span class="log-tag" style="background:var(--piB);color:var(--piC);font-size:10px">π</span>
+        <span class="log-msg">[sandbox] Pi session detached</span>
+      </div>
+      <div class="log-row">
+        <span class="log-ts">14:26:44</span>
+        <span class="log-tag" style="background:var(--ocB);color:var(--ocC)">OC</span>
+        <span class="log-msg">[sandbox] OpenCode session idle for 45m</span>
+      </div>
+    </div>
+  </div><!-- /center-bot -->
+</div><!-- /center -->
+
+<!-- ═══ DETAIL PANEL (toggleable) ════════════════════════════════════ -->
+<div class="detail" id="detail-panel">
+  <div class="det-hdr">
+    <div class="det-title">
+      <div class="det-proj">backend-api /</div>
+      <div class="det-agent">Claude Code</div>
+    </div>
+    <span class="act-badge">ACTIVE</span>
+  </div>
+
+  <div class="det-fields">
+    <!-- NF icon glyphs shown as Unicode approximations.
+         In real TUI: 󰉋 (nf-md-folder), 󰀄 (nf-oct-person), etc. -->
+
+    <div class="drow">
+      <span class="dlbl"><span class="dico">󰉋</span>Project</span>
+      <span class="dval ac">backend-api</span>
+    </div>
+
+    <div class="drow" style="align-items:center">
+      <span class="dlbl"><span class="dico">󰀄</span>Agent</span>
+      <span class="dval">
+        <span class="ag-mini-badge">
+          <span class="ag-mini-tag" style="background:var(--ccB);color:var(--ccC)">CC</span>
+          Claude Code
+        </span>
+      </span>
+    </div>
+
+    <div class="drow">
+      <span class="dlbl"><span class="dico">󰝰</span>Working Dir</span>
+      <span class="dval dim" style="font-size:10.5px">~/projects/backend-api</span>
+    </div>
+
+    <div class="drow">
+      <span class="dlbl"><span class="dico">⎇</span>Branch</span>
+      <span class="dval">main <span style="color:var(--tx3);font-size:10px">a1b2c3d</span></span>
+    </div>
+
+    <div class="drow">
+      <span class="dlbl"><span class="dico">󰘚</span>Model</span>
+      <span class="dval dim" style="font-size:10.5px">claude-3-5-sonnet</span>
+    </div>
+
+    <div class="drow">
+      <span class="dlbl"><span class="dico">◷</span>Uptime</span>
+      <span class="dval">1h 24m 12s</span>
+    </div>
+
+    <div class="drow">
+      <span class="dlbl"><span class="dico">◈</span>Last Act.</span>
+      <span class="dval">2m ago</span>
+    </div>
+
+    <hr class="dsep">
+
+    <!-- Token usage -->
+    <div class="drow">
+      <span class="dlbl" style="color:var(--tx2)">Tokens</span>
+      <span class="dval dim" style="font-size:10px">128.4k in · 42.7k out</span>
+    </div>
+    <div class="tok-row">
+      <div class="tok-bar-bg"><div class="tok-fill"></div></div>
+      <div class="tok-stats">
+        <span>171.1k / 1.0M</span>
+        <span class="tok-pct">(17%)</span>
+      </div>
+    </div>
+
+    <hr class="dsep">
+
+    <div class="drow">
+      <span class="dlbl"><span class="dico">󰕼</span>Tmux</span>
+      <span class="dval mono" style="font-size:10px">cleo-backend-api-claude</span>
+    </div>
+
+    <div class="drow">
+      <span class="dlbl"><span class="dico">⊞</span>Panes</span>
+      <span class="dval dim" style="font-size:10.5px">3 panes (1 active)</span>
+    </div>
+    <div class="pane-row"><span class="pn">0:</span>editor (zsh)</div>
+    <div class="pane-row"><span class="pn-dim">1:</span><span style="color:var(--tx3)">server (node)</span></div>
+    <div class="pane-row"><span class="pn-dim">2:</span><span style="color:var(--tx3)">logs (tail -f)</span></div>
+
+    <hr class="dsep" style="margin-top:6px">
+  </div><!-- /det-fields -->
+
+  <!-- Quick Actions -->
+  <div class="qa">
+    <div class="qa-title">Quick Actions</div>
+    <div class="qa-item primary">
+      <span class="qa-arr">↵</span>
+      <span class="qa-l">Attach</span>
+      <span class="qa-rec">(recommended)</span>
+    </div>
+    <div class="qa-item">
+      <span class="qa-k">d</span>
+      <span class="qa-l">Detach</span>
+    </div>
+    <div class="qa-item">
+      <span class="qa-k">r</span>
+      <span class="qa-l">Rename</span>
+    </div>
+    <div class="qa-item">
+      <span class="qa-k qa-red">x</span>
+      <span class="qa-l" style="color:var(--tx2)">Kill Session</span>
+    </div>
+    <div class="qa-item">
+      <span class="qa-k">o</span>
+      <span class="qa-l">Open in New Window</span>
+    </div>
+  </div>
+</div><!-- /detail -->
+
+<!-- collapsed tab strip (visible when detail is hidden) -->
+<div class="detail-collapsed-hint" onclick="toggleDetail()" title="Show detail panel (t)">
+  <span style="letter-spacing:0.08em">DETAIL</span>
+  <span style="opacity:.4">→</span>
+</div>
+
+</div><!-- /main -->
+
+<!-- ═══ STATUS BAR ═══════════════════════════════════════════════════ -->
+<div class="statusbar">
+  <div class="sb-l">
+    <div class="sb-act"><span class="sb-key">N</span><span class="sb-lbl">New</span></div>
+    <span class="sb-div">│</span>
+    <div class="sb-act"><span class="sb-key">Enter</span><span class="sb-lbl">Attach</span></div>
+    <span class="sb-div">│</span>
+    <div class="sb-act"><span class="sb-key">d</span><span class="sb-lbl">Detach</span></div>
+    <span class="sb-div">│</span>
+    <div class="sb-act"><span class="sb-key">r</span><span class="sb-lbl">Rename</span></div>
+    <span class="sb-div">│</span>
+    <div class="sb-act"><span class="sb-key">x</span><span class="sb-lbl">Kill</span></div>
+    <span class="sb-div">│</span>
+    <div class="sb-act"><span class="sb-key">/</span><span class="sb-lbl">Search</span></div>
+    <span class="sb-div">│</span>
+    <div class="sb-act"><span class="sb-key">?</span><span class="sb-lbl">Settings</span></div>
+    <span class="sb-div">│</span>
+    <div class="sb-act"><span class="sb-key">t</span><span class="sb-lbl">Toggle panel</span></div>
+    <span class="sb-div">│</span>
+    <div class="sb-act"><span class="sb-key">q</span><span class="sb-lbl">Quit</span></div>
+  </div>
+  <div class="sb-r">
+    <span>6 projects</span>
+    <span class="sb-sdiv">│</span>
+    <div class="sb-stat"><span class="n-a">3</span>&thinsp;active</div>
+    <span class="sb-sdiv">│</span>
+    <div class="sb-stat"><span class="n-i">2</span>&thinsp;idle</div>
+    <span class="sb-sdiv">│</span>
+    <div class="sb-stat"><span class="n-d">1</span>&thinsp;detached</div>
+  </div>
+</div>
+
+<script>
+function toggleDetail() {
+  const d = document.getElementById('detail-panel');
+  d.classList.toggle('hidden');
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 't') toggleDetail();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1280">
+<title>CLEO · Settings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,700;1,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg0:  #080B14; --bg1: #0C0F1A; --bg2: #111520; --bgS: #0D1928; --bgH: #0F1523;
+  --bd0:  #181F30; --bd1: #222A3E; --bdF: #2C3C58;
+  --tx0:  #DCE4F5; --tx1: #9AACC0; --tx2: #506070; --tx3: #2C3848;
+  --ac:   #00D4B4; --acD: #009E87;
+  --sA:   #2ECC7D; --sI: #E8A028; --sD: #3E5060; --sE: #E04060;
+  --ccC:  #E8820C; --ccB: #1E1208;
+  --cxC:  #4A9EE0; --cxB: #081420;
+  --ocC:  #2A8878; --ocB: #081A18;
+  --piC:  #9060C8; --piB: #120E20;
+  --tog-on:  #00A890; --tog-off: #2C3848;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-size: 12.5px; line-height: 1.3;
+  background: var(--bg0); color: var(--tx1);
+  width: 1280px; height: 870px;
+  overflow: hidden; display: flex; flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+}
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-thumb { background: var(--bd1); border-radius: 2px; }
+
+/* ━━━ TOPBAR ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.topbar {
+  height: 40px; min-height: 40px;
+  background: var(--bg1); border-bottom: 1px solid var(--bd0);
+  display: flex; align-items: center; padding: 0 16px;
+  justify-content: space-between; flex-shrink: 0;
+}
+.brand { display: flex; align-items: baseline; gap: 8px; }
+.brand-name { font-size: 17px; font-weight: 700; color: var(--ac); letter-spacing: -0.3px; }
+.brand-sub  { font-size: 11px; color: var(--tx2); font-weight: 300; }
+.top-right  { display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--tx2); }
+.tmux-badge { display: flex; align-items: center; gap: 4px; }
+.top-sep { color: var(--bd1); }
+.esc-hint { font-size: 10.5px; color: var(--tx2); display: flex; align-items: center; gap: 5px; }
+.kbd {
+  background: var(--bg2); border: 1px solid var(--bd1);
+  color: var(--tx1); font-size: 9.5px; padding: 1px 5px; border-radius: 2px;
+}
+
+/* ━━━ LAYOUT ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.main { flex: 1; display: flex; overflow: hidden; }
+
+/* ━━━ LEFT NAV ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.leftnav {
+  width: 196px; min-width: 196px;
+  background: var(--bg1); border-right: 1px solid var(--bd0);
+  display: flex; flex-direction: column;
+}
+.nav-hdr {
+  height: 30px; display: flex; align-items: center; padding: 0 12px;
+  border-bottom: 1px solid var(--bd0);
+  font-size: 10px; font-weight: 500; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--tx2);
+}
+.nav-list { flex: 1; padding: 4px 0; overflow-y: auto; }
+.nav-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px 7px 8px;
+  border-left: 2px solid transparent;
+  cursor: pointer;
+}
+.nav-item:hover { background: var(--bgH); }
+.nav-item.active { background: var(--bgS); border-left-color: var(--ac); }
+
+.nav-ico {
+  width: 22px; height: 22px; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg2); font-size: 11px; flex-shrink: 0;
+  color: var(--tx2);
+}
+.nav-item.active .nav-ico { color: var(--ac); background: #061816; }
+
+.nav-body { display: flex; flex-direction: column; gap: 1px; }
+.nav-lbl { font-size: 12px; font-weight: 500; color: var(--tx1); }
+.nav-sub { font-size: 10px; color: var(--tx2); }
+.nav-item.active .nav-lbl { color: var(--tx0); }
+
+.nav-footer {
+  border-top: 1px solid var(--bd0); padding: 8px 10px;
+  font-size: 10.5px; color: var(--tx2);
+  display: flex; align-items: center; gap: 6px;
+}
+
+/* ━━━ CONTENT AREA ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.content { flex: 1; overflow-y: auto; }
+
+.tab-panel { display: none; padding: 20px 24px; max-width: 860px; }
+.tab-panel.active { display: block; }
+
+/* section titles */
+.sec-title {
+  font-size: 13px; font-weight: 600; color: var(--ac);
+  margin-bottom: 14px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--bd0);
+}
+.sec-subtitle {
+  font-size: 11px; color: var(--tx2); margin-bottom: 14px; line-height: 1.5;
+  max-width: 620px;
+}
+.sec-gap { margin-bottom: 22px; }
+
+/* ━━━ SETTING ROW ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.setting-row {
+  display: flex; align-items: center;
+  padding: 7px 10px; border-radius: 4px;
+  gap: 12px; min-height: 36px;
+}
+.setting-row:hover { background: var(--bgH); }
+.setting-row + .setting-row { border-top: 1px solid var(--bd0); }
+
+.s-label { flex: 1; min-width: 0; }
+.s-name { font-size: 12px; color: var(--tx0); font-weight: 400; }
+.s-desc { font-size: 10px; color: var(--tx2); margin-top: 2px; }
+
+.s-control { flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
+
+/* ━━━ TOGGLE CONTROL ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.toggle {
+  display: flex; align-items: center; gap: 0;
+  cursor: pointer; user-select: none;
+  font-size: 10px; font-weight: 500;
+  border-radius: 3px;
+  overflow: hidden;
+  border: 1px solid var(--bd1);
+}
+.toggle-on, .toggle-off {
+  padding: 3px 8px;
+  letter-spacing: 0.04em;
+  transition: background 0.1s, color 0.1s;
+}
+.toggle.is-on  .toggle-on  { background: var(--tog-on); color: #fff; }
+.toggle.is-on  .toggle-off { background: var(--bg2); color: var(--tx3); }
+.toggle.is-off .toggle-on  { background: var(--bg2); color: var(--tx3); }
+.toggle.is-off .toggle-off { background: var(--bg2); color: var(--tx2); }
+
+/* ━━━ SELECT CONTROL ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.sel-ctrl {
+  background: var(--bg2); border: 1px solid var(--bd1);
+  color: var(--tx0); font-size: 11px; font-family: inherit;
+  padding: 3px 24px 3px 8px; border-radius: 3px;
+  appearance: none; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23506070' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 7px center;
+}
+.sel-ctrl:focus { outline: 1px solid var(--ac); border-color: var(--ac); }
+
+/* ━━━ TEXT INPUT CONTROL ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.txt-ctrl {
+  background: var(--bg2); border: 1px solid var(--bd1);
+  color: var(--tx0); font-size: 11px; font-family: inherit;
+  padding: 3px 8px; border-radius: 3px; min-width: 220px;
+}
+.txt-ctrl:focus { outline: 1px solid var(--ac); border-color: var(--ac); }
+
+/* ━━━ KEY BINDING CHIP ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.key-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.kc {
+  background: var(--bg2); border: 1px solid var(--bd1);
+  color: var(--tx0); font-size: 10px; padding: 2px 8px; border-radius: 3px;
+  font-family: inherit; min-width: 32px; text-align: center;
+}
+.kc.edit-mode { border-color: var(--ac); color: var(--ac); background: #061816; }
+.kc-btn {
+  font-size: 10px; color: var(--tx2); cursor: pointer; padding: 2px 4px;
+  border-radius: 2px;
+}
+.kc-btn:hover { color: var(--tx1); background: var(--bgH); }
+
+/* ━━━ SETTINGS TABLE (for shortcuts) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.stbl { width: 100%; border-collapse: collapse; }
+.stbl thead th {
+  padding: 5px 10px; font-size: 10px; font-weight: 400; color: var(--tx2);
+  text-align: left; letter-spacing: 0.05em; border-bottom: 1px solid var(--bd0);
+  background: var(--bg1);
+}
+.stbl tbody tr { border-bottom: 1px solid var(--bd0); }
+.stbl tbody tr:hover { background: var(--bgH); }
+.stbl tbody td { padding: 7px 10px; font-size: 11.5px; color: var(--tx1); }
+.stbl .col-action { color: var(--tx0); font-weight: 400; }
+.stbl .col-key { }
+.stbl .col-note { font-size: 10px; color: var(--tx2); }
+.stbl .col-scope { font-size: 10px; color: var(--tx3); }
+
+/* ━━━ AGENT CARD ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.agent-cards { display: flex; flex-direction: column; gap: 6px; }
+.agent-card {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg1); border: 1px solid var(--bd0);
+  border-radius: 5px; padding: 10px 12px;
+}
+.agent-card:hover { border-color: var(--bd1); }
+.ac-tag {
+  width: 32px; height: 32px; border-radius: 6px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; letter-spacing: -0.5px;
+}
+.ac-body { flex: 1; min-width: 0; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 16px; align-items: center; }
+.ac-name { font-size: 12px; font-weight: 500; color: var(--tx0); }
+.ac-field { font-size: 10.5px; color: var(--tx2); }
+.ac-field span { color: var(--tx1); }
+.ac-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.ac-btn {
+  font-size: 10px; color: var(--tx2); cursor: pointer;
+  padding: 2px 7px; border-radius: 3px; border: 1px solid var(--bd1);
+  background: var(--bg2);
+}
+.ac-btn:hover { color: var(--tx1); border-color: var(--bdF); }
+.ac-btn.danger:hover { color: var(--sE); border-color: var(--sE); }
+
+.add-agent {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border: 1px dashed var(--bd1); border-radius: 5px;
+  font-size: 11px; color: var(--tx2); cursor: pointer;
+}
+.add-agent:hover { color: var(--ac); border-color: var(--ac); background: #061816; }
+
+/* ━━━ OVERVIEW BULLETS ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.blist { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.blist li { display: flex; gap: 7px; font-size: 11.5px; color: var(--tx1); line-height: 1.5; }
+.bl-dot { color: var(--ac); flex-shrink: 0; margin-top: 1px; font-size: 10px; }
+
+/* info-box */
+.info-box {
+  background: var(--bg1); border: 1px solid var(--bd0); border-radius: 5px;
+  padding: 12px 14px; margin-bottom: 16px;
+}
+.info-box h3 { font-size: 12px; color: var(--ac); margin-bottom: 8px; font-weight: 600; }
+
+/* version line */
+.version-row { display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--tx2); }
+.v-badge {
+  background: var(--bg2); border: 1px solid var(--bd1);
+  color: var(--tx0); font-size: 10px; padding: 2px 8px; border-radius: 3px;
+}
+
+/* tip callout */
+.callout {
+  border-left: 2px solid var(--ac); padding: 8px 12px;
+  background: #061816; border-radius: 0 4px 4px 0;
+  font-size: 11px; color: var(--tx2); margin-bottom: 14px;
+}
+.callout b { color: var(--tx1); font-weight: 400; }
+
+/* code block */
+.code-blk {
+  background: var(--bg2); border: 1px solid var(--bd1); border-radius: 3px;
+  padding: 6px 10px; font-size: 11px; color: var(--tx0); margin: 6px 0;
+}
+
+/* ━━━ STATUSBAR ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.statusbar {
+  height: 32px; min-height: 32px;
+  background: var(--bg1); border-top: 1px solid var(--bd0);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 14px; flex-shrink: 0;
+}
+.sb-l { display: flex; align-items: center; gap: 0; overflow: hidden; white-space: nowrap; }
+.sb-act { display: flex; align-items: center; gap: 4px; }
+.sb-key {
+  background: var(--bg2); border: 1px solid var(--bd1);
+  color: var(--tx0); font-size: 9.5px; padding: 1px 6px; border-radius: 2px;
+}
+.sb-lbl { font-size: 10.5px; color: var(--tx2); }
+.sb-div { color: var(--bd0); margin: 0 8px; }
+.sb-r { font-size: 10.5px; color: var(--tx2); white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.unsaved { color: var(--sI); font-size: 10px; }
+</style>
+</head>
+<body>
+
+<!-- ═══ TOPBAR ══════════════════════════════════════════════════════ -->
+<div class="topbar">
+  <div class="brand">
+    <span class="brand-name">CLEO</span>
+    <span class="brand-sub">Settings</span>
+  </div>
+  <div class="top-right">
+    <div class="tmux-badge">
+      <span>TMUX:</span>
+      <span style="color:var(--ac)">✓ connected</span>
+    </div>
+    <span class="top-sep">│</span>
+    <span>◷ 14:32:18</span>
+    <span class="top-sep">│</span>
+    <div class="esc-hint"><span class="kbd">Esc</span> back to dashboard</div>
+  </div>
+</div>
+
+<div class="main">
+
+<!-- ═══ LEFT NAV ════════════════════════════════════════════════════ -->
+<div class="leftnav">
+  <div class="nav-hdr">Settings</div>
+  <div class="nav-list">
+
+    <div class="nav-item active" onclick="showTab('overview')">
+      <div class="nav-ico">◉</div>
+      <div class="nav-body">
+        <div class="nav-lbl">Overview</div>
+        <div class="nav-sub">About &amp; quick start</div>
+      </div>
+    </div>
+
+    <div class="nav-item" onclick="showTab('sessions')">
+      <div class="nav-ico">⊞</div>
+      <div class="nav-body">
+        <div class="nav-lbl">Sessions</div>
+        <div class="nav-sub">Behavior &amp; defaults</div>
+      </div>
+    </div>
+
+    <div class="nav-item" onclick="showTab('agents')">
+      <div class="nav-ico" style="font-size:9px;font-weight:700;color:var(--ccC);background:var(--ccB)">CC</div>
+      <div class="nav-body">
+        <div class="nav-lbl">Agents</div>
+        <div class="nav-sub">Manage AI agents</div>
+      </div>
+    </div>
+
+    <div class="nav-item" onclick="showTab('tmux')">
+      <div class="nav-ico" style="font-size:10px">>_</div>
+      <div class="nav-body">
+        <div class="nav-lbl">Tmux</div>
+        <div class="nav-sub">Integration settings</div>
+      </div>
+    </div>
+
+    <div class="nav-item" onclick="showTab('shortcuts')">
+      <div class="nav-ico">⌨</div>
+      <div class="nav-body">
+        <div class="nav-lbl">Shortcuts</div>
+        <div class="nav-sub">Keybind editor</div>
+      </div>
+    </div>
+
+    <div class="nav-item" onclick="showTab('appearance')">
+      <div class="nav-ico">◫</div>
+      <div class="nav-body">
+        <div class="nav-lbl">Appearance</div>
+        <div class="nav-sub">Theme &amp; layout</div>
+      </div>
+    </div>
+
+    <div class="nav-item" onclick="showTab('about')">
+      <div class="nav-ico">ⓘ</div>
+      <div class="nav-body">
+        <div class="nav-lbl">About</div>
+        <div class="nav-sub">Version &amp; credits</div>
+      </div>
+    </div>
+
+  </div>
+  <div class="nav-footer">
+    <span class="kbd" style="font-size:9px">Tab</span>
+    <span>switch section</span>
+  </div>
+</div>
+
+<!-- ═══ CONTENT ═════════════════════════════════════════════════════ -->
+<div class="content">
+
+  <!-- ── OVERVIEW ─────────────────────────────────────────────────── -->
+  <div class="tab-panel active" id="tab-overview">
+    <div class="sec-title">Overview</div>
+    <div class="sec-subtitle">
+      CLEO is a terminal UI for discovering and managing tmux sessions across your projects
+      with intelligent agent mapping. Changes made here are saved to <code style="color:var(--ac)">~/.config/cleo/config.toml</code>.
+    </div>
+
+    <div class="info-box">
+      <h3>How the Dashboard Works</h3>
+      <ul class="blist">
+        <li><span class="bl-dot">●</span>Left panel lists all your projects and their active/idle session counts.</li>
+        <li><span class="bl-dot">●</span>Center panel shows sessions grouped by agent for the selected project.</li>
+        <li><span class="bl-dot">●</span>Right panel shows detailed info for the selected session (toggle with <code style="color:var(--ac)">t</code>).</li>
+        <li><span class="bl-dot">●</span>Activity log at the bottom tracks all session events in real time.</li>
+        <li><span class="bl-dot">●</span>Use <code style="color:var(--ac)">/</code> to search across sessions, agents, projects, or branches.</li>
+      </ul>
+    </div>
+
+    <div class="info-box">
+      <h3>Workflow</h3>
+      <ul class="blist">
+        <li><span class="bl-dot">●</span>Press <code style="color:var(--ac)">Enter</code> on any session to attach — you enter the tmux session directly.</li>
+        <li><span class="bl-dot">●</span>Detach with <code style="color:var(--ac)">Ctrl+B d</code> (tmux detach) to return to CLEO. Your work keeps running.</li>
+        <li><span class="bl-dot">●</span>Press <code style="color:var(--ac)">N</code> to create a new session for the selected project.</li>
+        <li><span class="bl-dot">●</span>Sessions persist across CLEO restarts — tmux is the source of truth.</li>
+      </ul>
+    </div>
+
+    <div class="callout">
+      <b>Tip:</b> Settings changed here are written to the config file immediately. Some settings (like keybinds) require restarting CLEO to take effect.
+    </div>
+  </div>
+
+  <!-- ── SESSIONS ──────────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-sessions">
+    <div class="sec-title">Session Settings</div>
+    <div class="sec-subtitle">Configure how sessions are created, named, and managed.</div>
+
+    <div class="sec-gap">
+      <div class="setting-row">
+        <div class="s-label">
+          <div class="s-name">Auto-attach on startup</div>
+          <div class="s-desc">If only one active session exists, attach to it automatically when CLEO launches.</div>
+        </div>
+        <div class="s-control">
+          <div class="toggle is-off" onclick="toggleSwitch(this)">
+            <span class="toggle-on">ON</span><span class="toggle-off">OFF</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="s-label">
+          <div class="s-name">Show idle sessions</div>
+          <div class="s-desc">Display sessions with idle agents in the main table.</div>
+        </div>
+        <div class="s-control">
+          <div class="toggle is-on" onclick="toggleSwitch(this)">
+            <span class="toggle-on">ON</span><span class="toggle-off">OFF</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="s-label">
+          <div class="s-name">Show detached sessions</div>
+          <div class="s-desc">Include detached tmux sessions in the list.</div>
+        </div>
+        <div class="s-control">
+          <div class="toggle is-on" onclick="toggleSwitch(this)">
+            <span class="toggle-on">ON</span><span class="toggle-off">OFF</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="s-label">
+          <div class="s-name">Session name template</div>
+          <div class="s-desc">Template for naming new tmux sessions. Available vars: {project}, {agent}, {branch}.</div>
+        </div>
+        <div class="s-control">
+          <input class="txt-ctrl" type="text" value="cleo-{project}-{agent}" spellcheck="false">
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="s-label">
+          <div class="s-name">Default working directory</div>
+          <div class="s-desc">Base directory for new sessions. Leave blank to use the project's root.</div>
+        </div>
+        <div class="s-control">
+          <input class="txt-ctrl" type="text" value="" placeholder="~/projects" spellcheck="false">
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="s-label">
+          <div class="s-name">Activity log max entries</div>
+          <div class="s-desc">Maximum number of activity events to keep in the log panel.</div>
+        </div>
+        <div class="s-control">
+          <select class="sel-ctrl">
+            <option>100</option>
+            <option selected>500</option>
+            <option>1000</option>
+            <option>Unlimited</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="s-label">
+          <div class="s-name">Poll interval</div>
+          <div class="s-desc">How often to refresh session status from tmux.</div>
+        </div>
+        <div class="s-control">
+          <select class="sel-ctrl">
+            <option>500ms</option>
+            <option selected>1s</option>
+            <option>2s</option>
+            <option>5s</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── AGENTS ────────────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-agents">
+    <div class="sec-title">Agents</div>
+    <div class="sec-subtitle">
+      Configure which AI agents CLEO knows about. Each agent maps to a tmux session pattern
+      and defines its own icon, color, and default model.
+    </div>
+
+    <div class="agent-cards sec-gap">
+
+      <div class="agent-card">
+        <div class="ac-tag" style="background:var(--ccB);color:var(--ccC)">CC</div>
+        <div class="ac-body">
+          <div>
+            <div class="ac-name">Claude Code</div>
+            <div class="ac-field">pattern: <span>claude</span></div>
+          </div>
+          <div>
+            <div class="ac-field">icon: <span>CC</span></div>
+            <div class="ac-field">color: <span style="color:var(--ccC)">■</span> #E8820C</div>
+          </div>
+          <div>
+            <div class="ac-field">model: <span>claude-3-5-sonnet</span></div>
+            <div class="ac-field">enabled: <span style="color:var(--sA)">yes</span></div>
+          </div>
+        </div>
+        <div class="ac-actions">
+          <span class="ac-btn">Edit</span>
+        </div>
+      </div>
+
+      <div class="agent-card">
+        <div class="ac-tag" style="background:var(--cxB);color:var(--cxC)">CX</div>
+        <div class="ac-body">
+          <div>
+            <div class="ac-name">Codex</div>
+            <div class="ac-field">pattern: <span>codex</span></div>
+          </div>
+          <div>
+            <div class="ac-field">icon: <span>CX</span></div>
+            <div class="ac-field">color: <span style="color:var(--cxC)">■</span> #4A9EE0</div>
+          </div>
+          <div>
+            <div class="ac-field">model: <span>o3</span></div>
+            <div class="ac-field">enabled: <span style="color:var(--sA)">yes</span></div>
+          </div>
+        </div>
+        <div class="ac-actions">
+          <span class="ac-btn">Edit</span>
+        </div>
+      </div>
+
+      <div class="agent-card">
+        <div class="ac-tag" style="background:var(--ocB);color:var(--ocC)">OC</div>
+        <div class="ac-body">
+          <div>
+            <div class="ac-name">OpenCode</div>
+            <div class="ac-field">pattern: <span>opencode</span></div>
+          </div>
+          <div>
+            <div class="ac-field">icon: <span>OC</span></div>
+            <div class="ac-field">color: <span style="color:var(--ocC)">■</span> #2A8878</div>
+          </div>
+          <div>
+            <div class="ac-field">model: <span>gpt-4o</span></div>
+            <div class="ac-field">enabled: <span style="color:var(--sA)">yes</span></div>
+          </div>
+        </div>
+        <div class="ac-actions">
+          <span class="ac-btn">Edit</span>
+        </div>
+      </div>
+
+      <div class="agent-card">
+        <div class="ac-tag" style="background:var(--piB);color:var(--piC);font-size:14px">π</div>
+        <div class="ac-body">
+          <div>
+            <div class="ac-name">Pi</div>
+            <div class="ac-field">pattern: <span>pi</span></div>
+          </div>
+          <div>
+            <div class="ac-field">icon: <span>π</span></div>
+            <div class="ac-field">color: <span style="color:var(--piC)">■</span> #9060C8</div>
+          </div>
+          <div>
+            <div class="ac-field">model: <span>pi-3</span></div>
+            <div class="ac-field">enabled: <span style="color:var(--sA)">yes</span></div>
+          </div>
+        </div>
+        <div class="ac-actions">
+          <span class="ac-btn">Edit</span>
+          <span class="ac-btn danger">Remove</span>
+        </div>
+      </div>
+
+      <div class="add-agent">
+        <span style="color:var(--ac)">+</span>
+        <span>Add new agent…</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TMUX ──────────────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-tmux">
+    <div class="sec-title">Tmux Integration</div>
+    <div class="sec-subtitle">Configure how CLEO connects to and interacts with tmux.</div>
+
+    <div class="sec-gap">
+      <div class="setting-row">
+        <div class="s-label">
+          <div class="s-name">Tmux binary</div>
+          <div class="s-desc">Path to the tmux executable.</div>
+        </div>
+        <div class="s-control">
+          <input class="txt-ctrl" type="text" value="/usr/local/bin/tmux" spellcheck="false">
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="s-label">
+          <div class="s-name">Socket path</div>
+          <div class="s-desc">Tmux server socket. Leave blank to use the default socket.</div>
+        </div>
+        <div class="s-control">
+          <input class="txt-ctrl" type="text" value="" placeholder="/tmp/tmux-1000/default" spellcheck="false">
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="s-label">
+          <div class="s-name">Key prefix</div>
+          <div class="s-desc">The tmux prefix key used in your config (for display purposes only).</div>
+        </div>
+        <div class="s-control">
+          <input class="txt-ctrl" type="text" value="Ctrl+B" spellcheck="false" style="min-width:120px">
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="s-label">
+          <div class="s-name">Auto-start tmux server</div>
+          <div class="s-desc">Start a tmux server automatically if none is running when CLEO launches.</div>
+        </div>
+        <div class="s-control">
+          <div class="toggle is-on" onclick="toggleSwitch(this)">
+            <span class="toggle-on">ON</span><span class="toggle-off">OFF</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="s-label">
+          <div class="s-name">Session detection pattern</div>
+          <div class="s-desc">Regex pattern to identify CLEO-managed tmux sessions. Others are hidden.</div>
+        </div>
+        <div class="s-control">
+          <input class="txt-ctrl" type="text" value="^cleo-" spellcheck="false" style="min-width:160px">
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="s-label">
+          <div class="s-name">Show unmanaged sessions</div>
+          <div class="s-desc">Also display tmux sessions that don't match the detection pattern.</div>
+        </div>
+        <div class="s-control">
+          <div class="toggle is-off" onclick="toggleSwitch(this)">
+            <span class="toggle-on">ON</span><span class="toggle-off">OFF</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SHORTCUTS ─────────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-shortcuts">
+    <div class="sec-title">Shortcuts &amp; Keybindings</div>
+    <div class="sec-subtitle">
+      Click any key chip to rebind. Press the new key to confirm, or <code style="color:var(--sE)">Esc</code> to cancel.
+    </div>
+
+    <div class="callout" style="margin-bottom:16px">
+      <b>Note:</b> Keybind changes take effect the next time CLEO starts.
+    </div>
+
+    <table class="stbl">
+      <thead>
+        <tr>
+          <th style="width:200px">Action</th>
+          <th style="width:120px">Key</th>
+          <th>Description</th>
+          <th style="width:80px">Scope</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-action">New Session</td>
+          <td><span class="key-chip"><span class="kc">n</span><span class="kc-btn" title="rebind">✎</span></span></td>
+          <td class="col-note">Create a new tmux session for the selected project</td>
+          <td class="col-scope">global</td>
+        </tr>
+        <tr>
+          <td class="col-action">Attach</td>
+          <td><span class="key-chip"><span class="kc">Enter</span><span class="kc-btn">✎</span></span></td>
+          <td class="col-note">Attach to the selected session</td>
+          <td class="col-scope">session</td>
+        </tr>
+        <tr>
+          <td class="col-action">Detach</td>
+          <td><span class="key-chip"><span class="kc">d</span><span class="kc-btn">✎</span></span></td>
+          <td class="col-note">Detach from the current session, return to CLEO</td>
+          <td class="col-scope">session</td>
+        </tr>
+        <tr>
+          <td class="col-action">Rename</td>
+          <td><span class="key-chip"><span class="kc">r</span><span class="kc-btn">✎</span></span></td>
+          <td class="col-note">Rename the selected session</td>
+          <td class="col-scope">session</td>
+        </tr>
+        <tr>
+          <td class="col-action">Kill Session</td>
+          <td><span class="key-chip"><span class="kc">x</span><span class="kc-btn">✎</span></span></td>
+          <td class="col-note">Kill the selected session (with confirmation)</td>
+          <td class="col-scope">session</td>
+        </tr>
+        <tr>
+          <td class="col-action">Search</td>
+          <td><span class="key-chip"><span class="kc">/</span><span class="kc-btn">✎</span></span></td>
+          <td class="col-note">Open fuzzy search across sessions and projects</td>
+          <td class="col-scope">global</td>
+        </tr>
+        <tr>
+          <td class="col-action">Settings / Help</td>
+          <td><span class="key-chip"><span class="kc">?</span><span class="kc-btn">✎</span></span></td>
+          <td class="col-note">Open this settings panel</td>
+          <td class="col-scope">global</td>
+        </tr>
+        <tr>
+          <td class="col-action">Toggle Detail Panel</td>
+          <td><span class="key-chip"><span class="kc">t</span><span class="kc-btn">✎</span></span></td>
+          <td class="col-note">Show or hide the right detail panel</td>
+          <td class="col-scope">global</td>
+        </tr>
+        <tr>
+          <td class="col-action">Switch Panel</td>
+          <td><span class="key-chip"><span class="kc">Tab</span><span class="kc-btn">✎</span></span></td>
+          <td class="col-note">Cycle focus between left / center / right panels</td>
+          <td class="col-scope">global</td>
+        </tr>
+        <tr>
+          <td class="col-action">Open in New Window</td>
+          <td><span class="key-chip"><span class="kc">o</span><span class="kc-btn">✎</span></span></td>
+          <td class="col-note">Open selected session in a new terminal window</td>
+          <td class="col-scope">session</td>
+        </tr>
+        <tr>
+          <td class="col-action">Navigate Up</td>
+          <td><span class="key-chip"><span class="kc">↑ / k</span><span class="kc-btn">✎</span></span></td>
+          <td class="col-note">Move selection up</td>
+          <td class="col-scope">list</td>
+        </tr>
+        <tr>
+          <td class="col-action">Navigate Down</td>
+          <td><span class="key-chip"><span class="kc">↓ / j</span><span class="kc-btn">✎</span></span></td>
+          <td class="col-note">Move selection down</td>
+          <td class="col-scope">list</td>
+        </tr>
+        <tr>
+          <td class="col-action">Quit</td>
+          <td><span class="key-chip"><span class="kc">q</span><span class="kc-btn">✎</span></span></td>
+          <td class="col-note">Exit CLEO (sessions keep running in tmux)</td>
+          <td class="col-scope">global</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── APPEARANCE ────────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-appearance">
+    <div class="sec-title">Appearance</div>
+    <div class="sec-subtitle">Customize CLEO's visual style and layout.</div>
+
+    <div class="sec-gap">
+      <div class="setting-row">
+        <div class="s-label">
+          <div class="s-name">Theme</div>
+          <div class="s-desc">Color scheme for the entire interface.</div>
+        </div>
+        <div class="s-control">
+          <select class="sel-ctrl" style="min-width:180px">
+            <option selected>cleo-dashboard</option>
+            <option>catppuccin-mocha</option>
+            <option>gruvbox-dark</option>
+            <option>onedark</option>
+            <option>void</option>
+            <option>synthwave</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="s-label">
+          <div class="s-name">Show detail panel by default</div>
+          <div class="s-desc">Display the right-hand session detail panel when CLEO starts.</div>
+        </div>
+        <div class="s-control">
+          <div class="toggle is-on" onclick="toggleSwitch(this)">
+            <span class="toggle-on">ON</span><span class="toggle-off">OFF</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="s-label">
+          <div class="s-name">Show activity log</div>
+          <div class="s-desc">Display the session event log at the bottom of the center panel.</div>
+        </div>
+        <div class="s-control">
+          <div class="toggle is-on" onclick="toggleSwitch(this)">
+            <span class="toggle-on">ON</span><span class="toggle-off">OFF</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="s-label">
+          <div class="s-name">Compact mode</div>
+          <div class="s-desc">Reduce row heights and padding for higher information density.</div>
+        </div>
+        <div class="s-control">
+          <div class="toggle is-off" onclick="toggleSwitch(this)">
+            <span class="toggle-on">ON</span><span class="toggle-off">OFF</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="s-label">
+          <div class="s-name">Use Nerd Font icons</div>
+          <div class="s-desc">Render Nerd Font glyphs for project and agent icons. Requires a Nerd Font in your terminal.</div>
+        </div>
+        <div class="s-control">
+          <div class="toggle is-on" onclick="toggleSwitch(this)">
+            <span class="toggle-on">ON</span><span class="toggle-off">OFF</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="s-label">
+          <div class="s-name">Show token usage bar</div>
+          <div class="s-desc">Display the token usage progress bar in the detail panel.</div>
+        </div>
+        <div class="s-control">
+          <div class="toggle is-on" onclick="toggleSwitch(this)">
+            <span class="toggle-on">ON</span><span class="toggle-off">OFF</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <div class="s-label">
+          <div class="s-name">Accent color</div>
+          <div class="s-desc">Override the theme accent color (hex). Leave blank to use theme default.</div>
+        </div>
+        <div class="s-control">
+          <input class="txt-ctrl" type="text" value="" placeholder="#00D4B4" spellcheck="false" style="min-width:120px">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ABOUT ─────────────────────────────────────────────────────── -->
+  <div class="tab-panel" id="tab-about">
+    <div class="sec-title">About CLEO</div>
+    <div class="sec-subtitle">Version information and credits.</div>
+
+    <div class="info-box" style="margin-bottom:16px">
+      <h3>Version</h3>
+      <div class="version-row">
+        <span class="v-badge">v0.5.0</span>
+        <span style="color:var(--tx2)">Built with Go · Bubble Tea · Lip Gloss</span>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <h3>Config file</h3>
+      <div class="code-blk">~/.config/cleo/config.toml</div>
+      <div style="font-size:10.5px;color:var(--tx2);margin-top:6px">All settings edited here are written to this file in real time.</div>
+    </div>
+
+    <div class="info-box" style="margin-top:12px">
+      <h3>Resources</h3>
+      <ul class="blist">
+        <li><span class="bl-dot">●</span><span style="color:var(--ac)">github.com/dhruvsaxena1998/cleo</span> — source &amp; issues</li>
+        <li><span class="bl-dot">●</span>Bubble Tea — TUI framework by Charm</li>
+        <li><span class="bl-dot">●</span>Tmux — terminal multiplexer</li>
+        <li><span class="bl-dot">●</span>Nerd Fonts — icon font project</li>
+      </ul>
+    </div>
+  </div>
+
+</div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ═══ STATUS BAR ═══════════════════════════════════════════════════ -->
+<div class="statusbar">
+  <div class="sb-l">
+    <div class="sb-act"><span class="sb-key">Tab</span><span class="sb-lbl">Next section</span></div>
+    <span class="sb-div">│</span>
+    <div class="sb-act"><span class="sb-key">S-Tab</span><span class="sb-lbl">Prev section</span></div>
+    <span class="sb-div">│</span>
+    <div class="sb-act"><span class="sb-key">Enter</span><span class="sb-lbl">Edit</span></div>
+    <span class="sb-div">│</span>
+    <div class="sb-act"><span class="sb-key">Esc</span><span class="sb-lbl">Back to dashboard</span></div>
+    <span class="sb-div">│</span>
+    <div class="sb-act"><span class="sb-key">w</span><span class="sb-lbl">Write &amp; close</span></div>
+  </div>
+  <div class="sb-r">
+    <span class="unsaved" id="unsaved-indicator" style="display:none">● unsaved changes</span>
+    <span style="color:var(--tx2)">config: ~/.config/cleo/config.toml</span>
+  </div>
+</div>
+
+<script>
+/* Tab navigation */
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  // find the nav item that calls showTab(name) and activate it
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick') === "showTab('" + name + "')") n.classList.add('active');
+  });
+}
+
+/* Toggle switches */
+function toggleSwitch(el) {
+  el.classList.toggle('is-on');
+  el.classList.toggle('is-off');
+  markUnsaved();
+}
+
+/* Mark unsaved */
+function markUnsaved() {
+  document.getElementById('unsaved-indicator').style.display = '';
+}
+
+/* Track input changes */
+document.addEventListener('input', e => {
+  if (e.target.matches('.txt-ctrl, .sel-ctrl')) markUnsaved();
+});
+
+/* Keyboard nav */
+const TAB_ORDER = ['overview','sessions','agents','tmux','shortcuts','appearance','about'];
+let cur = 0;
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input, select')) return;
+  if (e.key === 'Tab' && !e.shiftKey) {
+    e.preventDefault();
+    cur = (cur + 1) % TAB_ORDER.length;
+    showTab(TAB_ORDER[cur]);
+  }
+  if (e.key === 'Tab' && e.shiftKey) {
+    e.preventDefault();
+    cur = (cur - 1 + TAB_ORDER.length) % TAB_ORDER.length;
+    showTab(TAB_ORDER[cur]);
+  }
+  if (e.key === 'Escape') {
+    window.location.href = 'cleo-dashboard.html';
+  }
+});
+</script>
+</body>
+</html>
