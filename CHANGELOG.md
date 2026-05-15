@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0-beta.5] - 2026-05-15
+
+### Added
+- Remove a project from cleo via the new CLI command and `D` keybind in the TUI.
+- Hook trace now records the sound decision (`played` / `focus` / `idle-nudge` / `disabled`) for every event, making it easier to diagnose missing notifications.
+- `cleo init` is now idempotent — re-running skips hook events whose command is already wired up, instead of duplicating them.
+
+### Fixed
+- Tmux: `allow-passthrough` is set on new sessions so OSC-8 clickable URLs work inside cleo-spawned panes (#37).
+- TUI: `j` / `k` keys are no longer swallowed by the spawn popup while typing into the name field.
+- OpenCode plugin: corrected plugin format and the `question` tool state mapping so events register reliably.
+- Focus: stale `focused=true` TTL reduced from 30 minutes to 5 minutes to limit false-positive sound suppression after window switches.
+
 ## [0.1.0-beta.4] - 2026-05-13
 
 ### Added
