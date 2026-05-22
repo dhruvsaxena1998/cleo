@@ -1,6 +1,9 @@
 package cli
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/dhruvsaxena1998/cleo/internal/config"
 	"github.com/dhruvsaxena1998/cleo/internal/events"
 	"github.com/dhruvsaxena1998/cleo/internal/focus"
@@ -29,6 +32,12 @@ func NewCtxWithRoot(root string) (*Ctx, error) {
 	cfg, err := config.Load(p.ConfigFile())
 	if err != nil {
 		return nil, err
+	}
+	if err := sound.ExtractDefaults(p.SoundsDir()); err != nil {
+		return nil, err
+	}
+	for _, warning := range cfg.Warnings {
+		fmt.Fprintf(os.Stderr, "cleo config warning: %s\n", warning)
 	}
 	return &Ctx{
 		Paths:    p,

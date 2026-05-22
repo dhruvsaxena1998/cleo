@@ -41,6 +41,7 @@ func newDoctorCmd(getCtx func() *Ctx) *cobra.Command {
 			if exe, err := os.Executable(); err == nil {
 				report.CleoBin = exe
 			}
+			report.ConfigWarnings = c.Config.Warnings
 			analysis := analyzeReport(report)
 			printDoctorReportOpts(cmd.OutOrStdout(), report, analysis, doctorPrintOpts{Quiet: quiet})
 			if quiet && analysis.HasFailures(report) {
@@ -61,6 +62,7 @@ type doctorReport struct {
 	PiExtensionPath    string
 	OpenCodePluginPath string
 	CleoBin            string
+	ConfigWarnings     []string
 }
 
 type doctorCheck struct {
@@ -472,6 +474,9 @@ func (a doctorAnalysis) HasFailures(report doctorReport) bool {
 	if len(a.CodexDiff.toAdd)+len(a.CodexDiff.conflicts) > 0 {
 		return true
 	}
+	if len(report.ConfigWarnings) > 0 {
+		return true
+	}
 	return false
 }
 
@@ -507,6 +512,13 @@ func printDoctorReportOpts(w io.Writer, report doctorReport, analysis doctorAnal
 					fmt.Fprintf(w, "    %s  %-18s %-40s %s\n", ts, tr.Event, truncRight(tr.ResolvedSession, 40), tr.FallbackReason)
 				}
 			}
+		}
+	}
+	if len(report.ConfigWarnings) > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "Config warnings:")
+		for _, warning := range report.ConfigWarnings {
+			fmt.Fprintf(w, "  - %s\n", warning)
 		}
 	}
 	if len(analysis.Failures) > 0 {
@@ -552,4 +564,3 @@ func printDoctorReportOpts(w io.Writer, report doctorReport, analysis doctorAnal
 		fmt.Fprintln(w, "  Do not run hook commands manually; Codex runs them after approval.")
 	}
 }
-

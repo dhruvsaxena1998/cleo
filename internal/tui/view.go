@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func (m Model) View() string {
@@ -62,7 +62,7 @@ func renderFrame(m Model) string {
 func (m Model) renderTopbar(width int) string {
 	stats := m.sessionStats()
 	sound := lipgloss.NewStyle().Foreground(m.theme.Overlay0).Render("sound on")
-	if m.ctx.Config.Sound.Enabled != nil && !*m.ctx.Config.Sound.Enabled {
+	if !m.ctx.Config.Sound.Enabled {
 		sound = lipgloss.NewStyle().Foreground(m.theme.Overlay0).Render("muted")
 	}
 	left := lipgloss.NewStyle().Foreground(m.theme.Mauve).Bold(true).Render("cleo") +
@@ -158,10 +158,10 @@ func (m Model) statusOr(fallback string) string {
 	return fallback
 }
 
-// ── Retention banner ──────────────────────────────────────────────────────────
+// ── Pruning banner ────────────────────────────────────────────────────────────
 
 func (m Model) retentionBanner(width int) string {
-	threshold := m.ctx.Config.Retention.HintThreshold
+	threshold := m.ctx.Config.Pruning.HintThreshold
 	if threshold <= 0 {
 		return ""
 	}

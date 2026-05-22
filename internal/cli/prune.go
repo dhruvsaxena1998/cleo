@@ -26,7 +26,7 @@ func newPruneCmd(getCtx func() *Ctx) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getCtx()
 			if keep < 0 {
-				keep = c.Config.Retention.PruneKeepDefault
+				keep = c.Config.Pruning.KeepDefault
 			}
 			projectFilter := ""
 			if len(args) == 1 {

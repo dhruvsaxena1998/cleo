@@ -82,8 +82,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// The previewTickCmd drives itself — do not schedule another tick here.
 		return m, nil
 	case previewTickMsg:
-		next := previewTickCmd(m.ctx.Config.UI.PanePreviewInterval)
-		if !m.ctx.Config.UI.ShowPanePreview {
+		next := previewTickCmd(m.ctx.Config.UI.PanePreview.Interval)
+		if !m.ctx.Config.UI.PanePreview.Enabled {
 			return m, next
 		}
 		sess, ok := m.selectedSession()
@@ -91,7 +91,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, next
 		}
 		m.paneCaptureInFlight = true
-		return m, tea.Batch(next, capturePaneCmd(m.ctx, sess.ID, m.ctx.Config.UI.PanePreviewLines))
+		return m, tea.Batch(next, capturePaneCmd(m.ctx, sess.ID, m.ctx.Config.UI.PanePreview.Lines))
 	}
 	return m, nil
 }

@@ -246,7 +246,6 @@ func TestDoctorPiCheck_FileStale(t *testing.T) {
 	}
 }
 
-
 func TestDoctorQuietSuppressesPassingChecks(t *testing.T) {
 	report := doctorReport{
 		Checks: []doctorCheck{
@@ -262,6 +261,22 @@ func TestDoctorQuietSuppressesPassingChecks(t *testing.T) {
 	}
 	if !strings.Contains(out, "Codex feature flag") {
 		t.Errorf("quiet mode should still show failure, got %q", out)
+	}
+}
+
+func TestDoctorPrintsConfigWarnings(t *testing.T) {
+	report := doctorReport{
+		Checks:         []doctorCheck{{Label: "Claude hooks", OK: true, Detail: "installed"}},
+		ConfigWarnings: []string{"sound.volume above 1; clamped to 1"},
+	}
+	var buf bytes.Buffer
+	printDoctorReportOpts(&buf, report, analyzeReport(report), doctorPrintOpts{Quiet: true})
+	out := buf.String()
+	if !strings.Contains(out, "Config warnings") {
+		t.Fatalf("expected config warnings section, got %q", out)
+	}
+	if !strings.Contains(out, "sound.volume above 1") {
+		t.Fatalf("expected warning detail, got %q", out)
 	}
 }
 

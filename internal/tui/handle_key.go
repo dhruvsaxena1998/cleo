@@ -171,7 +171,7 @@ func (m Model) cursorDown() (Model, tea.Cmd) {
 // preview stays current when the user navigates. Skips when previews are
 // disabled, no session is selected, or the session is finished.
 func (m Model) autoCaptureCmd() tea.Cmd {
-	if !m.ctx.Config.UI.ShowPanePreview {
+	if !m.ctx.Config.UI.PanePreview.Enabled {
 		return nil
 	}
 	sess, ok := m.sessionAtCursor()
@@ -181,7 +181,7 @@ func (m Model) autoCaptureCmd() tea.Cmd {
 	if sess.State.IsFinished() {
 		return nil
 	}
-	return capturePaneCmd(m.ctx, sess.ID, m.ctx.Config.UI.PanePreviewLines)
+	return capturePaneCmd(m.ctx, sess.ID, m.ctx.Config.UI.PanePreview.Lines)
 }
 
 func (m Model) openSpawnPopup() (Model, tea.Cmd) {
@@ -211,7 +211,7 @@ func (m Model) viewSelectedAgent() (Model, tea.Cmd) {
 		return m, nil
 	}
 	m.selected = sess.ID
-	return m, capturePaneCmd(m.ctx, sess.ID, m.ctx.Config.UI.PanePreviewLines)
+	return m, capturePaneCmd(m.ctx, sess.ID, m.ctx.Config.UI.PanePreview.Lines)
 }
 
 func (m Model) attachSelectedAgent() (Model, tea.Cmd) {
@@ -276,15 +276,14 @@ func (m Model) openRenamePopup() (Model, tea.Cmd) {
 
 func (m Model) openHelpPopup() (Model, tea.Cmd) {
 	m.status = ""
-	m.popup = NewHelpPopup(m.theme, m.ctx.Config.Defaults.DetachKey)
+	m.popup = NewHelpPopup(m.theme, m.ctx.Config.Tmux.DetachKey)
 	m.mode = ModePopup
 	return m, m.popup.Init()
 }
 
 func (m Model) toggleMute() (Model, tea.Cmd) {
 	cfg := m.ctx.Config
-	next := cfg.Sound.Enabled != nil && !*cfg.Sound.Enabled
-	cfg.Sound.Enabled = &next
+	cfg.Sound.Enabled = !cfg.Sound.Enabled
 	if err := config.Save(m.ctx.Paths.ConfigFile(), cfg); err == nil {
 		m.ctx.Config = cfg
 	}
@@ -330,7 +329,7 @@ func (m Model) performSpawn(s SpawnSubmitted) (Model, tea.Cmd) {
 		Env: map[string]string{"CLEO_SESSION_ID": sid},
 	})
 	cliInstallFocusHooks(m.ctx)
-	if dk := m.ctx.Config.Defaults.DetachKey; dk != "" {
+	if dk := m.ctx.Config.Tmux.DetachKey; dk != "" {
 		parts := strings.Fields(dk)
 		if len(parts) >= 2 {
 			_ = exec.Command("tmux", "bind-key", parts[len(parts)-1], "detach-client").Run()

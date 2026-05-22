@@ -25,13 +25,13 @@ type Player interface {
 }
 
 type Deps struct {
-	Paths  paths.Paths
-	State  StateStore
-	Config config.Config
-	Events func(sid string) *events.Log
-	Sound  Player
-	Focused func(sid string) bool
-	Now     func() (string, error)
+	Paths     paths.Paths
+	State     StateStore
+	Config    config.Config
+	Events    func(sid string) *events.Log
+	Sound     Player
+	Focused   func(sid string) bool
+	Now       func() (string, error)
 	FindByCwd func(cwd, agent string) (string, error)
 }
 
@@ -196,13 +196,13 @@ func playSound(d Deps, soundEvent string) {
 	if !d.Sound.Available() {
 		return
 	}
-	file := d.Config.Sound.Events[soundEvent]
-	if file == "" {
+	event, ok := d.Config.Sound.Events[soundEvent]
+	if !ok || event.File == "" {
 		return
 	}
-	full := file
+	full := event.File
 	if !filepath.IsAbs(full) {
-		full = filepath.Join(d.Paths.SoundsDir(), file)
+		full = filepath.Join(d.Paths.SoundsDir(), event.File)
 	}
 	_ = d.Sound.Play(full)
 }
