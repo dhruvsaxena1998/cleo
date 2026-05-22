@@ -1,5 +1,27 @@
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Go build/test output
 bin/
 *.test
 *.out
-.DS_Store
+*.prof
+coverage.out
+coverage.html
+.cache/
+
+# Local agent/tooling state
 .superpowers/
+.handoff/
+.claude/
