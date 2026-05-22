@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -74,7 +75,9 @@ func TestDisabledSoundEventDoesNotPlay(t *testing.T) {
 	deps, st, _ := setup(t)
 	player := &recordingPlayer{}
 	deps.Sound = player
-	deps.Config.Sound.EventEnabled["session_completed"] = false
+	ev := deps.Config.Sound.Events["session_completed"]
+	ev.Enabled = false
+	deps.Config.Sound.Events["session_completed"] = ev
 	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
 	if err := Handle(deps, "claude", "SessionEnd", []byte(`{}`)); err != nil {
 		t.Fatal(err)
@@ -111,6 +114,26 @@ func TestEnabledSoundEventPlays(t *testing.T) {
 	}
 	if !strings.HasSuffix(player.played[0], "done.wav") {
 		t.Errorf("expected done.wav, got %q", player.played[0])
+	}
+}
+
+func TestSoundEventUsesConfiguredFile(t *testing.T) {
+	deps, _, p := setup(t)
+	player := &recordingPlayer{}
+	deps.Sound = player
+	ev := deps.Config.Sound.Events["session_start"]
+	ev.File = "custom.wav"
+	deps.Config.Sound.Events["session_start"] = ev
+
+	if err := Handle(deps, "claude", "SessionStart", []byte(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(player.played) != 1 {
+		t.Fatalf("expected one sound, played %v", player.played)
+	}
+	if want := filepath.Join(p.SoundsDir(), "custom.wav"); player.played[0] != want {
+		t.Errorf("played %q, want %q", player.played[0], want)
 	}
 }
 
@@ -413,7 +436,7 @@ func TestSoundDecisionLoggedAsDisabled(t *testing.T) {
 	deps, st, p := setup(t)
 	player := &recordingPlayer{}
 	deps.Sound = player
-	deps.Config.Sound.EventEnabled = map[string]bool{"session_completed": false}
+	deps.Config.Sound.Events = map[string]config.SoundEvent{"session_completed": {File: "done.wav", Enabled: false}}
 	_, _ = st.Apply("cleo-x-claude-1", state.EvSessionStart, "")
 
 	if err := Handle(deps, "claude", "SessionEnd", []byte(`{}`)); err != nil {

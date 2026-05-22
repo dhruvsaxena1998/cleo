@@ -100,7 +100,7 @@ func newRunCmd(getCtx func() *Ctx) *cobra.Command {
 			}
 			installFocusHooks(c)
 			// Wire the configured detach key into the tmux server (global binding).
-			if dk := c.Config.Defaults.DetachKey; dk != "" {
+			if dk := c.Config.Tmux.DetachKey; dk != "" {
 				parts := strings.Fields(dk)
 				if len(parts) >= 2 {
 					_ = exec.Command("tmux", "bind-key", parts[len(parts)-1], "detach-client").Run()

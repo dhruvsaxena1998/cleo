@@ -27,8 +27,8 @@ type paneCapturedMsg struct {
 func loadStateCmd(c *cli.Ctx) tea.Cmd {
 	return func() tea.Msg {
 		_ = reconcile.RunOpts(c.State, c.Tmux, reconcile.Options{
-			IdleTimeout:     c.Config.Retention.IdleToCompletedTimeout,
-			SpawningTimeout: c.Config.Retention.SpawningTimeout,
+			IdleTimeout:     c.Config.Timeouts.IdleToCompletedTimeout,
+			SpawningTimeout: c.Config.Timeouts.SpawningTimeout,
 		})
 		ps, _ := c.Projects.List()
 		ss, _ := c.State.List()

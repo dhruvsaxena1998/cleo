@@ -54,8 +54,8 @@ func newLsCmd(getCtx func() *Ctx) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getCtx()
 			_ = reconcile.RunOpts(c.State, c.Tmux, reconcile.Options{
-				IdleTimeout:     c.Config.Retention.IdleToCompletedTimeout,
-				SpawningTimeout: c.Config.Retention.SpawningTimeout,
+				IdleTimeout:     c.Config.Timeouts.IdleToCompletedTimeout,
+				SpawningTimeout: c.Config.Timeouts.SpawningTimeout,
 			})
 			projects, _ := c.Projects.List()
 			sessions, _ := c.State.List()

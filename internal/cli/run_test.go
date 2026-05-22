@@ -73,3 +73,29 @@ func TestRunWithoutNameUsesDockerStyleGeneratedName(t *testing.T) {
 		t.Fatalf("expected non-numeric generated label, got %q", got)
 	}
 }
+
+func TestRunUsesConfiguredAgentCommand(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(t.TempDir(), "myapp")
+	_ = mkdir(target)
+
+	c, _ := NewCtxWithRoot(root)
+	_, _ = c.Projects.Add(target)
+	agent := c.Config.Agents["claude"]
+	agent.Command = "echo hello-from-cleo"
+	c.Config.Agents["claude"] = agent
+	fake := &fakeTmux{}
+	c.Tmux = fake
+
+	cmd := newRunCmd(func() *Ctx { return c })
+	cmd.SetArgs([]string{"claude", "--cwd", target, "--yes", "--no-attach"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if len(fake.created) != 1 {
+		t.Fatalf("expected one session created, got %d", len(fake.created))
+	}
+	if fake.created[0].Cmd != "echo hello-from-cleo" {
+		t.Fatalf("tmux command = %q", fake.created[0].Cmd)
+	}
+}

@@ -61,7 +61,7 @@ type cursor struct {
 }
 
 func New(ctx *cli.Ctx) Model {
-	return Model{
+	m := Model{
 		ctx:       ctx,
 		theme:     Resolve(ctx.Config.UI.Theme),
 		expanded:  map[string]bool{},
@@ -69,12 +69,16 @@ func New(ctx *cli.Ctx) Model {
 		help:      help.New(),
 		heapAlloc: readHeapAlloc(),
 	}
+	if len(ctx.Config.Warnings) > 0 {
+		m.status = "config warnings: run cleo doctor"
+	}
+	return m
 }
 
 func (m Model) Init() tea.Cmd {
 	return tea.Batch(
 		loadStateCmd(m.ctx),
 		tickStateCmd(),
-		previewTickCmd(m.ctx.Config.UI.PanePreviewInterval),
+		previewTickCmd(m.ctx.Config.UI.PanePreview.Interval),
 	)
 }

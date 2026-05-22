@@ -40,7 +40,8 @@ func contains(b []byte, s string) bool {
 
 // fakeTmux is a test double for cli.TmuxClient that reports a fixed set of live sessions.
 type fakeTmux struct {
-	live map[string]bool
+	live          map[string]bool
+	capturedLines []int
 }
 
 func (f *fakeTmux) NewSession(_ tmux.NewSessionOpts) error { return nil }
@@ -54,9 +55,12 @@ func (f *fakeTmux) LsPrefix(prefix string) ([]string, error) {
 	}
 	return out, nil
 }
-func (f *fakeTmux) Kill(n string) error                     { delete(f.live, n); return nil }
-func (f *fakeTmux) CapturePane(string, int) (string, error) { return "", nil }
-func (f *fakeTmux) RenameSession(from, to string) error     { return nil }
+func (f *fakeTmux) Kill(n string) error { delete(f.live, n); return nil }
+func (f *fakeTmux) CapturePane(_ string, lines int) (string, error) {
+	f.capturedLines = append(f.capturedLines, lines)
+	return "", nil
+}
+func (f *fakeTmux) RenameSession(from, to string) error { return nil }
 
 func TestRenamePopupOpensAndUpdatesSessionName(t *testing.T) {
 	root := t.TempDir()
@@ -183,7 +187,7 @@ func TestEnterOnDeadSessionDoesNotAttach(t *testing.T) {
 // loop returned m, nil and never fired again until manual nav.
 func TestPreviewTickAlwaysReArms(t *testing.T) {
 	c := newTestCtx(t)
-	c.Config.UI.PanePreviewInterval = 10 * time.Millisecond
+	c.Config.UI.PanePreview.Interval = 10 * time.Millisecond
 	m := New(c)
 	m.projects = []projects.Project{{ID: "p"}}
 	m.sessions = []state.Session{{ID: "s1", State: state.Running, ProjectID: "p"}}
@@ -221,6 +225,59 @@ func TestPreviewTickAlwaysReArms(t *testing.T) {
 	updated, _ = updated.(Model).Update(paneCapturedMsg{sid: "s1", content: "hello"})
 	if updated.(Model).paneCaptureInFlight {
 		t.Error("paneCapturedMsg should clear paneCaptureInFlight")
+	}
+}
+
+func TestPanePreviewDisabledSkipsCapture(t *testing.T) {
+	c := newTestCtx(t)
+	c.Config.UI.PanePreview.Enabled = false
+	fake := c.Tmux.(*fakeTmux)
+	m := New(c)
+	m.projects = []projects.Project{{ID: "p"}}
+	m.sessions = []state.Session{{ID: "s1", State: state.Running, ProjectID: "p"}}
+	m.cursor.projectIdx = 0
+	m.cursor.agentIdx = 0
+	m.expanded = map[string]bool{"p": true}
+
+	if cmd := m.autoCaptureCmd(); cmd != nil {
+		t.Fatal("disabled pane preview should not produce capture command")
+	}
+	if len(fake.capturedLines) != 0 {
+		t.Fatalf("unexpected captures: %v", fake.capturedLines)
+	}
+}
+
+func TestPanePreviewUsesConfiguredLineCount(t *testing.T) {
+	c := newTestCtx(t)
+	c.Config.UI.PanePreview.Lines = 7
+	fake := c.Tmux.(*fakeTmux)
+	m := New(c)
+	m.projects = []projects.Project{{ID: "p"}}
+	m.sessions = []state.Session{{ID: "s1", State: state.Running, ProjectID: "p"}}
+	m.cursor.projectIdx = 0
+	m.cursor.agentIdx = 0
+	m.expanded = map[string]bool{"p": true}
+
+	cmd := m.autoCaptureCmd()
+	if cmd == nil {
+		t.Fatal("expected capture command")
+	}
+	_ = cmd()
+	if !reflect.DeepEqual(fake.capturedLines, []int{7}) {
+		t.Fatalf("captured lines = %v", fake.capturedLines)
+	}
+}
+
+func TestConfigWarningsShowStartupStatus(t *testing.T) {
+	c := newTestCtx(t)
+	c.Config.Warnings = []string{"sound.volume above 1; clamped to 1"}
+	m := New(c)
+
+	if cmd := m.Init(); cmd == nil {
+		t.Fatal("expected init command")
+	}
+	if m.status != "config warnings: run cleo doctor" {
+		t.Fatalf("status = %q", m.status)
 	}
 }
 

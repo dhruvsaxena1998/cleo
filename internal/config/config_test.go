@@ -3,134 +3,80 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
 
-func TestLoadDefaults(t *testing.T) {
+func TestLoadDefaultsWritesNewConfigShape(t *testing.T) {
 	dir := t.TempDir()
-	c, err := Load(filepath.Join(dir, "config.toml"))
+	path := filepath.Join(dir, "config.toml")
+
+	c, err := Load(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Defaults.DefaultAgent != "claude" {
-		t.Errorf("default agent: %q", c.Defaults.DefaultAgent)
+
+	if c.DefaultAgent != "claude" {
+		t.Errorf("default agent: %q", c.DefaultAgent)
 	}
-	if c.Sound.Enabled == nil || !*c.Sound.Enabled {
-		t.Errorf("sound default disabled")
+	if c.Tmux.DetachKey != "C-b d" {
+		t.Errorf("detach key: %q", c.Tmux.DetachKey)
 	}
-	if c.Sound.Volume != 0.7 {
-		t.Errorf("volume: %f", c.Sound.Volume)
+	if !c.Sound.Enabled {
+		t.Error("sound should default enabled")
 	}
-	if !c.Sound.EventEnabled["session_completed"] {
-		t.Errorf("session_completed sound should default enabled")
+	if c.Sound.Events["session_completed"].File != "done.wav" {
+		t.Errorf("session_completed file: %q", c.Sound.Events["session_completed"].File)
+	}
+	if !c.Sound.Events["session_completed"].Enabled {
+		t.Error("session_completed should default enabled")
 	}
 	if c.Agents["claude"].Label != "cl" {
 		t.Errorf("claude label: %q", c.Agents["claude"].Label)
 	}
-	if c.Agents["claude"].Color != "#CC785C" {
-		t.Errorf("claude color: %q", c.Agents["claude"].Color)
+	if c.UI.PanePreview.Interval != 1500*time.Millisecond {
+		t.Errorf("interval: %v", c.UI.PanePreview.Interval)
 	}
-	if c.UI.PanePreviewInterval != 1500*time.Millisecond {
-		t.Errorf("interval: %v", c.UI.PanePreviewInterval)
+	if c.Timeouts.IdleToCompletedTimeout != 10*time.Minute {
+		t.Errorf("idle timeout: %v", c.Timeouts.IdleToCompletedTimeout)
 	}
-	if c.Retention.HintThreshold != 6 {
-		t.Errorf("hint threshold: %d", c.Retention.HintThreshold)
+	if c.Pruning.HintThreshold != 6 {
+		t.Errorf("hint threshold: %d", c.Pruning.HintThreshold)
 	}
-}
-
-func TestPartialSoundEventEnabledMergesDefaults(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.toml")
-	enabled := true
-	if err := Save(path, Config{
-		Sound: Sound{
-			Enabled: &enabled,
-			Volume:  0.5,
-			Events: map[string]string{
-				"session_completed": "done.wav",
-			},
-			EventEnabled: map[string]bool{
-				"session_completed": false,
-			},
-		},
-	}); err != nil {
-		t.Fatal(err)
+	if len(c.Warnings) != 0 {
+		t.Fatalf("default config should not warn: %v", c.Warnings)
 	}
 
-	c, err := Load(path)
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.SoundEventEnabled("session_completed") {
-		t.Errorf("session_completed should remain disabled")
+	text := string(raw)
+	if strings.Contains(text, "[defaults]") || strings.Contains(text, "[retention]") || strings.Contains(text, "event_enabled") || strings.Contains(text, "hooks") {
+		t.Fatalf("default config used old shape:\n%s", text)
 	}
-	if !c.SoundEventEnabled("session_start") {
-		t.Errorf("missing event toggle should default enabled")
-	}
-}
-
-func TestRoundTrip(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.toml")
-	c, err := Load(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	c.Sound.Volume = 0.5
-	if err := Save(path, c); err != nil {
-		t.Fatal(err)
-	}
-	c2, err := Load(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if c2.Sound.Volume != 0.5 {
-		t.Errorf("round trip lost volume: %f", c2.Sound.Volume)
+	for _, want := range []string{
+		`default_agent = "claude"`,
+		"[tmux]",
+		"[sound.events.session_completed]",
+		"[ui.pane_preview]",
+		"[timeouts]",
+		"[pruning]",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("default config missing %q:\n%s", want, text)
+		}
 	}
 }
 
-func TestSoundEnabledDefaultsToTrueWhenAbsent(t *testing.T) {
+func TestPartialSoundEventOverridePreservesDefaults(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.toml")
-
-	// [sound] section without enabled key — toml decodes Enabled as nil (*bool)
-	if err := os.WriteFile(path, []byte("[sound]\nvolume = 0.5\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	c, err := Load(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !c.SoundEventEnabled("needs_input") {
-		t.Error("sound should default to enabled when 'enabled' key is absent from config")
-	}
-}
-
-func TestSoundEnabledFalseWhenExplicitlySet(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.toml")
-
-	if err := os.WriteFile(path, []byte("[sound]\nenabled = false\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	c, err := Load(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if c.SoundEventEnabled("needs_input") {
-		t.Error("sound should be disabled when enabled = false is set explicitly")
-	}
-}
-
-func TestUISettingsPreservedWhenSidebarWidthAbsent(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.toml")
-
-	// User sets event_log_lines but not sidebar_width.
-	content := "[ui]\nevent_log_lines = 50\n"
+	content := `
+[sound.events.session_completed]
+  enabled = false
+`
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -139,10 +85,250 @@ func TestUISettingsPreservedWhenSidebarWidthAbsent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.UI.EventLogLines != 50 {
-		t.Errorf("event_log_lines = 50 should be preserved, got %d", c.UI.EventLogLines)
+
+	if c.SoundEventEnabled("session_completed") {
+		t.Error("session_completed should remain disabled")
 	}
-	if c.UI.SidebarWidth == 0 {
-		t.Error("sidebar_width should be filled from defaults when absent")
+	if got := c.Sound.Events["session_completed"].File; got != "done.wav" {
+		t.Errorf("session_completed file = %q, want default", got)
+	}
+	if !c.SoundEventEnabled("session_start") {
+		t.Error("missing sibling event should remain enabled")
+	}
+	if got := c.Sound.Events["session_start"].File; got != "start.wav" {
+		t.Errorf("session_start file = %q, want default", got)
+	}
+}
+
+func TestPartialAgentOverridePreservesDefaults(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	content := `
+[agents.claude]
+  color = "#ffffff"
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	claude := c.Agents["claude"]
+	if claude.Color != "#ffffff" {
+		t.Errorf("claude color = %q", claude.Color)
+	}
+	if claude.Command != "claude" {
+		t.Errorf("claude command = %q, want default", claude.Command)
+	}
+	if claude.Label != "cl" {
+		t.Errorf("claude label = %q, want default", claude.Label)
+	}
+	if c.Agents["codex"].Command != "codex" {
+		t.Errorf("codex sibling missing: %#v", c.Agents["codex"])
+	}
+}
+
+func TestLoadOverlaysEveryConfigSetting(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	content := `
+default_agent = "codex"
+
+[tmux]
+  detach_key = "C-b x"
+
+[sound]
+  enabled = false
+  volume = 0.25
+  [sound.events.session_start]
+    file = "error.wav"
+    enabled = false
+
+[agents.claude]
+  command = "claude --debug"
+  label = "zz"
+  color = "#ffffff"
+
+[ui]
+  theme = "gruvbox-dark"
+  sidebar_width = 60
+  event_log_lines = 42
+  [ui.pane_preview]
+    enabled = false
+    lines = 7
+    interval = "2s"
+
+[timeouts]
+  idle_to_completed_timeout = "3s"
+  spawning_timeout = "4s"
+
+[pruning]
+  hint_threshold = 2
+  keep_default = 1
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if c.DefaultAgent != "codex" {
+		t.Errorf("default_agent = %q", c.DefaultAgent)
+	}
+	if c.Tmux.DetachKey != "C-b x" {
+		t.Errorf("tmux.detach_key = %q", c.Tmux.DetachKey)
+	}
+	if c.Sound.Enabled {
+		t.Error("sound.enabled should be false")
+	}
+	if c.Sound.Volume != 0.25 {
+		t.Errorf("sound.volume = %f", c.Sound.Volume)
+	}
+	if got := c.Sound.Events["session_start"]; got.File != "error.wav" || got.Enabled {
+		t.Errorf("sound.events.session_start = %#v", got)
+	}
+	if got := c.Agents["claude"]; got.Command != "claude --debug" || got.Label != "zz" || got.Color != "#ffffff" {
+		t.Errorf("agents.claude = %#v", got)
+	}
+	if c.UI.Theme != "gruvbox-dark" {
+		t.Errorf("ui.theme = %q", c.UI.Theme)
+	}
+	if c.UI.SidebarWidth != 60 {
+		t.Errorf("ui.sidebar_width = %d", c.UI.SidebarWidth)
+	}
+	if c.UI.EventLogLines != 42 {
+		t.Errorf("ui.event_log_lines = %d", c.UI.EventLogLines)
+	}
+	if c.UI.PanePreview.Enabled {
+		t.Error("ui.pane_preview.enabled should be false")
+	}
+	if c.UI.PanePreview.Lines != 7 {
+		t.Errorf("ui.pane_preview.lines = %d", c.UI.PanePreview.Lines)
+	}
+	if c.UI.PanePreview.Interval != 2*time.Second {
+		t.Errorf("ui.pane_preview.interval = %v", c.UI.PanePreview.Interval)
+	}
+	if c.Timeouts.IdleToCompletedTimeout != 3*time.Second {
+		t.Errorf("timeouts.idle_to_completed_timeout = %v", c.Timeouts.IdleToCompletedTimeout)
+	}
+	if c.Timeouts.SpawningTimeout != 4*time.Second {
+		t.Errorf("timeouts.spawning_timeout = %v", c.Timeouts.SpawningTimeout)
+	}
+	if c.Pruning.HintThreshold != 2 {
+		t.Errorf("pruning.hint_threshold = %d", c.Pruning.HintThreshold)
+	}
+	if c.Pruning.KeepDefault != 1 {
+		t.Errorf("pruning.keep_default = %d", c.Pruning.KeepDefault)
+	}
+	if len(c.Warnings) != 0 {
+		t.Fatalf("valid config should not warn: %v", c.Warnings)
+	}
+}
+
+func TestValidationClampsAndWarns(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	content := `
+[sound]
+  volume = 2.5
+
+[ui]
+  theme = "missing"
+  sidebar_width = 2
+  event_log_lines = 1
+  [ui.pane_preview]
+    lines = 0
+    interval = "5ms"
+
+[timeouts]
+  idle_to_completed_timeout = "1ms"
+  spawning_timeout = "1ms"
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if c.Sound.Volume != 1 {
+		t.Errorf("volume = %f, want clamped to 1", c.Sound.Volume)
+	}
+	if c.UI.Theme != "catppuccin-mocha" {
+		t.Errorf("theme = %q, want fallback", c.UI.Theme)
+	}
+	if c.UI.SidebarWidth != 10 {
+		t.Errorf("sidebar width = %d, want 10", c.UI.SidebarWidth)
+	}
+	if c.UI.EventLogLines != 10 {
+		t.Errorf("event log lines = %d, want 10", c.UI.EventLogLines)
+	}
+	if c.UI.PanePreview.Lines != 1 {
+		t.Errorf("pane preview lines = %d, want 1", c.UI.PanePreview.Lines)
+	}
+	if c.UI.PanePreview.Interval != 100*time.Millisecond {
+		t.Errorf("pane preview interval = %v, want 100ms", c.UI.PanePreview.Interval)
+	}
+	if c.Timeouts.IdleToCompletedTimeout != 100*time.Millisecond {
+		t.Errorf("idle timeout = %v, want 100ms", c.Timeouts.IdleToCompletedTimeout)
+	}
+	if c.Timeouts.SpawningTimeout != 100*time.Millisecond {
+		t.Errorf("spawning timeout = %v, want 100ms", c.Timeouts.SpawningTimeout)
+	}
+	if len(c.Warnings) < 6 {
+		t.Fatalf("warnings = %v, want validation warnings", c.Warnings)
+	}
+}
+
+func TestRoundTripPreservesUserOverrides(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	c, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.DefaultAgent = "codex"
+	c.Sound.Volume = 0.5
+	c.Sound.Events["session_completed"] = SoundEvent{File: "custom.wav", Enabled: false}
+	c.Agents["claude"] = Agent{Command: "claude --debug", Label: "cl", Color: "#ffffff"}
+	c.UI.PanePreview.Enabled = false
+	c.Pruning.KeepDefault = 9
+
+	if err := Save(path, c); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got.DefaultAgent != "codex" {
+		t.Errorf("default agent = %q", got.DefaultAgent)
+	}
+	if got.Sound.Volume != 0.5 {
+		t.Errorf("volume = %f", got.Sound.Volume)
+	}
+	if got.SoundEventEnabled("session_completed") {
+		t.Error("session_completed should remain disabled")
+	}
+	if got.Sound.Events["session_completed"].File != "custom.wav" {
+		t.Errorf("session_completed file = %q", got.Sound.Events["session_completed"].File)
+	}
+	if got.Agents["claude"].Command != "claude --debug" {
+		t.Errorf("claude command = %q", got.Agents["claude"].Command)
+	}
+	if got.UI.PanePreview.Enabled {
+		t.Error("pane preview should remain disabled")
+	}
+	if got.Pruning.KeepDefault != 9 {
+		t.Errorf("keep default = %d", got.Pruning.KeepDefault)
 	}
 }
