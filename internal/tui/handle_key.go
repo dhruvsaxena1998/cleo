@@ -324,10 +324,16 @@ func (m Model) performSpawn(s SpawnSubmitted) (Model, tea.Cmd) {
 		ID: sid, ProjectID: s.ProjectID, Agent: s.Agent, Name: slug, State: state.Spawning,
 		StartedAt: time.Now(),
 	})
-	_ = m.ctx.Tmux.NewSession(tmux.NewSessionOpts{
+	if err := m.ctx.Tmux.NewSession(tmux.NewSessionOpts{
 		Name: sid, Cwd: proj, Cmd: agent.Command,
 		Env: map[string]string{"CLEO_SESSION_ID": sid},
-	})
+	}); err != nil {
+		_ = m.ctx.State.Delete(sid)
+		m.status = fmt.Sprintf("spawn failed: %v", err)
+		m.mode = ModeNormal
+		m.popup = nil
+		return m, loadStateCmd(m.ctx)
+	}
 	cliInstallFocusHooks(m.ctx)
 	if dk := m.ctx.Config.Tmux.DetachKey; dk != "" {
 		parts := strings.Fields(dk)
