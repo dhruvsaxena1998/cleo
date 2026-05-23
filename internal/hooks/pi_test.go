@@ -191,10 +191,18 @@ func TestPiProtocol_Cleanup_RemovesMatchingFile(t *testing.T) {
 	proto := PiProtocol{}
 	_ = proto.Install("/usr/local/bin/cleo", false)
 
-	if err := proto.Cleanup(); err != nil {
+	dest := filepath.Join(extDir, "cleo.ts")
+	outcome, err := proto.Cleanup()
+	if err != nil {
 		t.Fatalf("Cleanup: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(extDir, "cleo.ts")); !os.IsNotExist(err) {
+	if outcome.Status != CleanupStatusRemoved {
+		t.Errorf("Status = %v, want CleanupStatusRemoved", outcome.Status)
+	}
+	if outcome.Path != dest {
+		t.Errorf("Path = %q, want %q", outcome.Path, dest)
+	}
+	if _, err := os.Stat(dest); !os.IsNotExist(err) {
 		t.Error("expected cleo.ts to be removed after Cleanup")
 	}
 }
@@ -211,11 +219,35 @@ func TestPiProtocol_Cleanup_SkipsModifiedFile(t *testing.T) {
 	_ = os.WriteFile(dest, []byte("// user-modified"), 0o644)
 
 	proto := PiProtocol{}
-	if err := proto.Cleanup(); err != nil {
+	outcome, err := proto.Cleanup()
+	if err != nil {
 		t.Fatalf("Cleanup returned error for modified file: %v", err)
+	}
+	if outcome.Status != CleanupStatusSkippedModified {
+		t.Errorf("Status = %v, want CleanupStatusSkippedModified", outcome.Status)
+	}
+	if outcome.Path != dest {
+		t.Errorf("Path = %q, want %q", outcome.Path, dest)
 	}
 	if _, err := os.Stat(dest); os.IsNotExist(err) {
 		t.Error("Cleanup must NOT remove a user-modified file")
+	}
+}
+
+func TestPiProtocol_Cleanup_MissingWhenFileAbsent(t *testing.T) {
+	dir := t.TempDir()
+	extDir := filepath.Join(dir, ".pi", "agent", "extensions")
+	origDir := piExtensionsDir
+	piExtensionsDir = extDir
+	defer func() { piExtensionsDir = origDir }()
+
+	proto := PiProtocol{}
+	outcome, err := proto.Cleanup()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcome.Status != CleanupStatusMissing {
+		t.Errorf("Status = %v, want CleanupStatusMissing", outcome.Status)
 	}
 }
 

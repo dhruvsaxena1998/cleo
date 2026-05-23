@@ -13,18 +13,27 @@ import (
 )
 
 func newCleanupCmd(getCtx func() *Ctx) *cobra.Command {
-	var yes bool
+	var agentsFlag string
 
 	cmd := &cobra.Command{
-		Use:     "cleanup",
-		Aliases: []string{"uninstall"},
-		Short:   "Remove Cleo hooks from agent config files",
+		Use:   "cleanup",
+		Short: "Remove Cleo hooks from agent config files",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Validate --agents BEFORE touching any files on disk.
+			var selected []string
+			if cmd.Flags().Changed("agents") {
+				parsed, err := parseAgentsFlag(agentsFlag)
+				if err != nil {
+					return err
+				}
+				selected = parsed
+			}
+
 			_ = getCtx()
 			home, _ := os.UserHomeDir()
 
-			selected := []string{hookClaude, hookCodex}
-			if !yes {
+			if selected == nil {
+				selected = []string{hookClaude, hookCodex, hookOpenCode, hookPi}
 				br := bufio.NewReader(cmd.InOrStdin())
 				if err := promptCleanupSelection(cmd.OutOrStdout(), br, &selected); err != nil {
 					return err
@@ -36,28 +45,44 @@ func newCleanupCmd(getCtx func() *Ctx) *cobra.Command {
 				switch h {
 				case hookClaude:
 					path := filepath.Join(home, ".claude", "settings.json")
-					removed, err := hooks.CleanupClaude(path)
+					outcome, err := hooks.CleanupClaude(path)
 					if err != nil {
 						return err
 					}
 					results = append(results, cleanupResult{
 						Name:    "Claude Code",
-						Path:    path,
-						Removed: removed,
+						Outcome: outcome,
 					})
 				case hookCodex:
 					path := filepath.Join(home, ".codex", "hooks.json")
-					removed, err := hooks.CleanupCodex(path)
+					outcome, err := hooks.CleanupCodex(path)
 					if err != nil {
 						return err
 					}
 					results = append(results, cleanupResult{
 						Name:    "Codex",
-						Path:    path,
-						Removed: removed,
+						Outcome: outcome,
 						Notes: []string{
 							"left ~/.codex/config.toml [features].hooks unchanged; that flag may be used by other Codex hooks",
 						},
+					})
+				case hookOpenCode:
+					outcome, err := (hooks.OpenCodeProtocol{}).Cleanup()
+					if err != nil {
+						return err
+					}
+					results = append(results, cleanupResult{
+						Name:    "OpenCode",
+						Outcome: outcome,
+					})
+				case hookPi:
+					outcome, err := (hooks.PiProtocol{}).Cleanup()
+					if err != nil {
+						return err
+					}
+					results = append(results, cleanupResult{
+						Name:    "Pi",
+						Outcome: outcome,
 					})
 				}
 			}
@@ -65,14 +90,13 @@ func newCleanupCmd(getCtx func() *Ctx) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "clean up all supported hook systems without prompting")
+	cmd.Flags().StringVar(&agentsFlag, "agents", "", "comma-separated list of agents to clean up (claude, codex, opencode, pi); skips interactive prompts")
 	return cmd
 }
 
 type cleanupResult struct {
 	Name    string
-	Path    string
-	Removed int
+	Outcome hooks.CleanupOutcome
 	Notes   []string
 }
 
@@ -82,8 +106,15 @@ func printCleanupSummary(w io.Writer, results []cleanupResult) {
 	fmt.Fprintln(w, "Updated:")
 	for _, result := range results {
 		fmt.Fprintf(w, "  - %s\n", result.Name)
-		fmt.Fprintf(w, "    hooks: %s\n", result.Path)
-		fmt.Fprintf(w, "    removed: %d Cleo hook command(s)\n", result.Removed)
+		fmt.Fprintf(w, "    hooks: %s\n", result.Outcome.Path)
+		switch result.Outcome.Status {
+		case hooks.CleanupStatusRemoved:
+			fmt.Fprintln(w, "    removed Cleo hook entries")
+		case hooks.CleanupStatusMissing:
+			fmt.Fprintln(w, "    nothing to remove")
+		case hooks.CleanupStatusSkippedModified:
+			fmt.Fprintln(w, "    skipped modified file")
+		}
 		for _, note := range result.Notes {
 			fmt.Fprintf(w, "    note: %s\n", note)
 		}
@@ -101,9 +132,13 @@ func promptCleanupSelection(w io.Writer, br *bufio.Reader, selected *[]string) e
 		label  string
 		defYes bool
 	}
+	// Locked design: cleanup defaults all four agents to Y. Removing is safe;
+	// if the user is cleaning up, scrub everything cleo touched.
 	opts := []hookOpt{
 		{hookClaude, "Claude Code  (~/.claude/settings.json)", true},
 		{hookCodex, "Codex        (~/.codex/hooks.json)", true},
+		{hookOpenCode, "OpenCode     (~/.config/opencode/plugins/cleo.ts)", true},
+		{hookPi, "Pi           (~/.pi/agent/extensions/cleo.ts)", true},
 	}
 	var out []string
 	for _, o := range opts {

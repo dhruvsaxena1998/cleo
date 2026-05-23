@@ -87,12 +87,15 @@ func TestCleanupClaudeRemovesOnlyCleoHooks(t *testing.T) {
 }`
 	_ = os.WriteFile(settingsPath, []byte(prior), 0o644)
 
-	removed, err := CleanupClaude(settingsPath)
+	outcome, err := CleanupClaude(settingsPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if removed != 2 {
-		t.Fatalf("expected 2 removed hooks, got %d", removed)
+	if outcome.Status != CleanupStatusRemoved {
+		t.Fatalf("Status = %v, want CleanupStatusRemoved", outcome.Status)
+	}
+	if outcome.Path != settingsPath {
+		t.Errorf("Path = %q, want %q", outcome.Path, settingsPath)
 	}
 
 	b, _ := os.ReadFile(settingsPath)
@@ -108,6 +111,40 @@ func TestCleanupClaudeRemovesOnlyCleoHooks(t *testing.T) {
 	}
 	if !strings.Contains(got, `"theme": "dark"`) {
 		t.Fatalf("unrelated setting was removed: %s", got)
+	}
+}
+
+func TestCleanupClaude_MissingWhenFileAbsent(t *testing.T) {
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "does-not-exist.json")
+
+	outcome, err := CleanupClaude(settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcome.Status != CleanupStatusMissing {
+		t.Errorf("Status = %v, want CleanupStatusMissing", outcome.Status)
+	}
+}
+
+func TestCleanupClaude_MissingWhenNoCleoEntries(t *testing.T) {
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "settings.json")
+	// Pre-existing settings with a non-cleo hook only.
+	prior := `{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"other-tool"}]}]}}`
+	_ = os.WriteFile(settingsPath, []byte(prior), 0o644)
+
+	outcome, err := CleanupClaude(settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcome.Status != CleanupStatusMissing {
+		t.Errorf("Status = %v, want CleanupStatusMissing (no cleo entries to remove)", outcome.Status)
+	}
+	// Unrelated hook must still be on disk.
+	b, _ := os.ReadFile(settingsPath)
+	if !strings.Contains(string(b), "other-tool") {
+		t.Errorf("unrelated hook was disturbed: %s", string(b))
 	}
 }
 
@@ -151,12 +188,15 @@ func TestCleanupCodexRemovesOnlyCleoHooks(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	removed, err := CleanupCodex(hooksPath)
+	outcome, err := CleanupCodex(hooksPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if removed != len(codexEvents) {
-		t.Fatalf("expected %d removed hooks, got %d", len(codexEvents), removed)
+	if outcome.Status != CleanupStatusRemoved {
+		t.Fatalf("Status = %v, want CleanupStatusRemoved", outcome.Status)
+	}
+	if outcome.Path != hooksPath {
+		t.Errorf("Path = %q, want %q", outcome.Path, hooksPath)
 	}
 
 	b, _ := os.ReadFile(hooksPath)

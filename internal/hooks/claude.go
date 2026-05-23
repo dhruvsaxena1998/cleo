@@ -18,10 +18,9 @@ func (ClaudeProtocol) Install(cleoBin string, force bool) error {
 	return InstallClaude(filepath.Join(home, ".claude", "settings.json"), cleoBin, force)
 }
 
-func (ClaudeProtocol) Cleanup() error {
+func (ClaudeProtocol) Cleanup() (CleanupOutcome, error) {
 	home, _ := os.UserHomeDir()
-	_, err := CleanupClaude(filepath.Join(home, ".claude", "settings.json"))
-	return err
+	return CleanupClaude(filepath.Join(home, ".claude", "settings.json"))
 }
 
 func (ClaudeProtocol) Normalize(event string, payload []byte) (NormalizedEvent, bool) {

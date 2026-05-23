@@ -71,7 +71,7 @@ func InstallClaude(settingsPath, cleoBin string, force bool) error {
 	return os.WriteFile(settingsPath, out, 0o644)
 }
 
-func CleanupClaude(settingsPath string) (int, error) {
+func CleanupClaude(settingsPath string) (CleanupOutcome, error) {
 	return cleanupHookFile(settingsPath, "claude", "settings.json")
 }
 
@@ -138,27 +138,30 @@ func InstallCodex(hooksPath, configPath, cleoBin string, force bool) error {
 	return ensureCodexFeatureFlag(configPath)
 }
 
-func CleanupCodex(hooksPath string) (int, error) {
+func CleanupCodex(hooksPath string) (CleanupOutcome, error) {
 	return cleanupHookFile(hooksPath, "codex", "hooks.json")
 }
 
-func cleanupHookFile(path, protocol, label string) (int, error) {
+func cleanupHookFile(path, protocol, label string) (CleanupOutcome, error) {
 	b, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return 0, nil
+		return CleanupOutcome{Status: CleanupStatusMissing, Path: path}, nil
 	} else if err != nil {
-		return 0, err
+		return CleanupOutcome{Path: path}, err
 	}
 	var settings map[string]any
 	if err := json.Unmarshal(b, &settings); err != nil {
-		return 0, fmt.Errorf("%s: %w", label, err)
+		return CleanupOutcome{Path: path}, fmt.Errorf("%s: %w", label, err)
 	}
 	removed := removeProtocolHooks(settings, protocol)
 	if removed == 0 {
-		return 0, nil
+		return CleanupOutcome{Status: CleanupStatusMissing, Path: path}, nil
 	}
 	out, _ := json.MarshalIndent(settings, "", "  ")
-	return removed, os.WriteFile(path, out, 0o644)
+	if err := os.WriteFile(path, out, 0o644); err != nil {
+		return CleanupOutcome{Path: path}, err
+	}
+	return CleanupOutcome{Status: CleanupStatusRemoved, Path: path}, nil
 }
 
 func removeProtocolHooks(settings map[string]any, protocol string) int {

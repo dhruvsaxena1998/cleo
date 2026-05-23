@@ -77,20 +77,22 @@ func (PiProtocol) Install(cleoBin string, force bool) error {
 	return os.WriteFile(dest, []byte(piExtensionTemplate), 0o644)
 }
 
-func (PiProtocol) Cleanup() error {
+func (PiProtocol) Cleanup() (CleanupOutcome, error) {
 	dest := filepath.Join(piExtDir(), "cleo.ts")
 	content, err := os.ReadFile(dest)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil
+		return CleanupOutcome{Status: CleanupStatusMissing, Path: dest}, nil
 	}
 	if err != nil {
-		return err
+		return CleanupOutcome{Path: dest}, err
 	}
 	if string(content) != piExtensionTemplate {
-		fmt.Fprintf(os.Stderr, "warning: %s has been modified; skipping removal\n", dest)
-		return nil
+		return CleanupOutcome{Status: CleanupStatusSkippedModified, Path: dest}, nil
 	}
-	return os.Remove(dest)
+	if err := os.Remove(dest); err != nil {
+		return CleanupOutcome{Path: dest}, err
+	}
+	return CleanupOutcome{Status: CleanupStatusRemoved, Path: dest}, nil
 }
 
 func (PiProtocol) Normalize(event string, payload []byte) (NormalizedEvent, bool) {
