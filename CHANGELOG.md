@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-05-23
+
+### Changed
+- Config schema reorganized around subsystem sections: top-level `default_agent`, `[tmux]`, nested `[sound.events.<event>]`, `[ui.pane_preview]`, `[timeouts]`, and `[pruning]`.
+- Agent config now owns command, label, and color only; hook integration is installed and checked through the hook protocol layer.
+- README and website docs now document the current config schema and Pi/OpenCode hook support.
+
+### Fixed
+- TUI session spawn failures now roll back the optimistic state entry instead of leaving a stale failed session behind.
+- Backlog docs no longer list already-implemented Pi/OpenCode hooks or PR #45 tmux/agent-death handling as active v0.3 candidates.
+
 ## [0.1.0-beta.5] - 2026-05-15
 
 ### Added

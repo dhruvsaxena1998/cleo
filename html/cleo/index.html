@@ -1094,7 +1094,7 @@ html[data-anim] .install-pill button.copied { animation: copyPulse 320ms ease-ou
         <line x1="29.5" y1="22.5" x2="24" y2="21.6" stroke-width="0.7" opacity="0.55"/>
       </svg>
       <span>cleo</span>
-      <span class="nav-version">v0.1.0-beta.5</span>
+      <span class="nav-version">v0.1.1</span>
     </a>
     <div class="nav-links">
       <a href="docs.html">docs</a>
@@ -1116,7 +1116,7 @@ html[data-anim] .install-pill button.copied { animation: copyPulse 320ms ease-ou
 <section class="hero" id="main" data-od-id="hero">
   <div class="container">
     <div class="hero-text">
-      <div class="eyebrow"><span class="dot"></span> early access · v0.1.0-beta.5</div>
+      <div class="eyebrow"><span class="dot"></span> current release · v0.1.1</div>
       <h1>A session manager for <em>terminal-based AI agents.</em></h1>
       <p class="lede">
         Cleo runs <strong>Claude Code, Codex, opencode, pi</strong>, and any other terminal agent in named tmux sessions. One TUI dashboard to herd them. <strong>Nine lives in tmux</strong>, so the work keeps going whether you're watching or not.
@@ -1340,7 +1340,7 @@ $ cleo run <span class="ac">claude</span> --name fix-auth
         <div class="num">03</div>
         <div>
           <h3>Hook-aware state</h3>
-          <p>Reads <strong>Claude Code</strong> and <strong>Codex</strong> hooks to track <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">spawning · running · waiting_for_input · idle · completed · error · dead</code>. Opencode and pi run as managed tmux sessions.</p>
+          <p>Reads <strong>Claude Code</strong>, <strong>Codex</strong>, <strong>OpenCode</strong>, and <strong>Pi</strong> hooks to track <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">spawning · running · waiting_for_input · idle · completed · error · dead</code>. Custom agents still run as managed tmux sessions.</p>
         </div>
       </div>
 
@@ -1397,18 +1397,20 @@ $ curl -fsSL <span class="a">https://github.com/dhruvsaxena1998/cleo/raw/main/sc
 
         <div class="step-h">2 · verify</div>
 <pre>$ cleo --version
-<span class="ok">0.1.0-beta.5</span></pre>
+<span class="ok">v0.1.1</span></pre>
 
         <div class="step-h">homebrew option</div>
 <pre><span class="c"># package-manager install</span>
 $ brew tap <span class="a">dhruvsaxena1998/tap</span>
 $ brew install <span class="a">cleo</span></pre>
 
-        <div class="step-h">3 · install hooks for claude code & codex</div>
-<pre><span class="c"># writes ~/.claude/settings.json + ~/.codex/hooks.json</span>
+        <div class="step-h">3 · install hooks for supported agents</div>
+<pre><span class="c"># writes hook entries for claude, codex, pi, and opencode</span>
 $ cleo <span class="a">init</span>
 <span class="ok">✓</span> claude code hooks
 <span class="ok">✓</span> codex hooks
+<span class="ok">✓</span> pi extension
+<span class="ok">✓</span> opencode plugin
 <span class="ok">✓</span> sound assets extracted</pre>
 
         <div class="step-h">4 · register a project & spawn an agent</div>
