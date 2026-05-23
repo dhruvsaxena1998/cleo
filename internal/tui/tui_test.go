@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -42,10 +43,20 @@ func contains(b []byte, s string) bool {
 type fakeTmux struct {
 	live          map[string]bool
 	capturedLines []int
+	newSessionErr error
 }
 
-func (f *fakeTmux) NewSession(_ tmux.NewSessionOpts) error { return nil }
-func (f *fakeTmux) HasSession(n string) (bool, error)      { return f.live[n], nil }
+func (f *fakeTmux) NewSession(o tmux.NewSessionOpts) error {
+	if f.newSessionErr != nil {
+		return f.newSessionErr
+	}
+	if f.live == nil {
+		f.live = map[string]bool{}
+	}
+	f.live[o.Name] = true
+	return nil
+}
+func (f *fakeTmux) HasSession(n string) (bool, error) { return f.live[n], nil }
 func (f *fakeTmux) LsPrefix(prefix string) ([]string, error) {
 	var out []string
 	for n := range f.live {
@@ -278,6 +289,43 @@ func TestConfigWarningsShowStartupStatus(t *testing.T) {
 	}
 	if m.status != "config warnings: run cleo doctor" {
 		t.Fatalf("status = %q", m.status)
+	}
+}
+
+func TestSpawnRollsBackStateWhenTmuxCreationFails(t *testing.T) {
+	c := newTestCtx(t)
+	target := filepath.Join(t.TempDir(), "myapp")
+	if err := mkdirAll(target); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Projects.Add(target); err != nil {
+		t.Fatal(err)
+	}
+	c.Tmux = &fakeTmux{
+		live:          map[string]bool{},
+		newSessionErr: errors.New("tmux refused session"),
+	}
+
+	m := New(c)
+	m.projects, _ = c.Projects.List()
+	m.sessions, _ = c.State.List()
+	m.mode = ModePopup
+	m.popup = NewSpawnPopup("myapp", []string{"claude"}, m.theme)
+
+	updated, _ := m.performSpawn(SpawnSubmitted{
+		ProjectID: "myapp",
+		Agent:     "claude",
+		Name:      "will-fail",
+	})
+
+	if _, err := c.State.Get("cleo-myapp-claude-will-fail"); !errors.Is(err, state.ErrSessionNotFound) {
+		t.Fatalf("failed spawn should roll back state, got err=%v", err)
+	}
+	if updated.status == "" || !strings.Contains(updated.status, "tmux refused session") {
+		t.Fatalf("expected spawn failure status, got %q", updated.status)
+	}
+	if updated.mode != ModeNormal || updated.popup != nil {
+		t.Fatalf("spawn failure should close popup, mode=%v popup=%#v", updated.mode, updated.popup)
 	}
 }
 
