@@ -6,7 +6,7 @@ Terminal session manager for AI coding agents.
 
 Cleo lets you run Claude Code, Codex, opencode, pi, or any other terminal-based agent in named tmux sessions, then watch and manage those sessions from one TUI dashboard. Sessions live in tmux, so you can close Cleo, reopen it later, and keep long-running agent work intact.
 
-In v0.1, hook-based lifecycle tracking is implemented for **Claude Code**, **Codex**, **Pi**, and **OpenCode** when their hook integrations are installed with `cleo init`. Other terminal agents can still be managed through tmux, with less detailed lifecycle tracking.
+In v0.1, hook-based lifecycle tracking is implemented for **Claude Code**, **Codex**, **Pi**, and **OpenCode** when their hook integrations are installed with `cleo hooks init`. Other terminal agents can still be managed through tmux, with less detailed lifecycle tracking.
 
 ## What Cleo Does
 
@@ -88,7 +88,7 @@ brew untap dhruvsaxena1998/tap
 
 ```bash
 # Install Cleo hook entries for supported agents.
-cleo init
+cleo hooks init
 
 # Register the project you want Cleo to manage.
 cd ~/Dev/myapp
@@ -105,7 +105,7 @@ When Cleo attaches you to a tmux session, detach back to the dashboard with your
 
 ## Core Workflow
 
-1. Run `cleo init` once per machine to install hooks for supported agents.
+1. Run `cleo hooks init` once per machine to install hooks for supported agents.
 2. Run `cleo add [path]` for each project you want visible in the dashboard.
 3. Start sessions with `cleo run <agent> --name <task-name>`.
 4. Use `cleo` to monitor session states and attach to work that needs attention.
@@ -154,14 +154,14 @@ Launches the TUI dashboard.
 cleo
 ```
 
-### `cleo init`
+### `cleo hooks init`
 
 Installs Cleo hook commands into supported agent config files and extracts bundled sound assets.
 
 ```bash
-cleo init
-cleo init --yes
-cleo init --force
+cleo hooks init
+cleo hooks init --yes
+cleo hooks init --force
 ```
 
 Options:
@@ -180,7 +180,7 @@ Installed files:
 | Pi | `~/.pi/agent/extensions/cleo.ts` |
 | OpenCode | `~/.config/opencode/plugins/cleo.ts` |
 
-For Codex, `cleo init` also ensures `[features].hooks = true` exists in `~/.codex/config.toml`. After installing Codex hooks, restart open Codex sessions and run `/hooks` in Codex to approve the Cleo hook entries if they appear under review.
+For Codex, `cleo hooks init` also ensures `[features].hooks = true` exists in `~/.codex/config.toml`. After installing Codex hooks, restart open Codex sessions and run `/hooks` in Codex to approve the Cleo hook entries if they appear under review.
 
 ### `cleo doctor`
 
@@ -201,13 +201,13 @@ This command checks:
 
 Codex keeps hook approval state internally, so `doctor` can verify files but cannot prove that Codex has approved every hook. Use `/hooks` inside Codex for that final approval state.
 
-### `cleo cleanup`
+### `cleo hooks cleanup`
 
 Removes Cleo hook commands from supported agent config files.
 
 ```bash
-cleo cleanup
-cleo cleanup --yes
+cleo hooks cleanup
+cleo hooks cleanup --yes
 cleo uninstall --yes
 ```
 
@@ -458,7 +458,7 @@ Supported event keys:
 | `session_completed` | The agent reports session end. |
 | `session_error` | Cleo records an error state. |
 
-`cleo init` extracts bundled default WAV files into the sounds directory. Set an event's `enabled` field to `false` to mute that event while keeping its file mapping configured.
+`cleo hooks init` extracts bundled default WAV files into the sounds directory. Set an event's `enabled` field to `false` to mute that event while keeping its file mapping configured.
 
 | Event | Default |
 | --- | --- |
@@ -513,7 +513,7 @@ After this, run:
 cleo run myagent --name investigate-cache
 ```
 
-Hook support is installed by `cleo init` for supported agents. Custom agents can still be spawned and managed through tmux; without a hook integration, Cleo relies on tmux reconciliation rather than fine-grained lifecycle events.
+Hook support is installed by `cleo hooks init` for supported agents. Custom agents can still be spawned and managed through tmux; without a hook integration, Cleo relies on tmux reconciliation rather than fine-grained lifecycle events.
 
 ### `[ui]`
 
@@ -704,7 +704,7 @@ Cleo reads a small number of environment variables:
 
 Cleo learns session state from hook events emitted by supported agents.
 
-Claude Code events installed by `cleo init`:
+Claude Code events installed by `cleo hooks init`:
 
 ```text
 SessionStart
@@ -717,7 +717,7 @@ SessionEnd
 SubagentStop
 ```
 
-Codex events installed by `cleo init`:
+Codex events installed by `cleo hooks init`:
 
 ```text
 SessionStart
@@ -728,7 +728,7 @@ PermissionRequest
 Stop
 ```
 
-Pi events installed by `cleo init`:
+Pi events installed by `cleo hooks init`:
 
 ```text
 session_start
@@ -739,7 +739,7 @@ agent_end
 session_shutdown
 ```
 
-OpenCode events installed by `cleo init`:
+OpenCode events installed by `cleo hooks init`:
 
 ```text
 session.created
@@ -808,12 +808,12 @@ Agent hook files live in the agent-specific config directories:
 
 ## Troubleshooting
 
-### `cleo init` reports a hook conflict
+### `cleo hooks init` reports a hook conflict
 
 The target agent config already has a different hook entry for the same event. Review the file manually, or rerun:
 
 ```bash
-cleo init --force
+cleo hooks init --force
 ```
 
 `--force` overwrites conflicting hook entries for Cleo-managed events.
@@ -832,7 +832,7 @@ Then open Codex and run:
 /hooks
 ```
 
-Approve the Cleo hook names if Codex lists them under review. Restart any Codex sessions that were already open before `cleo init`, because they may not have loaded the updated `~/.codex/config.toml`.
+Approve the Cleo hook names if Codex lists them under review. Restart any Codex sessions that were already open before `cleo hooks init`, because they may not have loaded the updated `~/.codex/config.toml`.
 
 ### Sessions stay `running`
 
@@ -855,7 +855,7 @@ to clean up finished state.
 Check:
 
 ```bash
-cleo init
+cleo hooks init
 ls ~/.config/cleo/sounds
 ```
 
@@ -877,7 +877,7 @@ enabled = false
 Hooks store the absolute path to the Cleo executable. Re-run:
 
 ```bash
-cleo init
+cleo hooks init
 ```
 
 so hook files point at the current binary path.

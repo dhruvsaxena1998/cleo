@@ -89,7 +89,7 @@ func TestDiagnoseHooksReportsMissingCodexHook(t *testing.T) {
 	if err := os.WriteFile(codexConfigPath, []byte("[features]\nhooks = true\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(codexHooksPath, []byte(`{"hooks":{"SessionStart":[{"hooks":[{"command":"/usr/local/bin/cleo hook codex SessionStart"}]}]}}`), 0o644); err != nil {
+	if err := os.WriteFile(codexHooksPath, []byte(`{"hooks":{"SessionStart":[{"hooks":[{"command":"/usr/local/bin/cleo hooks invoke codex SessionStart"}]}]}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -148,7 +148,7 @@ func TestDoctorHookConfigDiff(t *testing.T) {
 	// UserPromptSubmit at all (should land in toAdd).
 	onDisk := map[string]any{
 		"hooks": map[string]any{
-			"SessionStart": map[string]any{"command": "/path/to/cleo hook claude SessionStart"},
+			"SessionStart": map[string]any{"command": "/path/to/cleo hooks invoke claude SessionStart"},
 			"PreToolUse":   map[string]any{"command": "/usr/local/bin/some-other-hook"},
 		},
 	}
@@ -158,9 +158,9 @@ func TestDoctorHookConfigDiff(t *testing.T) {
 	}
 
 	expectedEntries := map[string]any{
-		"SessionStart":     map[string]any{"command": "/path/to/cleo hook claude SessionStart"},
-		"UserPromptSubmit": map[string]any{"command": "/path/to/cleo hook claude UserPromptSubmit"},
-		"PreToolUse":       map[string]any{"command": "/path/to/cleo hook claude PreToolUse"},
+		"SessionStart":     map[string]any{"command": "/path/to/cleo hooks invoke claude SessionStart"},
+		"UserPromptSubmit": map[string]any{"command": "/path/to/cleo hooks invoke claude UserPromptSubmit"},
+		"PreToolUse":       map[string]any{"command": "/path/to/cleo hooks invoke claude PreToolUse"},
 	}
 
 	d := hookConfigDiff(settings, expectedEntries)
@@ -184,13 +184,13 @@ func TestHookConfigDiffEqualityIsKeyOrderInsensitive(t *testing.T) {
 	settings := filepath.Join(dir, "settings.json")
 	// Construct on-disk JSON with a hand-written byte order that puts "type"
 	// after "command" — different from Go's marshal-sorted order.
-	raw := []byte(`{"hooks":{"SessionStart":{"timeout":2,"command":"cleo hook claude SessionStart","type":"command"}}}`)
+	raw := []byte(`{"hooks":{"SessionStart":{"timeout":2,"command":"cleo hooks invoke claude SessionStart","type":"command"}}}`)
 	if err := os.WriteFile(settings, raw, 0o644); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 	expected := map[string]any{
 		"SessionStart": map[string]any{
-			"command": "cleo hook claude SessionStart",
+			"command": "cleo hooks invoke claude SessionStart",
 			"type":    "command",
 			"timeout": float64(2), // JSON unmarshal produces float64 for numbers
 		},
@@ -212,8 +212,8 @@ func TestDoctorPiCheck_FileMissing(t *testing.T) {
 	if check.OK {
 		t.Error("expected not-ok when extension file is missing")
 	}
-	if !strings.Contains(check.Detail, "run cleo init") {
-		t.Errorf("expected 'run cleo init' in detail, got: %q", check.Detail)
+	if !strings.Contains(check.Detail, "run cleo hooks init") {
+		t.Errorf("expected 'run cleo hooks init' in detail, got: %q", check.Detail)
 	}
 }
 
@@ -288,8 +288,8 @@ func TestDoctorOpenCodeCheck_FileMissing(t *testing.T) {
 	if check.OK {
 		t.Error("expected not-ok when plugin file is missing")
 	}
-	if !strings.Contains(check.Detail, "run cleo init") {
-		t.Errorf("expected 'run cleo init' in detail, got: %q", check.Detail)
+	if !strings.Contains(check.Detail, "run cleo hooks init") {
+		t.Errorf("expected 'run cleo hooks init' in detail, got: %q", check.Detail)
 	}
 }
 

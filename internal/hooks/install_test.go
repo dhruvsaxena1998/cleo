@@ -30,7 +30,7 @@ func TestInstallClaudeHooks(t *testing.T) {
 		}
 	}
 	// And the path is absolute
-	if !strings.Contains(string(b), "/usr/local/bin/cleo hook claude") {
+	if !strings.Contains(string(b), "/usr/local/bin/cleo hooks invoke claude") {
 		t.Errorf("hook command not present: %s", string(b))
 	}
 }
@@ -57,7 +57,7 @@ func TestInstallClaudeForceOverwrites(t *testing.T) {
 		t.Fatalf("force install failed: %v", err)
 	}
 	b, _ := os.ReadFile(settingsPath)
-	if !strings.Contains(string(b), "/cleo hook claude") {
+	if !strings.Contains(string(b), "/cleo hooks invoke claude") {
 		t.Errorf("hook command not overwritten: %s", string(b))
 	}
 }
@@ -70,7 +70,7 @@ func TestCleanupClaudeRemovesOnlyCleoHooks(t *testing.T) {
     "PreToolUse": [
       {
         "hooks": [
-          {"type":"command","command":"/usr/local/bin/cleo hook claude PreToolUse","timeout":2},
+          {"type":"command","command":"/usr/local/bin/cleo hooks invoke claude PreToolUse","timeout":2},
           {"type":"command","command":"other-tool pre"}
         ]
       }
@@ -78,7 +78,7 @@ func TestCleanupClaudeRemovesOnlyCleoHooks(t *testing.T) {
     "Stop": [
       {
         "hooks": [
-          {"type":"command","command":"/old/path/cleo hook claude Stop","timeout":2}
+          {"type":"command","command":"/old/path/cleo hooks invoke claude Stop","timeout":2}
         ]
       }
     ]
@@ -100,8 +100,8 @@ func TestCleanupClaudeRemovesOnlyCleoHooks(t *testing.T) {
 
 	b, _ := os.ReadFile(settingsPath)
 	got := string(b)
-	if strings.Contains(got, "hook claude") {
-		t.Fatalf("cleo hook still present: %s", got)
+	if strings.Contains(got, "hooks invoke claude") {
+		t.Fatalf("cleo hooks invoke still present: %s", got)
 	}
 	if !strings.Contains(got, "other-tool pre") {
 		t.Fatalf("unrelated hook was removed: %s", got)
@@ -130,7 +130,7 @@ func TestCleanupClaude_MissingWhenFileAbsent(t *testing.T) {
 func TestCleanupClaude_MissingWhenNoCleoEntries(t *testing.T) {
 	dir := t.TempDir()
 	settingsPath := filepath.Join(dir, "settings.json")
-	// Pre-existing settings with a non-cleo hook only.
+	// Pre-existing settings with a non-cleo entry only.
 	prior := `{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"other-tool"}]}]}}`
 	_ = os.WriteFile(settingsPath, []byte(prior), 0o644)
 
@@ -170,7 +170,7 @@ func TestInstallCodexHooks(t *testing.T) {
 			t.Errorf("missing event %s", ev)
 		}
 	}
-	if !strings.Contains(string(b), "/usr/local/bin/cleo hook codex") {
+	if !strings.Contains(string(b), "/usr/local/bin/cleo hooks invoke codex") {
 		t.Errorf("hook command not present: %s", string(b))
 	}
 
@@ -201,7 +201,7 @@ func TestCleanupCodexRemovesOnlyCleoHooks(t *testing.T) {
 
 	b, _ := os.ReadFile(hooksPath)
 	got := string(b)
-	if strings.Contains(got, "hook codex") {
+	if strings.Contains(got, "hooks invoke codex") {
 		t.Fatalf("cleo codex hook still present: %s", got)
 	}
 	if strings.Contains(got, `"hooks"`) {

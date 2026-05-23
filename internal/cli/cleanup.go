@@ -122,7 +122,7 @@ func printCleanupSummary(w io.Writer, results []cleanupResult) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Next steps:")
 	fmt.Fprintln(w, "  - Restart any open agent sessions so they stop using the removed hooks.")
-	fmt.Fprintln(w, "  - Run cleo init again if you want to reinstall Cleo hooks later.")
+	fmt.Fprintln(w, "  - Run cleo hooks init again if you want to reinstall Cleo hooks later.")
 }
 
 func promptCleanupSelection(w io.Writer, br *bufio.Reader, selected *[]string) error {

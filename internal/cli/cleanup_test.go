@@ -39,7 +39,7 @@ func TestPrintCleanupSummary(t *testing.T) {
 		"removed Cleo hook entries",
 		"Codex",
 		"[features].hooks unchanged",
-		"Run cleo init again",
+		"Run cleo hooks init again",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("output missing %q:\n%s", want, got)

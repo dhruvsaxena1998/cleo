@@ -123,7 +123,7 @@ func TestPrintInitSummaryIncludesCodexReviewStep(t *testing.T) {
 			InstalledHooks:   []string{"SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PermissionRequest", "Stop"},
 			NeedsCodexReview: true,
 			ReviewHooks:      []string{"SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PermissionRequest", "Stop"},
-			ReviewCommand:    "/usr/local/bin/cleo hook codex",
+			ReviewCommand:    "/usr/local/bin/cleo hooks invoke codex",
 		},
 	})
 
@@ -139,7 +139,7 @@ func TestPrintInitSummaryIncludesCodexReviewStep(t *testing.T) {
 		"PostToolUse",
 		"PermissionRequest",
 		"Stop",
-		"/usr/local/bin/cleo hook codex",
+		"/usr/local/bin/cleo hooks invoke codex",
 		"manual hook approval",
 		"run /hooks",
 		"Restart any open sessions",
@@ -211,7 +211,7 @@ func TestPrintInitSummary_CodexApprovalBlock(t *testing.T) {
 			InstalledHooks:   []string{"SessionStart", "Stop"},
 			NeedsCodexReview: true,
 			ReviewHooks:      []string{"SessionStart", "Stop"},
-			ReviewCommand:    "/usr/local/bin/cleo hook codex",
+			ReviewCommand:    "/usr/local/bin/cleo hooks invoke codex",
 		},
 	})
 	out := stripANSI(buf.String())
@@ -222,7 +222,7 @@ func TestPrintInitSummary_CodexApprovalBlock(t *testing.T) {
 	if !strings.Contains(out, "run /hooks") {
 		t.Errorf("output missing /hooks instruction\ngot:\n%s", out)
 	}
-	if !strings.Contains(out, "/usr/local/bin/cleo hook codex") {
+	if !strings.Contains(out, "/usr/local/bin/cleo hooks invoke codex") {
 		t.Errorf("output missing review command\ngot:\n%s", out)
 	}
 }

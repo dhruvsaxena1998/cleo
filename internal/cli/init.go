@@ -99,7 +99,7 @@ func newInitCmd(getCtx func() *Ctx) *cobra.Command {
 						InstalledHooks:   hooks.CodexEvents(),
 						NeedsCodexReview: true,
 						ReviewHooks:      hooks.CodexEvents(),
-						ReviewCommand:    fmt.Sprintf("%s hook codex", cleoBin),
+						ReviewCommand:    fmt.Sprintf("%s hooks invoke codex", cleoBin),
 					})
 				case hookPi:
 					if err := (hooks.PiProtocol{}).Install(cleoBin, force); err != nil {

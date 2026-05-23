@@ -44,7 +44,7 @@ type NormalizedEvent struct {
 // Protocol describes a supported agent integration. Implement this interface to
 // add a new agent — then add one line to Protocols() below.
 type Protocol interface {
-	// Name returns the identifier used in "cleo hook <protocol> <event>".
+	// Name returns the identifier used in "cleo hooks invoke <protocol> <event>".
 	Name() string
 	// Events returns the hook event names this protocol subscribes to.
 	Events() []string

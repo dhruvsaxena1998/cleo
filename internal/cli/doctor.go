@@ -103,7 +103,7 @@ func checkPiExtension(path string) doctorCheck {
 	if errors.Is(err, os.ErrNotExist) {
 		return doctorCheck{
 			Label:  "Pi extension",
-			Detail: fmt.Sprintf("not found at %s — run cleo init to install", path),
+			Detail: fmt.Sprintf("not found at %s — run cleo hooks init to install", path),
 		}
 	}
 	if err != nil {
@@ -112,7 +112,7 @@ func checkPiExtension(path string) doctorCheck {
 	if string(content) != hooks.ExpectedPiEntry() {
 		return doctorCheck{
 			Label:  "Pi extension",
-			Detail: fmt.Sprintf("stale — re-run cleo init to update %s", path),
+			Detail: fmt.Sprintf("stale — re-run cleo hooks init to update %s", path),
 		}
 	}
 	return doctorCheck{Label: "Pi extension", OK: true, Detail: path}
@@ -123,7 +123,7 @@ func checkOpenCodeExtension(path string) doctorCheck {
 	if errors.Is(err, os.ErrNotExist) {
 		return doctorCheck{
 			Label:  "OpenCode plugin",
-			Detail: fmt.Sprintf("not found at %s — run cleo init to install", path),
+			Detail: fmt.Sprintf("not found at %s — run cleo hooks init to install", path),
 		}
 	}
 	if err != nil {
@@ -132,7 +132,7 @@ func checkOpenCodeExtension(path string) doctorCheck {
 	if string(content) != hooks.ExpectedOpenCodeEntry() {
 		return doctorCheck{
 			Label:  "OpenCode plugin",
-			Detail: fmt.Sprintf("stale — re-run cleo init to update %s", path),
+			Detail: fmt.Sprintf("stale — re-run cleo hooks init to update %s", path),
 		}
 	}
 	return doctorCheck{Label: "OpenCode plugin", OK: true, Detail: path}
@@ -141,7 +141,7 @@ func checkOpenCodeExtension(path string) doctorCheck {
 func checkClaudeHooks(path string) doctorCheck {
 	b, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return doctorCheck{Label: "Claude hooks", Detail: fmt.Sprintf("missing %s; run cleo init", path)}
+		return doctorCheck{Label: "Claude hooks", Detail: fmt.Sprintf("missing %s; run cleo hooks init", path)}
 	}
 	if err != nil {
 		return doctorCheck{Label: "Claude hooks", Detail: err.Error()}
@@ -151,9 +151,9 @@ func checkClaudeHooks(path string) doctorCheck {
 		return doctorCheck{Label: "Claude hooks", Detail: fmt.Sprintf("invalid JSON in %s: %v", path, err)}
 	}
 	configured, _ := settings["hooks"].(map[string]any)
-	missing := missingHookEvents(configured, hooks.ClaudeEvents(), "hook claude")
+	missing := missingHookEvents(configured, hooks.ClaudeEvents(), "hooks invoke claude")
 	if len(missing) > 0 {
-		return doctorCheck{Label: "Claude hooks", Detail: fmt.Sprintf("missing Cleo command for %s in %s; run cleo init", strings.Join(missing, ", "), path)}
+		return doctorCheck{Label: "Claude hooks", Detail: fmt.Sprintf("missing Cleo command for %s in %s; run cleo hooks init", strings.Join(missing, ", "), path)}
 	}
 	return doctorCheck{Label: "Claude hooks", OK: true, Detail: fmt.Sprintf("%d hooks installed", len(hooks.ClaudeEvents()))}
 }
@@ -161,17 +161,17 @@ func checkClaudeHooks(path string) doctorCheck {
 func checkCodexFeatureFlag(path string) doctorCheck {
 	b, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return doctorCheck{Label: "Codex feature flag", Detail: fmt.Sprintf("missing %s; run cleo init", path)}
+		return doctorCheck{Label: "Codex feature flag", Detail: fmt.Sprintf("missing %s; run cleo hooks init", path)}
 	}
 	if err != nil {
 		return doctorCheck{Label: "Codex feature flag", Detail: err.Error()}
 	}
 	content := string(b)
 	if strings.Contains(content, "codex_hooks") {
-		return doctorCheck{Label: "Codex feature flag", Detail: fmt.Sprintf("deprecated codex_hooks flag found in %s; run cleo init", path)}
+		return doctorCheck{Label: "Codex feature flag", Detail: fmt.Sprintf("deprecated codex_hooks flag found in %s; run cleo hooks init", path)}
 	}
 	if !strings.Contains(content, "hooks = true") {
-		return doctorCheck{Label: "Codex feature flag", Detail: fmt.Sprintf("[features].hooks = true not found in %s; run cleo init", path)}
+		return doctorCheck{Label: "Codex feature flag", Detail: fmt.Sprintf("[features].hooks = true not found in %s; run cleo hooks init", path)}
 	}
 	return doctorCheck{Label: "Codex feature flag", OK: true, Detail: "[features].hooks = true"}
 }
@@ -179,7 +179,7 @@ func checkCodexFeatureFlag(path string) doctorCheck {
 func checkCodexHooks(path string) doctorCheck {
 	b, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return doctorCheck{Label: "Codex hooks", Detail: fmt.Sprintf("missing %s; run cleo init", path)}
+		return doctorCheck{Label: "Codex hooks", Detail: fmt.Sprintf("missing %s; run cleo hooks init", path)}
 	}
 	if err != nil {
 		return doctorCheck{Label: "Codex hooks", Detail: err.Error()}
@@ -189,9 +189,9 @@ func checkCodexHooks(path string) doctorCheck {
 		return doctorCheck{Label: "Codex hooks", Detail: fmt.Sprintf("invalid JSON in %s: %v", path, err)}
 	}
 	configured, _ := settings["hooks"].(map[string]any)
-	missing := missingHookEvents(configured, hooks.CodexEvents(), "hook codex")
+	missing := missingHookEvents(configured, hooks.CodexEvents(), "hooks invoke codex")
 	if len(missing) > 0 {
-		return doctorCheck{Label: "Codex hooks", Detail: fmt.Sprintf("missing Cleo command for %s in %s; run cleo init", strings.Join(missing, ", "), path)}
+		return doctorCheck{Label: "Codex hooks", Detail: fmt.Sprintf("missing Cleo command for %s in %s; run cleo hooks init", strings.Join(missing, ", "), path)}
 	}
 	return doctorCheck{Label: "Codex hooks", OK: true, Detail: fmt.Sprintf("%d hooks installed", len(hooks.CodexEvents()))}
 }
@@ -313,7 +313,7 @@ func attributionFailures(path string, since time.Time) []hookTraceRow {
 
 // printHookDiffSection renders the per-agent +/= diff. agentLabel is the
 // human-readable name ("Claude hooks" / "Codex hooks"); protocol is used in
-// the printed command (`cleo hook claude` etc.). Empty diffs print
+// the printed command (`cleo hooks invoke claude` etc.). Empty diffs print
 // "<agentLabel>: in sync ✓".
 func printHookDiffSection(w io.Writer, agentLabel, settingsPath string, d hookDiff, protocol string) {
 	if len(d.toAdd) == 0 && len(d.conflicts) == 0 {
@@ -322,13 +322,13 @@ func printHookDiffSection(w io.Writer, agentLabel, settingsPath string, d hookDi
 	}
 	fmt.Fprintf(w, "%s (%s):\n", agentLabel, settingsPath)
 	for _, ev := range d.matched {
-		fmt.Fprintf(w, "  = %-18s cleo hook %s\n", ev, protocol)
+		fmt.Fprintf(w, "  = %-18s cleo hooks invoke %s\n", ev, protocol)
 	}
 	for _, ev := range d.toAdd {
-		fmt.Fprintf(w, "  + %-18s cleo hook %s    (would install)\n", ev, protocol)
+		fmt.Fprintf(w, "  + %-18s cleo hooks invoke %s    (would install)\n", ev, protocol)
 	}
 	for _, ev := range d.conflicts {
-		fmt.Fprintf(w, "  - %-18s cleo hook %s    (foreign or divergent entry present)\n", ev, protocol)
+		fmt.Fprintf(w, "  - %-18s cleo hooks invoke %s    (foreign or divergent entry present)\n", ev, protocol)
 	}
 }
 

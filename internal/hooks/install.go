@@ -27,7 +27,7 @@ func ExpectedClaudeEntries(cleoBin string) map[string]any {
 				"hooks": []any{
 					map[string]any{
 						"type":    "command",
-						"command": fmt.Sprintf("%s hook claude %s", cleoBin, ev),
+						"command": fmt.Sprintf("%s hooks invoke claude %s", cleoBin, ev),
 						"timeout": 5,
 					},
 				},
@@ -55,7 +55,7 @@ func InstallClaude(settingsPath, cleoBin string, force bool) error {
 	expected := ExpectedClaudeEntries(cleoBin)
 	for _, ev := range claudeEvents {
 		want := expected[ev]
-		cmd := fmt.Sprintf("%s hook claude %s", cleoBin, ev)
+		cmd := fmt.Sprintf("%s hooks invoke claude %s", cleoBin, ev)
 		if hookCommandPresent(hooks[ev], cmd) {
 			continue // already installed — skip, don't overwrite
 		}
@@ -86,7 +86,7 @@ func ExpectedCodexEntries(cleoBin string) map[string]any {
 				"hooks": []any{
 					map[string]any{
 						"type":    "command",
-						"command": fmt.Sprintf("%s hook codex %s", cleoBin, ev),
+						"command": fmt.Sprintf("%s hooks invoke codex %s", cleoBin, ev),
 						"timeout": 5,
 					},
 				},
@@ -119,7 +119,7 @@ func InstallCodex(hooksPath, configPath, cleoBin string, force bool) error {
 	expected := ExpectedCodexEntries(cleoBin)
 	for _, ev := range codexEvents {
 		want := expected[ev]
-		cmd := fmt.Sprintf("%s hook codex %s", cleoBin, ev)
+		cmd := fmt.Sprintf("%s hooks invoke codex %s", cleoBin, ev)
 		if hookCommandPresent(hooks[ev], cmd) {
 			continue // already installed — skip, don't overwrite
 		}
@@ -219,7 +219,7 @@ func isCleoHook(rawHook any, protocol string) bool {
 		return false
 	}
 	command, _ := hook["command"].(string)
-	return strings.Contains(command, " hook "+protocol+" ")
+	return strings.Contains(command, " hooks invoke "+protocol+" ")
 }
 
 // ensureCodexFeatureFlag adds `hooks = true` under [features] in the

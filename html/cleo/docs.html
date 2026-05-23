@@ -609,7 +609,7 @@ $ rm "$(which cleo)"</pre>
       <div class="alert">
         <div class="ico">i</div>
         <div>
-          Uninstalling Cleo does not remove your sessions from tmux. Run <code>tmux kill-server</code> if you want to wipe them too. Cleo never owns the underlying tmux server. To also clear hook entries from your agents, run <code>cleo cleanup</code> <em>before</em> removing the binary.
+          Uninstalling Cleo does not remove your sessions from tmux. Run <code>tmux kill-server</code> if you want to wipe them too. Cleo never owns the underlying tmux server. To also clear hook entries from your agents, run <code>cleo hooks cleanup</code> <em>before</em> removing the binary.
         </div>
       </div>
     </section>
@@ -654,7 +654,7 @@ $ cleo</pre>
           <span class="desc">Open the TUI dashboard. The default action with no arguments.</span>
         </div>
         <div class="cmd-row">
-          <span class="cmd">cleo init [--yes] [--force]</span>
+          <span class="cmd">cleo hooks init [--yes] [--force]</span>
           <span class="desc">Install Cleo hook entries into <code>~/.claude/settings.json</code> and <code>~/.codex/hooks.json</code>, and extract bundled sound assets.</span>
         </div>
         <div class="cmd-row">
@@ -662,7 +662,7 @@ $ cleo</pre>
           <span class="desc">Verify hook entries, the Codex feature flag, and recent hook-trace activity.</span>
         </div>
         <div class="cmd-row">
-          <span class="cmd">cleo cleanup [--yes]</span>
+          <span class="cmd">cleo hooks cleanup [--yes]</span>
           <span class="desc">Remove Cleo hook entries from agent config files. Same as <code>cleo uninstall</code>.</span>
         </div>
         <div class="cmd-row">
@@ -740,9 +740,9 @@ $ cleo run codex --yes</pre>
     <section id="hooks">
       <h2><span class="lbl">04 / hooks &amp; state</span>How Cleo knows what's happening</h2>
       <p>
-        Cleo treats sessions as objects with state. It learns that state by listening to hook events emitted by supported agents. <strong>Claude Code</strong>, <strong>Codex</strong>, <strong>Pi</strong>, and <strong>OpenCode</strong> have hook integrations installed by <code>cleo init</code>. Other terminal agents can still be spawned and managed through tmux, with less detailed lifecycle tracking.
+        Cleo treats sessions as objects with state. It learns that state by listening to hook events emitted by supported agents. <strong>Claude Code</strong>, <strong>Codex</strong>, <strong>Pi</strong>, and <strong>OpenCode</strong> have hook integrations installed by <code>cleo hooks init</code>. Other terminal agents can still be spawned and managed through tmux, with less detailed lifecycle tracking.
       </p>
-      <p>Run <code>cleo init</code> once per machine. Cleo writes hook entries to the agent config files, then writes <code>CLEO_SESSION_ID</code> into each tmux session's environment so hook payloads can be attributed to the right session.</p>
+      <p>Run <code>cleo hooks init</code> once per machine. Cleo writes hook entries to the agent config files, then writes <code>CLEO_SESSION_ID</code> into each tmux session's environment so hook payloads can be attributed to the right session.</p>
 
       <h3 id="hooks-claude">Claude Code</h3>
       <p>Hook entries land in <code>~/.claude/settings.json</code>. Cleo registers itself for these events:</p>
@@ -756,7 +756,7 @@ SessionEnd
 SubagentStop</pre>
 
       <h3 id="hooks-codex">Codex</h3>
-      <p>Hook entries land in <code>~/.codex/hooks.json</code>, plus <code>cleo init</code> ensures <code>[features].hooks = true</code> exists in <code>~/.codex/config.toml</code>. Cleo registers itself for:</p>
+      <p>Hook entries land in <code>~/.codex/hooks.json</code>, plus <code>cleo hooks init</code> ensures <code>[features].hooks = true</code> exists in <code>~/.codex/config.toml</code>. Cleo registers itself for:</p>
 <pre>SessionStart
 UserPromptSubmit
 PreToolUse
@@ -772,7 +772,7 @@ Stop</pre>
       </div>
 
       <h3 id="hooks-pi-opencode">Pi &amp; OpenCode</h3>
-      <p>Pi uses a TypeScript extension at <code>~/.pi/agent/extensions/cleo.ts</code>. OpenCode uses a TypeScript plugin at <code>~/.config/opencode/plugins/cleo.ts</code>. Both are installed by <code>cleo init</code> and checked by <code>cleo doctor</code>.</p>
+      <p>Pi uses a TypeScript extension at <code>~/.pi/agent/extensions/cleo.ts</code>. OpenCode uses a TypeScript plugin at <code>~/.config/opencode/plugins/cleo.ts</code>. Both are installed by <code>cleo hooks init</code> and checked by <code>cleo doctor</code>.</p>
 <pre>Pi:       session_start · input · tool_call · tool_result · agent_end · session_shutdown
 OpenCode: session.created · tool.execute.before · tool.execute.after · permission.asked · session.idle · session.deleted · session.error</pre>
 
@@ -862,7 +862,7 @@ enabled = <span class="a">true</span></pre>
         <div class="cmd-row"><span class="cmd">[sound.events.&lt;event&gt;]</span><span class="desc">Configures one event's <code>file</code> and <code>enabled</code> fields. Relative paths resolve under <code>~/.config/cleo/sounds/</code>; absolute paths are used as-is.</span></div>
       </div>
 
-      <p class="muted">Custom sounds: drop your own <code>.wav</code> into <code>~/.config/cleo/sounds/</code> and reference it by basename, or use an absolute path. <code>cleo init</code> extracts the bundled defaults <code>start.wav</code>, <code>attention.wav</code>, <code>done.wav</code>, and <code>error.wav</code>.</p>
+      <p class="muted">Custom sounds: drop your own <code>.wav</code> into <code>~/.config/cleo/sounds/</code> and reference it by basename, or use an absolute path. <code>cleo hooks init</code> extracts the bundled defaults <code>start.wav</code>, <code>attention.wav</code>, <code>done.wav</code>, and <code>error.wav</code>.</p>
 
       <blockquote>
         <p><strong>Focus-aware suppression.</strong> Cleo enables tmux <code>focus-events</code> and installs client focus hooks when you start or attach to a session. While you're focused on that exact tmux session, its sounds are suppressed to avoid duplicate alerts; switching to another app (VS Code, Chrome) emits focus-out and Cleo resumes notifications. This is best-effort; when focus state can't be determined, Cleo prefers to play sounds rather than risk hiding an alert.</p>
@@ -1031,12 +1031,12 @@ keep_default   = <span class="a">2</span></pre>
     <section id="troubleshooting">
       <h2><span class="lbl">06 / troubleshooting</span>Common issues</h2>
 
-      <h3><code>cleo init</code> reports a hook conflict</h3>
+      <h3><code>cleo hooks init</code> reports a hook conflict</h3>
       <p>The target agent config already has a different entry for the same event. Review the file by hand, or rerun with <code>--force</code> to overwrite Cleo-managed events:</p>
-<pre>$ cleo init --force</pre>
+<pre>$ cleo hooks init --force</pre>
 
       <h3>Codex hooks are installed but nothing updates</h3>
-      <p>Run <code>cleo doctor</code>, then open Codex and run <code>/hooks</code>; approve the Cleo hook names if they're under review. Restart any Codex sessions opened before <code>cleo init</code>; they may not have loaded the updated <code>~/.codex/config.toml</code>.</p>
+      <p>Run <code>cleo doctor</code>, then open Codex and run <code>/hooks</code>; approve the Cleo hook names if they're under review. Restart any Codex sessions opened before <code>cleo hooks init</code>; they may not have loaded the updated <code>~/.codex/config.toml</code>.</p>
 
       <h3>Sessions stay <code>running</code></h3>
       <p>For custom agents without a Cleo hook integration, this can be expected. For supported agents, run <code>cleo doctor</code> and check:</p>
@@ -1049,7 +1049,7 @@ $ tail -n 50 ~/.config/cleo/hook-errors.log</pre>
 
       <h3>No sound plays</h3>
       <ul>
-        <li>Check <code>cleo init</code> ran and <code>~/.config/cleo/sounds/</code> contains the WAV files.</li>
+        <li>Check <code>cleo hooks init</code> ran and <code>~/.config/cleo/sounds/</code> contains the WAV files.</li>
         <li>On macOS, confirm <code>which afplay</code> resolves.</li>
         <li>On Linux, Cleo uses the first available of <code>paplay</code>, <code>aplay</code>, or <code>play</code>.</li>
         <li>Disable entirely with <code>[sound] enabled = false</code> in <code>config.toml</code>.</li>
@@ -1057,7 +1057,7 @@ $ tail -n 50 ~/.config/cleo/hook-errors.log</pre>
 
       <h3>Cleo binary moved after hooks were installed</h3>
       <p>Hook entries store the absolute path to the <code>cleo</code> executable. Re-run:</p>
-<pre>$ cleo init</pre>
+<pre>$ cleo hooks init</pre>
       <p>so hook files point at the current binary path.</p>
 
       <h3>Project was registered with the wrong path</h3>
