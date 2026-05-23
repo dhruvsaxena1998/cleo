@@ -523,17 +523,20 @@ html { scroll-behavior: smooth; }
         <ol>
           <li><a href="#hooks-claude">Claude Code</a></li>
           <li><a href="#hooks-codex">Codex</a></li>
+          <li><a href="#hooks-pi-opencode">Pi &amp; OpenCode</a></li>
           <li><a href="#hooks-states">Session states</a></li>
         </ol>
       </li>
       <li><a href="#config">5. Configuration</a>
         <ol>
           <li><a href="#config-files">Files & locations</a></li>
-          <li><a href="#config-defaults">[defaults]</a></li>
+          <li><a href="#config-top-level">top-level keys</a></li>
+          <li><a href="#config-tmux">[tmux]</a></li>
           <li><a href="#config-sound">[sound]</a></li>
           <li><a href="#config-agents">[agents.&lt;name&gt;]</a></li>
           <li><a href="#config-ui">[ui] &amp; themes</a></li>
-          <li><a href="#config-retention">[retention]</a></li>
+          <li><a href="#config-timeouts">[timeouts]</a></li>
+          <li><a href="#config-pruning">[pruning]</a></li>
           <li><a href="#config-recipes">Recipes</a></li>
           <li><a href="#config-env">Environment variables</a></li>
         </ol>
@@ -737,7 +740,7 @@ $ cleo run codex --yes</pre>
     <section id="hooks">
       <h2><span class="lbl">04 / hooks &amp; state</span>How Cleo knows what's happening</h2>
       <p>
-        Cleo treats sessions as objects with state. It learns that state by listening to the hook events your agent emits. <strong>Claude Code</strong>, <strong>Codex</strong>, and <strong>Pi</strong> are first-class: Cleo speaks their hook protocols natively (Pi via a TypeScript extension installed by <code>cleo init</code>). <strong>opencode</strong> can be spawned and managed as a tmux session, but Cleo can't observe its fine-grained lifecycle, so it reads as <code>running</code> until tmux says otherwise.
+        Cleo treats sessions as objects with state. It learns that state by listening to hook events emitted by supported agents. <strong>Claude Code</strong>, <strong>Codex</strong>, <strong>Pi</strong>, and <strong>OpenCode</strong> have hook integrations installed by <code>cleo init</code>. Other terminal agents can still be spawned and managed through tmux, with less detailed lifecycle tracking.
       </p>
       <p>Run <code>cleo init</code> once per machine. Cleo writes hook entries to the agent config files, then writes <code>CLEO_SESSION_ID</code> into each tmux session's environment so hook payloads can be attributed to the right session.</p>
 
@@ -767,6 +770,11 @@ Stop</pre>
           After installing Codex hooks, restart any open Codex sessions and run <code>/hooks</code> inside Codex to approve the Cleo entries if they appear under review. Codex keeps approval state internally; <code>cleo doctor</code> can verify the files but cannot prove approval.
         </div>
       </div>
+
+      <h3 id="hooks-pi-opencode">Pi &amp; OpenCode</h3>
+      <p>Pi uses a TypeScript extension at <code>~/.pi/agent/extensions/cleo.ts</code>. OpenCode uses a TypeScript plugin at <code>~/.config/opencode/plugins/cleo.ts</code>. Both are installed by <code>cleo init</code> and checked by <code>cleo doctor</code>.</p>
+<pre>Pi:       session_start · input · tool_call · tool_result · agent_end · session_shutdown
+OpenCode: session.created · tool.execute.before · tool.execute.after · permission.asked · session.idle · session.deleted · session.error</pre>
 
       <h3 id="hooks-states">Session states</h3>
       <div class="cmd-table">
@@ -804,18 +812,23 @@ Stop</pre>
 ├─ <span class="p">hook-errors.log</span>       <span class="c"># hook handler errors</span>
 └─ <span class="p">hook-trace.log</span>        <span class="c"># attribution trace used by `cleo doctor`</span></pre>
 
-      <p class="muted">Hook entries themselves live with the agent: <code>~/.claude/settings.json</code> for Claude Code, and <code>~/.codex/hooks.json</code> + <code>~/.codex/config.toml</code> for Codex.</p>
+      <p class="muted">Hook entries themselves live with the agent: <code>~/.claude/settings.json</code> for Claude Code, <code>~/.codex/hooks.json</code> + <code>~/.codex/config.toml</code> for Codex, <code>~/.pi/agent/extensions/cleo.ts</code> for Pi, and <code>~/.config/opencode/plugins/cleo.ts</code> for OpenCode.</p>
 
       <p>Cleo reads <code>config.toml</code> on startup. After editing it, quit the dashboard (<code>q</code>) and relaunch <code>cleo</code> to pick up changes. Hook handlers re-read the config on every invocation, so sound and event toggles take effect on the <em>next</em> hook event without restarting anything. Durations use Go duration strings: <code>"500ms"</code>, <code>"1.5s"</code>, <code>"30s"</code>, <code>"10m"</code>, <code>"1h"</code>.</p>
 
-      <h3 id="config-defaults">[defaults]</h3>
-<pre>[defaults]
-detach_key    = <span class="a">"C-b d"</span>
-default_agent = <span class="a">"claude"</span></pre>
+      <h3 id="config-top-level">Top-level keys</h3>
+<pre>default_agent = <span class="a">"claude"</span></pre>
+
+      <div class="cmd-table">
+        <div class="cmd-row"><span class="cmd">default_agent</span><span class="desc">Default agent name for flows that need one but didn't get one explicitly.</span></div>
+      </div>
+
+      <h3 id="config-tmux">[tmux]</h3>
+<pre>[tmux]
+detach_key = <span class="a">"C-b d"</span></pre>
 
       <div class="cmd-table">
         <div class="cmd-row"><span class="cmd">detach_key</span><span class="desc">Tmux detach key Cleo tries to bind for spawned sessions. Default <code>C-b d</code>.</span></div>
-        <div class="cmd-row"><span class="cmd">default_agent</span><span class="desc">Default agent name for flows that need one but didn't get one explicitly.</span></div>
       </div>
 
       <h3 id="config-sound">[sound]</h3>
@@ -823,25 +836,30 @@ default_agent = <span class="a">"claude"</span></pre>
 enabled = <span class="a">true</span>
 volume  = <span class="a">0.7</span>
 
-[sound.events]
-session_start     = <span class="a">"start.wav"</span>
-needs_input       = <span class="a">"attention.wav"</span>
-session_idle      = <span class="a">"done.wav"</span>
-session_completed = <span class="a">"done.wav"</span>
-session_error     = <span class="a">"error.wav"</span>
+[sound.events.session_start]
+file    = <span class="a">"start.wav"</span>
+enabled = <span class="a">true</span>
 
-[sound.event_enabled]
-session_start     = <span class="a">true</span>
-needs_input       = <span class="a">true</span>
-session_idle      = <span class="a">true</span>
-session_completed = <span class="a">true</span>
-session_error     = <span class="a">true</span></pre>
+[sound.events.needs_input]
+file    = <span class="a">"attention.wav"</span>
+enabled = <span class="a">true</span>
+
+[sound.events.session_idle]
+file    = <span class="a">"done.wav"</span>
+enabled = <span class="a">true</span>
+
+[sound.events.session_completed]
+file    = <span class="a">"done.wav"</span>
+enabled = <span class="a">true</span>
+
+[sound.events.session_error]
+file    = <span class="a">"error.wav"</span>
+enabled = <span class="a">true</span></pre>
 
       <div class="cmd-table">
         <div class="cmd-row"><span class="cmd">enabled</span><span class="desc">Master switch for sound playback on hook-triggered transitions.</span></div>
         <div class="cmd-row"><span class="cmd">volume</span><span class="desc"><code>0.0</code>–<code>1.0</code>. Applied on macOS via <code>afplay -v</code>; Linux players (<code>paplay</code>/<code>aplay</code>/<code>play</code>) ignore it; use the system mixer there.</span></div>
-        <div class="cmd-row"><span class="cmd">[sound.events]</span><span class="desc">Maps event → audio file. Relative paths resolve under <code>~/.config/cleo/sounds/</code>; absolute paths are used as-is.</span></div>
-        <div class="cmd-row"><span class="cmd">[sound.event_enabled]</span><span class="desc">Per-event toggles that keep the file mappings configured. Missing toggles default to <code>true</code>.</span></div>
+        <div class="cmd-row"><span class="cmd">[sound.events.&lt;event&gt;]</span><span class="desc">Configures one event's <code>file</code> and <code>enabled</code> fields. Relative paths resolve under <code>~/.config/cleo/sounds/</code>; absolute paths are used as-is.</span></div>
       </div>
 
       <p class="muted">Custom sounds: drop your own <code>.wav</code> into <code>~/.config/cleo/sounds/</code> and reference it by basename, or use an absolute path. <code>cleo init</code> extracts the bundled defaults <code>start.wav</code>, <code>attention.wav</code>, <code>done.wav</code>, and <code>error.wav</code>.</p>
@@ -856,49 +874,44 @@ session_error     = <span class="a">true</span></pre>
 command = <span class="a">"claude"</span>
 label   = <span class="a">"cl"</span>
 color   = <span class="a">"#CC785C"</span>
-hooks   = <span class="a">"claude"</span>
 
 [agents.codex]
 command = <span class="a">"codex"</span>
 label   = <span class="a">"cx"</span>
 color   = <span class="a">"#10A37F"</span>
-hooks   = <span class="a">"codex"</span>
 
 [agents.opencode]
 command = <span class="a">"opencode"</span>
 label   = <span class="a">"oc"</span>
 color   = <span class="a">"#FF6B35"</span>
-hooks   = <span class="a">"none"</span>
 
 [agents.pi]
 command = <span class="a">"pi"</span>
 label   = <span class="a">"pi"</span>
-color   = <span class="a">"#7C3AED"</span>
-hooks   = <span class="a">"none"</span></pre>
+color   = <span class="a">"#7C3AED"</span></pre>
 
       <div class="cmd-table">
         <div class="cmd-row"><span class="cmd">command</span><span class="desc">Executable command Cleo starts inside tmux. The whole string is passed to <code>tmux new-session</code>, so flags and arguments are preserved.</span></div>
         <div class="cmd-row"><span class="cmd">label</span><span class="desc">Short label shown in compact UI surfaces.</span></div>
         <div class="cmd-row"><span class="cmd">color</span><span class="desc">Hex color used by the TUI for that agent.</span></div>
-        <div class="cmd-row"><span class="cmd">hooks</span><span class="desc">Hook protocol: <code>"claude"</code>, <code>"codex"</code>, or <code>"none"</code>. Agents with <code>hooks = "none"</code> stay <code>running</code> until tmux exits; Cleo can't observe their fine-grained lifecycle.</span></div>
       </div>
 
       <h3 id="config-ui">[ui] &amp; themes</h3>
 <pre>[ui]
-show_pane_preview     = <span class="a">true</span>
-pane_preview_lines    = <span class="a">30</span>
-pane_preview_interval = <span class="a">"1.5s"</span>
+theme                 = <span class="a">"catppuccin-mocha"</span>
 event_log_lines       = <span class="a">200</span>
 sidebar_width         = <span class="a">32</span>
-theme                 = <span class="a">"catppuccin-mocha"</span></pre>
+
+[ui.pane_preview]
+enabled  = <span class="a">true</span>
+lines    = <span class="a">30</span>
+interval = <span class="a">"1.5s"</span></pre>
 
       <div class="cmd-table">
-        <div class="cmd-row"><span class="cmd">show_pane_preview</span><span class="desc">Show tmux pane output previews in the dashboard.</span></div>
-        <div class="cmd-row"><span class="cmd">pane_preview_lines</span><span class="desc">Number of tmux pane lines to capture for the preview.</span></div>
-        <div class="cmd-row"><span class="cmd">pane_preview_interval</span><span class="desc">How often the preview refreshes. Higher = less tmux traffic; lower = snappier UI.</span></div>
+        <div class="cmd-row"><span class="cmd">[ui.pane_preview]</span><span class="desc">Nested pane preview settings: <code>enabled</code>, <code>lines</code>, and <code>interval</code>.</span></div>
         <div class="cmd-row"><span class="cmd">event_log_lines</span><span class="desc">Number of recent event log rows available in the UI.</span></div>
         <div class="cmd-row"><span class="cmd">sidebar_width</span><span class="desc">Configured sidebar width.</span></div>
-        <div class="cmd-row"><span class="cmd">theme</span><span class="desc">TUI color theme. See the table below. Unknown values silently fall back to <code>catppuccin-mocha</code>.</span></div>
+        <div class="cmd-row"><span class="cmd">theme</span><span class="desc">TUI color theme. See the table below. Unknown values fall back to <code>catppuccin-mocha</code> and are reported as config warnings.</span></div>
       </div>
 
       <p>Themes ship with the binary. Pick one in <code>config.toml</code> and restart <code>cleo</code> to preview it:</p>
@@ -911,18 +924,24 @@ theme                 = <span class="a">"catppuccin-mocha"</span></pre>
         <div class="cmd-row"><span class="cmd">synthwave</span><span class="desc">Vivid magenta/cyan neon dark theme.</span></div>
       </div>
 
-      <h3 id="config-retention">[retention]</h3>
-<pre>[retention]
-hint_threshold            = <span class="a">6</span>
-prune_keep_default        = <span class="a">5</span>
+      <h3 id="config-timeouts">[timeouts]</h3>
+<pre>[timeouts]
 idle_to_completed_timeout = <span class="a">"10m"</span>
 spawning_timeout          = <span class="a">"30s"</span></pre>
 
       <div class="cmd-table">
-        <div class="cmd-row"><span class="cmd">hint_threshold</span><span class="desc">Show a cleanup hint when a project has more than this many finished sessions.</span></div>
-        <div class="cmd-row"><span class="cmd">prune_keep_default</span><span class="desc">Default number of finished sessions to keep per project during <code>cleo prune</code>.</span></div>
         <div class="cmd-row"><span class="cmd">idle_to_completed_timeout</span><span class="desc">Reconciler timeout that promotes long-idle sessions to <code>completed</code>.</span></div>
         <div class="cmd-row"><span class="cmd">spawning_timeout</span><span class="desc">Timeout used to detect sessions that never finish startup.</span></div>
+      </div>
+
+      <h3 id="config-pruning">[pruning]</h3>
+<pre>[pruning]
+hint_threshold = <span class="a">6</span>
+keep_default   = <span class="a">5</span></pre>
+
+      <div class="cmd-table">
+        <div class="cmd-row"><span class="cmd">hint_threshold</span><span class="desc">Show a cleanup hint when a project has more than this many finished sessions.</span></div>
+        <div class="cmd-row"><span class="cmd">keep_default</span><span class="desc">Default number of finished sessions to keep per project during <code>cleo prune</code>.</span></div>
       </div>
 
       <h3 id="config-recipes">Configuration recipes</h3>
@@ -933,12 +952,14 @@ spawning_timeout          = <span class="a">"30s"</span></pre>
 enabled = <span class="a">false</span></pre>
 
       <p><strong>Only attention-worthy sounds:</strong> mute routine start / idle / completion, keep the ones that signal you should look at the terminal:</p>
-<pre>[sound.event_enabled]
-session_start     = <span class="a">false</span>
-needs_input       = <span class="a">true</span>
-session_idle      = <span class="a">false</span>
-session_completed = <span class="a">false</span>
-session_error     = <span class="a">true</span></pre>
+<pre>[sound.events.session_start]
+enabled = <span class="a">false</span>
+
+[sound.events.session_idle]
+enabled = <span class="a">false</span>
+
+[sound.events.session_completed]
+enabled = <span class="a">false</span></pre>
 
       <p><strong>Lower default volume (macOS):</strong> Linux uses the system mixer:</p>
 <pre>[sound]
@@ -946,9 +967,11 @@ enabled = <span class="a">true</span>
 volume  = <span class="a">0.3</span></pre>
 
       <p><strong>Custom sound files</strong>:</p>
-<pre>[sound.events]
-needs_input   = <span class="a">"my-attention.wav"</span>
-session_error = <span class="a">"/Users/me/sounds/error-loud.wav"</span></pre>
+<pre>[sound.events.needs_input]
+file = <span class="a">"my-attention.wav"</span>
+
+[sound.events.session_error]
+file = <span class="a">"/Users/me/sounds/error-loud.wav"</span></pre>
 
       <p><strong>Switch theme</strong>:</p>
 <pre>[ui]
@@ -958,34 +981,35 @@ theme = <span class="a">"synthwave"</span></pre>
 <pre>[agents.aider]
 command = <span class="a">"aider"</span>
 label   = <span class="a">"ai"</span>
-color   = <span class="a">"#9333EA"</span>
-hooks   = <span class="a">"none"</span></pre>
+color   = <span class="a">"#9333EA"</span></pre>
       <p class="muted">Then <code>cleo run aider --name refactor-payments</code>.</p>
 
       <p><strong>Override an existing agent's command:</strong> flags and arguments are preserved verbatim:</p>
 <pre>[agents.claude]
 command = <span class="a">"claude --dangerously-skip-permissions"</span>
 label   = <span class="a">"cl"</span>
-color   = <span class="a">"#CC785C"</span>
-hooks   = <span class="a">"claude"</span></pre>
+color   = <span class="a">"#CC785C"</span></pre>
 
       <p><strong>Larger preview pane / more breathing room</strong>:</p>
 <pre>[ui]
-pane_preview_lines    = <span class="a">60</span>
-pane_preview_interval = <span class="a">"0.75s"</span>
 sidebar_width         = <span class="a">40</span>
-event_log_lines       = <span class="a">500</span></pre>
+event_log_lines       = <span class="a">500</span>
 
-      <p><strong>Tighter retention:</strong> auto-promote idle sessions sooner and keep fewer finished sessions per project:</p>
-<pre>[retention]
-hint_threshold            = <span class="a">3</span>
-prune_keep_default        = <span class="a">2</span>
+[ui.pane_preview]
+lines    = <span class="a">60</span>
+interval = <span class="a">"0.75s"</span></pre>
+
+      <p><strong>Tighter pruning and timeouts:</strong> auto-promote idle sessions sooner and keep fewer finished sessions per project:</p>
+<pre>[timeouts]
 idle_to_completed_timeout = <span class="a">"2m"</span>
-spawning_timeout          = <span class="a">"15s"</span></pre>
+spawning_timeout          = <span class="a">"15s"</span>
+
+[pruning]
+hint_threshold = <span class="a">3</span>
+keep_default   = <span class="a">2</span></pre>
 
       <p><strong>Change the default agent</strong>:</p>
-<pre>[defaults]
-default_agent = <span class="a">"codex"</span></pre>
+<pre>default_agent = <span class="a">"codex"</span></pre>
 
       <h3 id="config-env">Environment variables</h3>
       <p>Cleo reads only a small set of environment variables.</p>
@@ -1015,7 +1039,7 @@ default_agent = <span class="a">"codex"</span></pre>
       <p>Run <code>cleo doctor</code>, then open Codex and run <code>/hooks</code>; approve the Cleo hook names if they're under review. Restart any Codex sessions opened before <code>cleo init</code>; they may not have loaded the updated <code>~/.codex/config.toml</code>.</p>
 
       <h3>Sessions stay <code>running</code></h3>
-      <p>Expected for agents configured with <code>hooks = "none"</code> (opencode). For Claude Code, Codex, or Pi, run <code>cleo doctor</code> and check:</p>
+      <p>For custom agents without a Cleo hook integration, this can be expected. For supported agents, run <code>cleo doctor</code> and check:</p>
 <pre>$ tail -n 50 ~/.config/cleo/hook-trace.log
 $ tail -n 50 ~/.config/cleo/hook-errors.log</pre>
 

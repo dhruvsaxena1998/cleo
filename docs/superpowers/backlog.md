@@ -12,21 +12,25 @@ When an item is taken into a release, move it from this file into the correspond
 
 Already scoped into the v0.2 brainstorm. Listed here only for traceability; the spec is the source of truth.
 
-### v0.3 candidates
+### Implemented since this backlog was written
+
+#### `tmux pane alive but agent process dead` detection
+
+- Implemented in PR #45.
+- This is no longer an active v0.3 backlog item. Reopen only if similar stale-running-session bugs appear.
+
+#### Real hook plugins for opencode and pi
+
+- Implemented before this backlog cleanup.
+- Pi and OpenCode now have hook integrations installed by `cleo init` and checked by `cleo doctor`.
+
+### v0.3 candidates still deferred
 
 #### `FindByCwd` returns `multi_match_first` reason
 
 - Today the cwd lookup returns one session ID; the handler can't tell if there were multiple candidates.
 - Extend `FindByCwd` to return `(sid string, multi bool, err error)` and have the handler set `fallback_reason = "multi_match_first"` when `multi` is true.
 - Small change but invasive (interface + all call sites + tests). Defer to v0.3.
-
-#### Real hook plugins for opencode and pi
-
-- v0.1 ships these agents as managed-only (`hooks = "none"`); cleo can spawn/attach/kill but cannot observe lifecycle.
-- opencode hooks live as a Bun JS plugin at `~/.config/opencode/plugins/cleo.js` (per the original `2026-05-07-cleo-design.md`).
-- pi hooks live as a TypeScript extension at `~/.pi/agent/extensions/cleo.ts`.
-- Both should map to the existing `claude` or `codex` hook protocol so the handler doesn't grow new branches; alternately, define a third minimal protocol if the agents' lifecycle events don't fit either.
-- README "managed-only" caveat goes away once this lands.
 
 #### `cleo logs` aggregator
 
@@ -56,12 +60,6 @@ Already scoped into the v0.2 brainstorm. Listed here only for traceability; the 
 
 - Currently single-buffer (designed in v0.2). If users complain about preview flicker on selection change, cache the last capture per visible session and replace on tick.
 - Trade-off is memory footprint; for ≤ 10 sessions per project the cost is negligible.
-
-#### `tmux pane alive but agent process dead` detection
-
-- For agents with `hooks = "none"` (or claude/codex with broken hooks), if the agent crashes inside tmux but the pane stays alive (e.g. shell prompt remains), the reconciler has no signal — the session sits in `running` forever until tmux itself goes away.
-- Heuristic: `tmux list-panes -F '#{pane_current_command}'`. If the current command is `bash`, `zsh`, `fish`, `sh` and that doesn't match the agent's expected command, mark something. Brittle but better than nothing.
-- Probably warrants a `dead_inside` or `crashed` state distinct from `dead`.
 
 #### Reconciler state-machine refactor
 

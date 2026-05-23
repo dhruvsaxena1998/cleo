@@ -6,14 +6,14 @@ Terminal session manager for AI coding agents.
 
 Cleo lets you run Claude Code, Codex, opencode, pi, or any other terminal-based agent in named tmux sessions, then watch and manage those sessions from one TUI dashboard. Sessions live in tmux, so you can close Cleo, reopen it later, and keep long-running agent work intact.
 
-In v0.1, hook-based lifecycle tracking is implemented for **Claude Code**, **Codex**, and **Pi** (via a TypeScript extension installed by `cleo init`). **opencode** is supported as a managed tmux session (you can spawn, attach, kill, prune it) but Cleo cannot observe its fine-grained state — it remains `running` until the underlying tmux session ends.
+In v0.1, hook-based lifecycle tracking is implemented for **Claude Code**, **Codex**, **Pi**, and **OpenCode** when their hook integrations are installed with `cleo init`. Other terminal agents can still be managed through tmux, with less detailed lifecycle tracking.
 
 ## What Cleo Does
 
 - Registers local projects you want to manage.
 - Spawns agent sessions in tmux with stable session IDs.
 - Shows all registered projects and sessions in a terminal dashboard.
-- Tracks agent state through Claude Code and Codex hook events.
+- Tracks agent state through supported agent hook events.
 - Plays local sounds for important transitions, such as session start, completion, errors, and requests for input.
 - Keeps per-session event logs and archives them when sessions are pruned.
 - Lets you attach, view, rename, kill, and clean up sessions without remembering tmux commands.
@@ -105,7 +105,7 @@ When Cleo attaches you to a tmux session, detach back to the dashboard with your
 
 ## Core Workflow
 
-1. Run `cleo init` once per machine to install hooks for Claude Code and Codex.
+1. Run `cleo init` once per machine to install hooks for supported agents.
 2. Run `cleo add [path]` for each project you want visible in the dashboard.
 3. Start sessions with `cleo run <agent> --name <task-name>`.
 4. Use `cleo` to monitor session states and attach to work that needs attention.
@@ -177,6 +177,8 @@ Installed files:
 | --- | --- |
 | Claude Code | `~/.claude/settings.json` |
 | Codex | `~/.codex/hooks.json`, `~/.codex/config.toml` |
+| Pi | `~/.pi/agent/extensions/cleo.ts` |
+| OpenCode | `~/.config/opencode/plugins/cleo.ts` |
 
 For Codex, `cleo init` also ensures `[features].hooks = true` exists in `~/.codex/config.toml`. After installing Codex hooks, restart open Codex sessions and run `/hooks` in Codex to approve the Cleo hook entries if they appear under review.
 
@@ -193,7 +195,9 @@ This command checks:
 - Claude Code hook entries.
 - Codex hook feature flag.
 - Codex hook entries.
-- Recent Claude and Codex hook trace activity.
+- Pi extension status.
+- OpenCode plugin status.
+- Recent hook trace activity.
 
 Codex keeps hook approval state internally, so `doctor` can verify files but cannot prove that Codex has approved every hook. Use `/hooks` inside Codex for that final approval state.
 
@@ -207,7 +211,7 @@ cleo cleanup --yes
 cleo uninstall --yes
 ```
 
-`cleanup` removes Cleo entries from Claude Code and Codex hook files. It leaves `~/.codex/config.toml` `[features].hooks` unchanged because other Codex hooks may depend on that flag.
+`cleanup` removes Cleo entries from supported agent hook files. It leaves `~/.codex/config.toml` `[features].hooks` unchanged because other Codex hooks may depend on that flag.
 
 ### `cleo add [path]`
 
@@ -319,7 +323,7 @@ Options:
 
 | Option | Meaning |
 | --- | --- |
-| `--keep <n>` | Keep the newest `n` finished sessions per project. Defaults to `retention.prune_keep_default`. |
+| `--keep <n>` | Keep the newest `n` finished sessions per project. Defaults to `pruning.keep_default`. |
 | `--all` | Consider sessions across all projects. |
 | `--dry-run` | Print sessions that would be pruned without changing state. |
 | `--yes` | Skip confirmation. |
@@ -345,75 +349,87 @@ The config file is created on first run with defaults. You can edit it by hand.
 ### Default Config Shape
 
 ```toml
-[defaults]
-detach_key = "C-b d"
 default_agent = "claude"
+
+[tmux]
+detach_key = "C-b d"
 
 [sound]
 enabled = true
 volume = 0.7
 
-[sound.events]
-session_start = "start.wav"
-needs_input = "attention.wav"
-session_idle = "done.wav"
-session_completed = "done.wav"
-session_error = "error.wav"
+[sound.events.session_start]
+file = "start.wav"
+enabled = true
 
-[sound.event_enabled]
-session_start = true
-needs_input = true
-session_idle = true
-session_completed = true
-session_error = true
+[sound.events.needs_input]
+file = "attention.wav"
+enabled = true
+
+[sound.events.session_idle]
+file = "done.wav"
+enabled = true
+
+[sound.events.session_completed]
+file = "done.wav"
+enabled = true
+
+[sound.events.session_error]
+file = "error.wav"
+enabled = true
 
 [agents.claude]
 command = "claude"
 label = "cl"
 color = "#CC785C"
-hooks = "claude"
 
 [agents.codex]
 command = "codex"
 label = "cx"
 color = "#10A37F"
-hooks = "codex"
 
 [agents.opencode]
 command = "opencode"
 label = "oc"
 color = "#FF6B35"
-hooks = "none"
 
 [agents.pi]
 command = "pi"
 label = "pi"
 color = "#7C3AED"
-hooks = "none"
 
 [ui]
-show_pane_preview = true
-pane_preview_lines = 30
-pane_preview_interval = "1.5s"
-event_log_lines = 200
-sidebar_width = 32
 theme = "catppuccin-mocha"
+sidebar_width = 32
+event_log_lines = 200
 
-[retention]
-hint_threshold = 6
-prune_keep_default = 5
+[ui.pane_preview]
+enabled = true
+lines = 30
+interval = "1.5s"
+
+[timeouts]
 idle_to_completed_timeout = "10m"
 spawning_timeout = "30s"
+
+[pruning]
+hint_threshold = 6
+keep_default = 5
 ```
 
 Durations use Go duration strings such as `"500ms"`, `"1.5s"`, `"30s"`, `"10m"`, or `"1h"`.
 
-### `[defaults]`
+### Top-level keys
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `default_agent` | `"claude"` | Default agent name for flows that need one. |
+
+### `[tmux]`
 
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `detach_key` | `"C-b d"` | Tmux detach key Cleo tries to bind for spawned sessions. |
-| `default_agent` | `"claude"` | Default agent name for flows that need one. |
 
 ### `[sound]`
 
@@ -422,9 +438,9 @@ Durations use Go duration strings such as `"500ms"`, `"1.5s"`, `"30s"`, `"10m"`,
 | `enabled` | `true` | Enables sound playback for hook-triggered state transitions. |
 | `volume` | `0.7` | Playback volume in `0.0`–`1.0`. Applied on macOS via `afplay -v`; Linux players (`paplay`/`aplay`/`play`) ignore this value, so use system mixer there. |
 
-### `[sound.events]`
+### `[sound.events.<event>]`
 
-Maps Cleo event names to audio files. Relative paths are resolved under:
+Each sound event has a `file` and `enabled` field. Relative paths are resolved under:
 
 ```text
 ~/.config/cleo/sounds/
@@ -442,11 +458,7 @@ Supported event keys:
 | `session_completed` | The agent reports session end. |
 | `session_error` | Cleo records an error state. |
 
-`cleo init` extracts bundled default WAV files into the sounds directory.
-
-### `[sound.event_enabled]`
-
-Turns individual sound events on or off while keeping their file mappings configured.
+`cleo init` extracts bundled default WAV files into the sounds directory. Set an event's `enabled` field to `false` to mute that event while keeping its file mapping configured.
 
 | Event | Default |
 | --- | --- |
@@ -459,15 +471,14 @@ Turns individual sound events on or off while keeping their file mappings config
 For example, to keep attention and error sounds but disable startup and completion sounds:
 
 ```toml
-[sound.event_enabled]
-session_start = false
-needs_input = true
-session_idle = true
-session_completed = false
-session_error = true
+[sound.events.session_start]
+enabled = false
+
+[sound.events.session_completed]
+enabled = false
 ```
 
-Missing event toggles default to enabled for backward compatibility. You can also disable all sounds at once with `sound.enabled = false`.
+Partial sound event configs are supported: if you override only `enabled`, Cleo keeps the default file. You can also disable all sounds at once with `sound.enabled = false`.
 
 ### Focus-aware sound suppression
 
@@ -486,7 +497,6 @@ Defines agents you can pass to `cleo run <agent>`.
 | `command` | Executable command Cleo starts inside tmux. |
 | `label` | Short label shown in compact UI surfaces. |
 | `color` | Hex color used by the TUI for that agent. |
-| `hooks` | Hook protocol: `"claude"`, `"codex"`, or `"none"`. |
 
 Example custom agent:
 
@@ -495,7 +505,6 @@ Example custom agent:
 command = "myagent"
 label = "ma"
 color = "#3B82F6"
-hooks = "none"
 ```
 
 After this, run:
@@ -504,18 +513,23 @@ After this, run:
 cleo run myagent --name investigate-cache
 ```
 
-Agents with `hooks = "none"` can still be spawned and managed through tmux, but Cleo cannot observe their detailed lifecycle. They generally stay `running` until the tmux session ends or Cleo reconciles them as `dead`.
+Hook support is installed by `cleo init` for supported agents. Custom agents can still be spawned and managed through tmux; without a hook integration, Cleo relies on tmux reconciliation rather than fine-grained lifecycle events.
 
 ### `[ui]`
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `show_pane_preview` | `true` | Show tmux pane output previews in the dashboard. |
-| `pane_preview_lines` | `30` | Number of tmux pane lines to capture for preview. |
-| `pane_preview_interval` | `"1.5s"` | How often the preview refreshes. |
 | `event_log_lines` | `200` | Number of recent event log rows available in the UI. |
 | `sidebar_width` | `32` | Configured sidebar width value. |
 | `theme` | `"catppuccin-mocha"` | Color theme used by the TUI. See list below. |
+
+### `[ui.pane_preview]`
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `enabled` | `true` | Show tmux pane output previews in the dashboard. |
+| `lines` | `30` | Number of tmux pane lines to capture for preview. |
+| `interval` | `"1.5s"` | How often the preview refreshes. |
 
 #### Themes
 
@@ -529,16 +543,21 @@ Agents with `hooks = "none"` can still be spawned and managed through tmux, but 
 | `void` | High-contrast minimal monochrome. | ![void](screenshots/theme-void.png) |
 | `synthwave` | Vivid magenta/cyan neon dark theme. | ![synthwave](screenshots/theme-synthwave.png) |
 
-Unknown values fall back silently to `catppuccin-mocha`. To preview a theme without committing to it, edit `theme` and restart `cleo`.
+Unknown values fall back to `catppuccin-mocha` and are reported as config warnings. To preview a theme without committing to it, edit `theme` and restart `cleo`.
 
-### `[retention]`
+### `[timeouts]`
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `idle_to_completed_timeout` | `"10m"` | Reconciler timeout that moves idle sessions toward completed. |
+| `spawning_timeout` | `"30s"` | Timeout used to detect sessions that never finish startup. |
+
+### `[pruning]`
 
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `hint_threshold` | `6` | Show a cleanup hint when a project has more than this many finished sessions. |
-| `prune_keep_default` | `5` | Default number of finished sessions to keep per project during `cleo prune`. |
-| `idle_to_completed_timeout` | `"10m"` | Reconciler timeout that moves idle sessions toward completed. |
-| `spawning_timeout` | `"30s"` | Timeout used to detect sessions that never finish startup. |
+| `keep_default` | `5` | Default number of finished sessions to keep per project during `cleo prune`. |
 
 ### Editing the config
 
@@ -566,12 +585,14 @@ enabled = false
 Mute routine start/idle/completion sounds, keep the ones that signal you should look at the terminal:
 
 ```toml
-[sound.event_enabled]
-session_start = false
-needs_input = true
-session_idle = false
-session_completed = false
-session_error = true
+[sound.events.session_start]
+enabled = false
+
+[sound.events.session_idle]
+enabled = false
+
+[sound.events.session_completed]
+enabled = false
 ```
 
 #### Lower default volume (macOS)
@@ -589,9 +610,11 @@ On Linux, set the system mixer instead — the `volume` value is ignored.
 Drop your own `.wav` files into `~/.config/cleo/sounds/` and reference them by basename, or use absolute paths:
 
 ```toml
-[sound.events]
-needs_input = "my-attention.wav"
-session_error = "/Users/me/sounds/error-loud.wav"
+[sound.events.needs_input]
+file = "my-attention.wav"
+
+[sound.events.session_error]
+file = "/Users/me/sounds/error-loud.wav"
 ```
 
 #### Switch theme
@@ -610,7 +633,6 @@ Cleo can manage any tmux-runnable command. Without a hook protocol, Cleo can spa
 command = "aider"
 label = "ai"
 color = "#9333EA"
-hooks = "none"
 ```
 
 Then:
@@ -628,7 +650,6 @@ To run Claude Code with extra flags, override the `command`:
 command = "claude --dangerously-skip-permissions"
 label = "cl"
 color = "#CC785C"
-hooks = "claude"
 ```
 
 The whole string is passed to tmux's `new-session`, so flags and arguments are preserved.
@@ -637,24 +658,28 @@ The whole string is passed to tmux's `new-session`, so flags and arguments are p
 
 ```toml
 [ui]
-pane_preview_lines = 60
-pane_preview_interval = "0.75s"
 sidebar_width = 40
 event_log_lines = 500
+
+[ui.pane_preview]
+lines = 60
+interval = "0.75s"
 ```
 
-Increasing `pane_preview_interval` reduces tmux pipe-pane traffic; decreasing it makes the preview feel snappier at the cost of a few more `capture-pane` calls per second.
+Increasing `ui.pane_preview.interval` reduces tmux pane capture traffic; decreasing it makes the preview feel snappier at the cost of a few more `capture-pane` calls per second.
 
-#### Tighter retention
+#### Tighter pruning and timeouts
 
 Auto-promote idle sessions to `completed` faster, and keep fewer finished sessions per project after `cleo prune`:
 
 ```toml
-[retention]
-hint_threshold = 3
-prune_keep_default = 2
+[timeouts]
 idle_to_completed_timeout = "2m"
 spawning_timeout = "15s"
+
+[pruning]
+hint_threshold = 3
+keep_default = 2
 ```
 
 #### Change the default agent
@@ -662,7 +687,6 @@ spawning_timeout = "15s"
 Used by flows that need an agent but don't get one explicitly:
 
 ```toml
-[defaults]
 default_agent = "codex"
 ```
 
@@ -702,6 +726,29 @@ PreToolUse
 PostToolUse
 PermissionRequest
 Stop
+```
+
+Pi events installed by `cleo init`:
+
+```text
+session_start
+input
+tool_call
+tool_result
+agent_end
+session_shutdown
+```
+
+OpenCode events installed by `cleo init`:
+
+```text
+session.created
+tool.execute.before
+tool.execute.after
+permission.asked
+session.idle
+session.deleted
+session.error
 ```
 
 Cleo starts tmux sessions with `CLEO_SESSION_ID` in the environment. Hooks use that value to attribute events to the right Cleo session. If the hook environment does not preserve that variable, Cleo falls back to the hook payload working directory and chooses the most recently started active session for the matching project and agent.
@@ -756,6 +803,8 @@ Agent hook files live in the agent-specific config directories:
 | `~/.claude/settings.json` | Claude Code hooks. |
 | `~/.codex/hooks.json` | Codex hooks. |
 | `~/.codex/config.toml` | Codex hooks feature flag. |
+| `~/.pi/agent/extensions/cleo.ts` | Pi extension. |
+| `~/.config/opencode/plugins/cleo.ts` | OpenCode plugin. |
 
 ## Troubleshooting
 
@@ -787,9 +836,9 @@ Approve the Cleo hook names if Codex lists them under review. Restart any Codex 
 
 ### Sessions stay `running`
 
-For agents configured with `hooks = "none"` (e.g. opencode), this is expected. Cleo can manage the tmux session but cannot observe fine-grained lifecycle events.
+For custom agents without a Cleo hook integration, this can be expected. Cleo can manage the tmux session but may not observe fine-grained lifecycle events.
 
-For Claude Code, Codex, or Pi, run `cleo doctor` and check `~/.config/cleo/hook-trace.log` and `~/.config/cleo/hook-errors.log`.
+For Claude Code, Codex, Pi, or OpenCode, run `cleo doctor` and check `~/.config/cleo/hook-trace.log` and `~/.config/cleo/hook-errors.log`.
 
 ### A session is `dead`
 
