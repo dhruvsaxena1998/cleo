@@ -27,7 +27,7 @@ func ExpectedClaudeEntries(cleoBin string) map[string]any {
 				"hooks": []any{
 					map[string]any{
 						"type":    "command",
-						"command": fmt.Sprintf("%s hook claude %s", cleoBin, ev),
+						"command": fmt.Sprintf("%s hooks invoke claude %s", cleoBin, ev),
 						"timeout": 5,
 					},
 				},
@@ -55,7 +55,7 @@ func InstallClaude(settingsPath, cleoBin string, force bool) error {
 	expected := ExpectedClaudeEntries(cleoBin)
 	for _, ev := range claudeEvents {
 		want := expected[ev]
-		cmd := fmt.Sprintf("%s hook claude %s", cleoBin, ev)
+		cmd := fmt.Sprintf("%s hooks invoke claude %s", cleoBin, ev)
 		if hookCommandPresent(hooks[ev], cmd) {
 			continue // already installed — skip, don't overwrite
 		}
@@ -71,7 +71,7 @@ func InstallClaude(settingsPath, cleoBin string, force bool) error {
 	return os.WriteFile(settingsPath, out, 0o644)
 }
 
-func CleanupClaude(settingsPath string) (int, error) {
+func CleanupClaude(settingsPath string) (CleanupOutcome, error) {
 	return cleanupHookFile(settingsPath, "claude", "settings.json")
 }
 
@@ -86,7 +86,7 @@ func ExpectedCodexEntries(cleoBin string) map[string]any {
 				"hooks": []any{
 					map[string]any{
 						"type":    "command",
-						"command": fmt.Sprintf("%s hook codex %s", cleoBin, ev),
+						"command": fmt.Sprintf("%s hooks invoke codex %s", cleoBin, ev),
 						"timeout": 5,
 					},
 				},
@@ -119,7 +119,7 @@ func InstallCodex(hooksPath, configPath, cleoBin string, force bool) error {
 	expected := ExpectedCodexEntries(cleoBin)
 	for _, ev := range codexEvents {
 		want := expected[ev]
-		cmd := fmt.Sprintf("%s hook codex %s", cleoBin, ev)
+		cmd := fmt.Sprintf("%s hooks invoke codex %s", cleoBin, ev)
 		if hookCommandPresent(hooks[ev], cmd) {
 			continue // already installed — skip, don't overwrite
 		}
@@ -138,27 +138,30 @@ func InstallCodex(hooksPath, configPath, cleoBin string, force bool) error {
 	return ensureCodexFeatureFlag(configPath)
 }
 
-func CleanupCodex(hooksPath string) (int, error) {
+func CleanupCodex(hooksPath string) (CleanupOutcome, error) {
 	return cleanupHookFile(hooksPath, "codex", "hooks.json")
 }
 
-func cleanupHookFile(path, protocol, label string) (int, error) {
+func cleanupHookFile(path, protocol, label string) (CleanupOutcome, error) {
 	b, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
-		return 0, nil
+		return CleanupOutcome{Status: CleanupStatusMissing, Path: path}, nil
 	} else if err != nil {
-		return 0, err
+		return CleanupOutcome{Path: path}, err
 	}
 	var settings map[string]any
 	if err := json.Unmarshal(b, &settings); err != nil {
-		return 0, fmt.Errorf("%s: %w", label, err)
+		return CleanupOutcome{Path: path}, fmt.Errorf("%s: %w", label, err)
 	}
 	removed := removeProtocolHooks(settings, protocol)
 	if removed == 0 {
-		return 0, nil
+		return CleanupOutcome{Status: CleanupStatusMissing, Path: path}, nil
 	}
 	out, _ := json.MarshalIndent(settings, "", "  ")
-	return removed, os.WriteFile(path, out, 0o644)
+	if err := os.WriteFile(path, out, 0o644); err != nil {
+		return CleanupOutcome{Path: path}, err
+	}
+	return CleanupOutcome{Status: CleanupStatusRemoved, Path: path}, nil
 }
 
 func removeProtocolHooks(settings map[string]any, protocol string) int {
@@ -216,7 +219,7 @@ func isCleoHook(rawHook any, protocol string) bool {
 		return false
 	}
 	command, _ := hook["command"].(string)
-	return strings.Contains(command, " hook "+protocol+" ")
+	return strings.Contains(command, " hooks invoke "+protocol+" ")
 }
 
 // ensureCodexFeatureFlag adds `hooks = true` under [features] in the

@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/dhruvsaxena1998/cleo/internal/hooks"
 )
 
 func TestPrintCleanupSummary(t *testing.T) {
@@ -12,14 +14,18 @@ func TestPrintCleanupSummary(t *testing.T) {
 
 	printCleanupSummary(&out, []cleanupResult{
 		{
-			Name:    "Claude Code",
-			Path:    "/home/me/.claude/settings.json",
-			Removed: 8,
+			Name: "Claude Code",
+			Outcome: hooks.CleanupOutcome{
+				Status: hooks.CleanupStatusRemoved,
+				Path:   "/home/me/.claude/settings.json",
+			},
 		},
 		{
-			Name:    "Codex",
-			Path:    "/home/me/.codex/hooks.json",
-			Removed: 6,
+			Name: "Codex",
+			Outcome: hooks.CleanupOutcome{
+				Status: hooks.CleanupStatusRemoved,
+				Path:   "/home/me/.codex/hooks.json",
+			},
 			Notes: []string{
 				"left ~/.codex/config.toml [features].hooks unchanged; that flag may be used by other Codex hooks",
 			},
@@ -30,11 +36,10 @@ func TestPrintCleanupSummary(t *testing.T) {
 	for _, want := range []string{
 		"Cleo hook cleanup complete",
 		"Claude Code",
-		"removed: 8 Cleo hook command(s)",
+		"removed Cleo hook entries",
 		"Codex",
-		"removed: 6 Cleo hook command(s)",
 		"[features].hooks unchanged",
-		"Run cleo init again",
+		"Run cleo hooks init again",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("output missing %q:\n%s", want, got)
@@ -45,22 +50,22 @@ func TestPrintCleanupSummary(t *testing.T) {
 func TestPromptCleanupSelection(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    string
+		input    string // one line per agent: claude, codex, opencode, pi
 		wantKeys []string
 	}{
 		{
-			name:     "all defaults (enter×2)",
-			input:    "\n\n",
-			wantKeys: []string{hookClaude, hookCodex},
+			name:     "all defaults (enter×4)",
+			input:    "\n\n\n\n",
+			wantKeys: []string{hookClaude, hookCodex, hookOpenCode, hookPi},
 		},
 		{
 			name:     "claude only",
-			input:    "y\nn\n",
+			input:    "y\nn\nn\nn\n",
 			wantKeys: []string{hookClaude},
 		},
 		{
 			name:     "none selected",
-			input:    "n\nn\n",
+			input:    "n\nn\nn\nn\n",
 			wantKeys: []string{},
 		},
 	}

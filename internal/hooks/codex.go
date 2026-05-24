@@ -32,10 +32,9 @@ func (CodexProtocol) Install(cleoBin string, force bool) error {
 	)
 }
 
-func (CodexProtocol) Cleanup() error {
+func (CodexProtocol) Cleanup() (CleanupOutcome, error) {
 	home, _ := os.UserHomeDir()
-	_, err := CleanupCodex(filepath.Join(home, ".codex", "hooks.json"))
-	return err
+	return CleanupCodex(filepath.Join(home, ".codex", "hooks.json"))
 }
 
 func (CodexProtocol) Normalize(event string, payload []byte) (NormalizedEvent, bool) {

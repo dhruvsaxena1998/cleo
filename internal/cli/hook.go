@@ -14,7 +14,7 @@ func newHookCmd(getCtx func() *Ctx) *cobra.Command {
 	var payloadFlag string
 
 	cmd := &cobra.Command{
-		Use:    "hook <protocol> <event>",
+		Use:    "invoke <protocol> <event>",
 		Short:  "Internal: invoked by hook configs",
 		Args:   cobra.ExactArgs(2),
 		Hidden: true,

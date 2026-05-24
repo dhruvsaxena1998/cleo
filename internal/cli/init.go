@@ -33,12 +33,23 @@ var (
 
 func newInitCmd(getCtx func() *Ctx) *cobra.Command {
 	var force bool
-	var yes bool
+	var agentsFlag string
 
 	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Install hooks into agent config files",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Validate --agents BEFORE any side effects so an invalid
+			// list cannot trigger sound extraction or context setup.
+			var selected []string
+			if cmd.Flags().Changed("agents") {
+				parsed, err := parseAgentsFlag(agentsFlag)
+				if err != nil {
+					return err
+				}
+				selected = parsed
+			}
+
 			c := getCtx()
 			if err := sound.ExtractDefaults(c.Paths.SoundsDir()); err != nil {
 				return err
@@ -50,8 +61,8 @@ func newInitCmd(getCtx func() *Ctx) *cobra.Command {
 			cleoBin, _ = filepath.Abs(cleoBin)
 			home, _ := os.UserHomeDir()
 
-			selected := []string{hookClaude, hookCodex}
-			if !yes {
+			if selected == nil {
+				selected = []string{hookClaude, hookCodex}
 				br := bufio.NewReader(cmd.InOrStdin())
 				if err := promptHookSelection(cmd.OutOrStdout(), br, &selected); err != nil {
 					return err
@@ -88,7 +99,7 @@ func newInitCmd(getCtx func() *Ctx) *cobra.Command {
 						InstalledHooks:   hooks.CodexEvents(),
 						NeedsCodexReview: true,
 						ReviewHooks:      hooks.CodexEvents(),
-						ReviewCommand:    fmt.Sprintf("%s hook codex", cleoBin),
+						ReviewCommand:    fmt.Sprintf("%s hooks invoke codex", cleoBin),
 					})
 				case hookPi:
 					if err := (hooks.PiProtocol{}).Install(cleoBin, force); err != nil {
@@ -119,7 +130,7 @@ func newInitCmd(getCtx func() *Ctx) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "overwrite conflicting hooks")
-	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "install all supported hook systems without prompting")
+	cmd.Flags().StringVar(&agentsFlag, "agents", "", "comma-separated list of agents to install (claude, codex, opencode, pi); skips interactive prompts")
 	return cmd
 }
 
