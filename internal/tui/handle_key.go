@@ -68,6 +68,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.confirmRemoveProject()
 	case key.Matches(msg, km.Rename):
 		return m.openRenamePopup()
+	case key.Matches(msg, km.Send):
+		return m.openSendPopup()
 	case key.Matches(msg, km.Mute):
 		return m.toggleMute()
 	case key.Matches(msg, km.Help):
@@ -285,6 +287,38 @@ func (m Model) openHelpPopup() (Model, tea.Cmd) {
 	return m, m.popup.Init()
 }
 
+func (m Model) openSendPopup() (Model, tea.Cmd) {
+	sess, ok := m.sessionAtCursor()
+	if !ok {
+		m.status = "select a session with j/k first"
+		return m, nil
+	}
+	if sess.State.IsFinished() {
+		m.status = fmt.Sprintf("%s is %s; cannot send to finished session", sess.ID, sess.State)
+		return m, nil
+	}
+	live, err := m.ctx.Tmux.HasSession(sess.ID)
+	if err != nil || !live {
+		m.status = fmt.Sprintf("%s is no longer running", sess.ID)
+		return m, nil
+	}
+	m.status = ""
+	m.popup = NewSendPopup(sess.ID, m.theme)
+	m.mode = ModePopup
+	return m, m.popup.Init()
+}
+
+func (m Model) performSend(msg SendSubmitted) (Model, tea.Cmd) {
+	m.mode = ModeNormal
+	m.popup = nil
+	if err := m.ctx.Tmux.SendKeys(msg.SessionID, msg.Text); err != nil {
+		m.status = fmt.Sprintf("send failed: %v", err)
+	} else {
+		m.status = fmt.Sprintf("sent to %s", msg.SessionID)
+	}
+	return m, nil
+}
+
 func (m Model) toggleMute() (Model, tea.Cmd) {
 	cfg := m.ctx.Config
 	cfg.Sound.Enabled = !cfg.Sound.Enabled
@@ -469,3 +503,5 @@ func cliInstallFocusHooks(c *cli.Ctx) {
 	cleoBin, _ = filepath.Abs(cleoBin)
 	_ = installer.InstallFocusHooks(cleoBin)
 }
+
+

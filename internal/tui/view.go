@@ -118,7 +118,7 @@ func (m Model) renderFooter(width int) string {
 					m.theme.KeyHint("n", "new sibling"),
 					m.theme.KeyHint("space", "collapse"),
 					m.theme.KeyHint("/", "filter"),
-					m.theme.KeyHint("m", "mute"),
+					m.theme.KeyHint("m", "send"),
 					m.theme.KeyHint("q", "quit"),
 				}
 			}
@@ -138,7 +138,7 @@ func (m Model) renderFooter(width int) string {
 				m.theme.KeyHint("↵ ", "attach"),
 				m.theme.KeyHint("D", "remove project"),
 				m.theme.KeyHint("/", "filter"),
-				m.theme.KeyHint("m", "mute"),
+				m.theme.KeyHint("m", "send"),
 				m.theme.KeyHint("q", "quit"),
 			}
 			if hasFinished {

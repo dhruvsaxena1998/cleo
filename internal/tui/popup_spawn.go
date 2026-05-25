@@ -44,7 +44,7 @@ func NewSpawnPopup(projectID string, projectList []projects.Project, cwd string,
 
 	ni := textinput.New()
 	ni.Placeholder = "optional — auto-generated if empty"
-	ni.CharLimit = 64
+	ni.CharLimit = 32
 
 	p := SpawnPopup{
 		agents:    sorted,
@@ -329,6 +329,7 @@ func (p SpawnPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if p.focusIndex == 1 {
 		var cmd tea.Cmd
 		p.nameInput, cmd = p.nameInput.Update(msg)
+		p.nameInput.SetValue(strings.ReplaceAll(p.nameInput.Value(), " ", "-"))
 		return p, cmd
 	}
 	return p, nil

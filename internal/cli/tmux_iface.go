@@ -8,6 +8,7 @@ type TmuxClient interface {
 	LsPrefix(prefix string) ([]string, error)
 	Kill(name string) error
 	CapturePane(name string, lines int) (string, error)
+	SendKeys(name string, text string) error
 	RenameSession(from, to string) error
 }
 

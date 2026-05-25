@@ -71,6 +71,7 @@ func (f *fakeTmux) CapturePane(_ string, lines int) (string, error) {
 	f.capturedLines = append(f.capturedLines, lines)
 	return "", nil
 }
+func (f *fakeTmux) SendKeys(name string, text string) error { return nil }
 func (f *fakeTmux) RenameSession(from, to string) error { return nil }
 
 func TestRenamePopupOpensAndUpdatesSessionName(t *testing.T) {
@@ -582,6 +583,20 @@ func TestStatusClearsOnPopupOpen(t *testing.T) {
 				m.cursor.agentIdx = 0
 			},
 			open: func(m Model) (Model, tea.Cmd) { return m.openRenamePopup() },
+		},
+		{
+			name: "send",
+			setup: func(m *Model) {
+				m.projects = []projects.Project{{ID: "p1"}}
+				m.sessions = []state.Session{{ID: "s1", ProjectID: "p1", State: state.Running}}
+				m.expanded = map[string]bool{"p1": true}
+				m.cursor.projectIdx = 0
+				m.cursor.agentIdx = 0
+				// openSendPopup guards against missing tmux sessions; mark it live.
+				fake := m.ctx.Tmux.(*fakeTmux)
+				fake.live["s1"] = true
+			},
+			open: func(m Model) (Model, tea.Cmd) { return m.openSendPopup() },
 		},
 	}
 	for _, tc := range cases {

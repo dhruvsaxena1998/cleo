@@ -110,6 +110,47 @@ func TestRenameSession(t *testing.T) {
 	}
 }
 
+func TestSendKeys(t *testing.T) {
+	c := newTestClient(t)
+	// cat reads from stdin and echoes — perfect for verifying send-keys
+	_ = c.NewSession(NewSessionOpts{Name: "cleo-send-test", Cwd: "/tmp", Cmd: "cat"})
+	time.Sleep(150 * time.Millisecond)
+
+	if err := c.SendKeys("cleo-send-test", "hello from cleo"); err != nil {
+		t.Fatal(err)
+	}
+	// Give cat a moment to echo
+	time.Sleep(150 * time.Millisecond)
+
+	out, err := c.CapturePane("cleo-send-test", 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "hello from cleo") {
+		t.Errorf("missing sent text in pane: %q", out)
+	}
+}
+
+func TestSendKeysMultiLine(t *testing.T) {
+	c := newTestClient(t)
+	_ = c.NewSession(NewSessionOpts{Name: "cleo-send-ml", Cwd: "/tmp", Cmd: "cat"})
+	time.Sleep(150 * time.Millisecond)
+
+	text := "line one\nline two"
+	if err := c.SendKeys("cleo-send-ml", text); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(150 * time.Millisecond)
+
+	out, err := c.CapturePane("cleo-send-ml", 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "line one") || !strings.Contains(out, "line two") {
+		t.Errorf("missing multi-line text in pane: %q", out)
+	}
+}
+
 func TestNewSession_SetsAllowPassthrough(t *testing.T) {
 	c := newTestClient(t)
 	name := "cleo-pt-test-1"

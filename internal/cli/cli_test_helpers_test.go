@@ -46,4 +46,5 @@ func (f *fakeTmux) LsPrefix(p string) ([]string, error) {
 }
 func (f *fakeTmux) Kill(n string) error                     { delete(f.exists, n); return nil }
 func (f *fakeTmux) CapturePane(string, int) (string, error) { return "", nil }
+func (f *fakeTmux) SendKeys(string, string) error          { return nil }
 func (f *fakeTmux) RenameSession(from, to string) error     { return nil }

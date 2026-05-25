@@ -23,7 +23,7 @@ type RenameCancelled struct{}
 func NewRenamePopup(sessionID, currentName string, theme Theme) RenamePopup {
 	ti := textinput.New()
 	ti.SetValue(currentName)
-	ti.CharLimit = 64
+	ti.CharLimit = 32
 	ti.Focus()
 	return RenamePopup{sessionID: sessionID, input: ti, theme: theme}
 }
@@ -83,5 +83,6 @@ func (p RenamePopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	var cmd tea.Cmd
 	p.input, cmd = p.input.Update(msg)
+	p.input.SetValue(strings.ReplaceAll(p.input.Value(), " ", "-"))
 	return p, cmd
 }

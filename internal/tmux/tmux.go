@@ -112,6 +112,22 @@ func (c *Client) CapturePane(name string, lines int) (string, error) {
 	return string(out), err
 }
 
+// SendKeys sends text followed by Enter to a tmux session. Each line of text
+// is sent as a literal argument, followed by an Enter keystroke. The final
+// Enter triggers the agent to process the message.
+func (c *Client) SendKeys(name string, text string) error {
+	args := []string{"send-keys", "-t", name}
+	lines := strings.Split(text, "\n")
+	for _, line := range lines {
+		args = append(args, line, "Enter")
+	}
+	out, err := c.cmd(args...).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("tmux send-keys: %w (%s)", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 func (c *Client) RenameSession(from, to string) error {
 	return c.cmd("rename-session", "-t", from, to).Run()
 }

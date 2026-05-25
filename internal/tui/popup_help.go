@@ -36,7 +36,7 @@ func (p HelpPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (p HelpPopup) View() string {
-	const popW = 48
+	const popW = 58
 	bdr := lipgloss.NewStyle().Foreground(p.theme.Overlay1)
 	iw := popW - 2
 	cw := iw - 2
@@ -54,6 +54,7 @@ func (p HelpPopup) View() string {
 		{"Session Actions", []row{
 			{"↵", "attach"},
 			{"v", "view pane"},
+			{"m", "send message (single-line, attach for prompts)"},
 			{"n", "new session"},
 			{"r", "rename"},
 			{"K", "kill session"},
@@ -62,7 +63,7 @@ func (p HelpPopup) View() string {
 		}},
 		{"Global", []row{
 			{"/", "filter"},
-			{"m", "mute / unmute"},
+			{"alt+m", "mute / unmute"},
 			{"?", "help"},
 			{"q", "quit"},
 		}},

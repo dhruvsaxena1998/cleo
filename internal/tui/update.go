@@ -69,6 +69,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.mode = ModeNormal
 		m.popup = nil
 		return m, nil
+	case SendSubmitted:
+		return m.performSend(msg)
+	case SendCancelled:
+		m.status = ""
+		m.mode = ModeNormal
+		m.popup = nil
+		return m, nil
 	case HelpClosed:
 		m.mode = ModeNormal
 		m.popup = nil
