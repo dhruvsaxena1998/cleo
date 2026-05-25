@@ -185,18 +185,22 @@ func (m Model) autoCaptureCmd() tea.Cmd {
 }
 
 func (m Model) openSpawnPopup() (Model, tea.Cmd) {
-	pid, ok := m.projectAtCursor()
-	if !ok {
-		return m, nil
-	}
-	// Status clear comes after the early return: pressing 'n' on an empty
-	// row is a no-op and shouldn't clear an existing status message.
 	m.status = ""
+	pid, ok := m.projectAtCursor()
+
+	var defaultPID string
+	if ok {
+		defaultPID = pid
+	}
+
 	agents := []string{}
 	for k := range m.ctx.Config.Agents {
 		agents = append(agents, k)
 	}
-	m.popup = NewSpawnPopup(pid, agents, m.theme)
+
+	cwd, _ := os.Getwd()
+
+	m.popup = NewSpawnPopup(defaultPID, m.projects, cwd, agents, m.theme)
 	m.mode = ModePopup
 	return m, m.popup.Init()
 }
@@ -296,18 +300,24 @@ func (m Model) performSpawn(s SpawnSubmitted) (Model, tea.Cmd) {
 	if !ok {
 		return m, nil
 	}
-	var proj string
-	for _, p := range m.projects {
-		if p.ID == s.ProjectID {
-			proj = p.Path
-			break
+
+	projectID := s.ProjectID
+	proj := s.Path
+
+	// If ProjectID is empty, this is a new project — register it first.
+	if projectID == "" {
+		registered, err := m.ctx.Projects.Add(s.Path)
+		if err != nil {
+			m.status = fmt.Sprintf("failed to register project: %v", err)
+			m.mode = ModeNormal
+			m.popup = nil
+			return m, nil
 		}
-	}
-	if proj == "" {
-		return m, nil
+		projectID = registered.ID
+		proj = registered.Path
 	}
 	existing := map[string]bool{}
-	prefix := fmt.Sprintf("cleo-%s-%s-", s.ProjectID, s.Agent)
+	prefix := fmt.Sprintf("cleo-%s-%s-", projectID, s.Agent)
 	for _, sess := range m.sessions {
 		if len(sess.ID) > len(prefix) && sess.ID[:len(prefix)] == prefix {
 			existing[sess.Name] = true
@@ -319,9 +329,9 @@ func (m Model) performSpawn(s SpawnSubmitted) (Model, tea.Cmd) {
 	} else {
 		slug = ids.RandomName(existing)
 	}
-	sid := ids.MakeSessionID(s.ProjectID, s.Agent, slug)
+	sid := ids.MakeSessionID(projectID, s.Agent, slug)
 	_ = m.ctx.State.Put(state.Session{
-		ID: sid, ProjectID: s.ProjectID, Agent: s.Agent, Name: slug, State: state.Spawning,
+		ID: sid, ProjectID: projectID, Agent: s.Agent, Name: slug, State: state.Spawning,
 		StartedAt: time.Now(),
 	})
 	if err := m.ctx.Tmux.NewSession(tmux.NewSessionOpts{
