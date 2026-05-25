@@ -104,7 +104,7 @@ func capturePaneArgs(name string, lines int) []string {
 	if lines <= 0 {
 		lines = 30
 	}
-	return []string{"capture-pane", "-p", "-S", fmt.Sprintf("-%d", lines), "-t", name + ":."}
+	return []string{"capture-pane", "-e", "-p", "-S", fmt.Sprintf("-%d", lines), "-t", name + ":."}
 }
 
 func (c *Client) CapturePane(name string, lines int) (string, error) {

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/dhruvsaxena1998/cleo/internal/state"
 )
 
@@ -129,7 +130,6 @@ func (m Model) renderPreviewPanel(w, h int, sess state.Session, has bool) string
 	}
 
 	faint := lipgloss.NewStyle().Foreground(m.theme.Overlay0)
-	dimmed := lipgloss.NewStyle().Foreground(m.theme.Subtext0)
 
 	if !has {
 		return m.theme.PanelBox("Terminal Preview", "tmux capture-pane -p",
@@ -168,13 +168,9 @@ func (m Model) renderPreviewPanel(w, h int, sess state.Session, has bool) string
 	shown := allLines[start:]
 	body := make([]string, len(shown))
 	for i, l := range shown {
-		// Truncate the RAW line to the panel inner width BEFORE styling.
-		// truncateWidth walks runes including ANSI escape bytes, so cutting
-		// an already-styled string risks slicing mid-escape and leaking
-		// style codes. By pre-truncating the raw text and then wrapping it
-		// in dimmed styling, PanelBox's downstream clamp becomes a no-op
-		// and we never present a sliced escape to the terminal.
-		body[i] = dimmed.Render(truncateWidth(l, w-4))
+		// Truncate with ANSI-awareness so escape sequences aren't sliced
+		// mid-code. Raw ANSI passes through to preserve agent output colors.
+		body[i] = ansi.Truncate(l, w-4, "")
 	}
 	return m.theme.PanelBox("Terminal Preview", hint, body, w, h)
 }

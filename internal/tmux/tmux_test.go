@@ -74,15 +74,15 @@ func TestCapturePane(t *testing.T) {
 
 func TestCapturePaneArgsIncludeScrollbackFlag(t *testing.T) {
 	args := capturePaneArgs("cleo-foo", 50)
-	want := []string{"capture-pane", "-p", "-S", "-50", "-t", "cleo-foo:."}
+	want := []string{"capture-pane", "-e", "-p", "-S", "-50", "-t", "cleo-foo:."}
 	if !equalStrings(args, want) {
 		t.Errorf("argv: want %v, got %v", want, args)
 	}
 
 	// Default fallback when lines <= 0
 	args = capturePaneArgs("cleo-bar", 0)
-	if args[3] != "-30" {
-		t.Errorf("default lines: want -30, got %s", args[3])
+	if args[4] != "-30" {
+		t.Errorf("default lines: want -30, got %s", args[4])
 	}
 }
 
