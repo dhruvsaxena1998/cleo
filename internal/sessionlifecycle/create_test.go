@@ -155,6 +155,47 @@ func TestCreateInstallsFocusHooksWhenTmuxAdapterSupportsThem(t *testing.T) {
 	}
 }
 
+func TestCreateReportsMissingAgentCommandBeforeWritingSession(t *testing.T) {
+	root := t.TempDir()
+	projectPath := mkdirProjectDir(t, "myapp")
+	p := paths.NewWithRoot(root)
+	projectStore := projects.NewStore(p.ProjectsFile())
+	registered, err := projectStore.Add(projectPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stateStore := state.NewStore(p.StateFile(), p.StateLock())
+	cfg := testConfig()
+	cfg.Agents["codex"] = config.Agent{Command: "definitely-not-a-real-cleo-test-command"}
+	fake := &fakeTmux{}
+	lifecycle := sessionlifecycle.New(sessionlifecycle.Options{
+		Config:   cfg,
+		Projects: projectStore,
+		State:    stateStore,
+		Tmux:     fake,
+	})
+
+	_, err = lifecycle.Create(sessionlifecycle.CreateInput{
+		Agent:     "codex",
+		Name:      "missing-command",
+		ProjectID: registered.ID,
+	})
+	if !errors.Is(err, sessionlifecycle.ErrLaunchFailed) {
+		t.Fatalf("Create error = %v, want ErrLaunchFailed", err)
+	}
+	if !strings.Contains(err.Error(), "agent command") || !strings.Contains(err.Error(), "not found in PATH") {
+		t.Fatalf("Create error = %q, want actionable missing-command message", err.Error())
+	}
+	if len(fake.created) != 0 {
+		t.Fatalf("tmux should not launch when command is missing: %#v", fake.created)
+	}
+	if sessions, err := stateStore.List(); err != nil {
+		t.Fatal(err)
+	} else if len(sessions) != 0 {
+		t.Fatalf("missing command should not write sessions: %#v", sessions)
+	}
+}
+
 func TestCreateRollsBackSessionWhenTmuxLaunchReturnsButSessionIsNotAlive(t *testing.T) {
 	root := t.TempDir()
 	projectPath := mkdirProjectDir(t, "myapp")
@@ -345,8 +386,8 @@ func assertCreatedSession(t *testing.T, p paths.Paths, fake *fakeTmux, result se
 	if len(fake.created) != 1 || fake.created[0].Name != result.Session.ID || fake.created[0].Cwd != wantCwd {
 		t.Fatalf("tmux created = %#v, want one launch for %q in %q", fake.created, result.Session.ID, wantCwd)
 	}
-	if fake.created[0].Cmd != "claude" {
-		t.Fatalf("tmux command = %q, want claude", fake.created[0].Cmd)
+	if fake.created[0].Cmd != "sh" {
+		t.Fatalf("tmux command = %q, want sh", fake.created[0].Cmd)
 	}
 	if fake.created[0].Env["CLEO_SESSION_ID"] != result.Session.ID {
 		t.Fatalf("tmux CLEO_SESSION_ID = %q, want %q", fake.created[0].Env["CLEO_SESSION_ID"], result.Session.ID)
@@ -382,7 +423,7 @@ func newTestLifecycle(p paths.Paths, tmux sessionlifecycle.TmuxLauncher) *sessio
 func testConfig() config.Config {
 	return config.Config{
 		Agents: map[string]config.Agent{
-			"claude": {Command: "claude"},
+			"claude": {Command: "sh"},
 		},
 	}
 }

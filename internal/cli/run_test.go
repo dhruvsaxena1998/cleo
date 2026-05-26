@@ -15,6 +15,7 @@ func TestRunSpawnsAndRecordsSession(t *testing.T) {
 	_ = mkdir(target)
 
 	c, _ := NewCtxWithRoot(root)
+	usePortableAgentCommand(c, "claude")
 	_, _ = c.Projects.Add(target)
 
 	// Use a fake tmux that records calls instead of running the binary.
@@ -53,6 +54,7 @@ func TestRunWithoutNameUsesDockerStyleGeneratedName(t *testing.T) {
 	_ = mkdir(target)
 
 	c, _ := NewCtxWithRoot(root)
+	usePortableAgentCommand(c, "claude")
 	_, _ = c.Projects.Add(target)
 	fake := &fakeTmux{}
 	c.Tmux = fake

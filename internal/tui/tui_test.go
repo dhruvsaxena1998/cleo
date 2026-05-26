@@ -29,11 +29,21 @@ func newTestCtx(t *testing.T) *cli.Ctx {
 	if err != nil {
 		t.Fatal(err)
 	}
+	usePortableAgentCommand(c, "claude")
+	usePortableAgentCommand(c, "codex")
+	usePortableAgentCommand(c, "opencode")
+	usePortableAgentCommand(c, "pi")
 	c.Tmux = &fakeTmux{live: map[string]bool{}}
 	return c
 }
 
 func mkdirAll(p string) error { return os.MkdirAll(p, 0o755) }
+
+func usePortableAgentCommand(c *cli.Ctx, agentName string) {
+	agent := c.Config.Agents[agentName]
+	agent.Command = "sh"
+	c.Config.Agents[agentName] = agent
+}
 
 func contains(b []byte, s string) bool {
 	return strings.Contains(string(b), s)
@@ -72,7 +82,7 @@ func (f *fakeTmux) CapturePane(_ string, lines int) (string, error) {
 	return "", nil
 }
 func (f *fakeTmux) SendKeys(name string, text string) error { return nil }
-func (f *fakeTmux) RenameSession(from, to string) error { return nil }
+func (f *fakeTmux) RenameSession(from, to string) error     { return nil }
 
 func TestRenamePopupOpensAndUpdatesSessionName(t *testing.T) {
 	root := t.TempDir()

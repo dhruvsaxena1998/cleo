@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -83,6 +84,10 @@ func (l *Lifecycle) Create(input CreateInput) (CreateResult, error) {
 		return CreateResult{}, err
 	}
 
+	if err := validateAgentCommand(input.Agent, agent.Command); err != nil {
+		return CreateResult{}, err
+	}
+
 	existing, err := l.existingSessionNames(proj.ID, input.Agent)
 	if err != nil {
 		return CreateResult{}, err
@@ -119,6 +124,35 @@ func (l *Lifecycle) Create(input CreateInput) (CreateResult, error) {
 	l.installFocusHooks()
 	l.bindDetachKey()
 	return CreateResult{Session: sess, Project: proj, ProjectRegistered: registered}, nil
+}
+
+func validateAgentCommand(agentName, command string) error {
+	fields := strings.Fields(command)
+	if len(fields) == 0 {
+		return fmt.Errorf("%w: agent %q has an empty command", ErrLaunchFailed, agentName)
+	}
+	binary := fields[0]
+	for strings.Contains(binary, "=") && !strings.Contains(binary, string(filepath.Separator)) && len(fields) > 1 {
+		parts := strings.SplitN(binary, "=", 2)
+		if parts[0] == "" || strings.ContainsAny(parts[0], " \t") {
+			break
+		}
+		fields = fields[1:]
+		binary = fields[0]
+	}
+	if binary == "env" && len(fields) > 1 {
+		return validateAgentCommand(agentName, strings.Join(fields[1:], " "))
+	}
+	if strings.Contains(binary, string(filepath.Separator)) {
+		if _, err := os.Stat(binary); err != nil {
+			return fmt.Errorf("%w: agent command for %q (%q) not found: %v", ErrLaunchFailed, agentName, binary, err)
+		}
+		return nil
+	}
+	if _, err := exec.LookPath(binary); err != nil {
+		return fmt.Errorf("%w: agent command for %q (%q) not found in PATH", ErrLaunchFailed, agentName, binary)
+	}
+	return nil
 }
 
 func (l *Lifecycle) verifySessionAlive(sid string) error {
