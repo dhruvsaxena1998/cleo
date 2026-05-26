@@ -93,6 +93,15 @@ func (m Model) renderFooter(width int) string {
 	sep := faint.Render("  ·  ")
 
 	var hints []string
+	if m.status != "" && m.mode != ModeFilter {
+		hints = []string{
+			lipgloss.NewStyle().Foreground(m.theme.Red).Bold(true).Render(m.status),
+			m.theme.KeyHint("esc", "clear"),
+			m.theme.KeyHint("q", "quit"),
+		}
+		line := "  " + strings.Join(hints, sep)
+		return lipgloss.NewStyle().Background(m.theme.Base).Width(width).Render(truncateWidth(line, width))
+	}
 	switch {
 	case m.mode == ModeFilter:
 		hints = []string{

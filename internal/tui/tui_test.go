@@ -303,6 +303,38 @@ func TestConfigWarningsShowStartupStatus(t *testing.T) {
 	}
 }
 
+func TestSpawnFailureStatusRendersInFooter(t *testing.T) {
+	c := newTestCtx(t)
+	target := filepath.Join(t.TempDir(), "myapp")
+	if err := mkdirAll(target); err != nil {
+		t.Fatal(err)
+	}
+	registered, err := c.Projects.Add(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	agent := c.Config.Agents["codex"]
+	agent.Command = "zzcleo"
+	c.Config.Agents["codex"] = agent
+
+	m := New(c)
+	m.projects, _ = c.Projects.List()
+	m.width = 120
+	m.height = 40
+
+	updated, _ := m.performSpawn(SpawnSubmitted{
+		ProjectID: registered.ID,
+		Path:      target,
+		Agent:     "codex",
+		Name:      "will-fail",
+	})
+
+	view := updated.View()
+	if !strings.Contains(view, "agent command for \"codex\"") || !strings.Contains(view, "not found in PATH") {
+		t.Fatalf("spawn failure status should render in footer, status=%q view=%q", updated.status, view)
+	}
+}
+
 func TestSpawnRollsBackStateWhenTmuxCreationFails(t *testing.T) {
 	c := newTestCtx(t)
 	target := filepath.Join(t.TempDir(), "myapp")
