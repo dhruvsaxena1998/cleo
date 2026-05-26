@@ -18,6 +18,7 @@ import (
 var (
 	ErrProjectRegistrationNeeded = errors.New("project registration needed")
 	ErrUnknownAgent              = errors.New("unknown agent")
+	ErrLaunchFailed              = errors.New("session launch failed")
 )
 
 type TmuxLauncher interface {
@@ -109,11 +110,30 @@ func (l *Lifecycle) Create(input CreateInput) (CreateResult, error) {
 		Env:  map[string]string{"CLEO_SESSION_ID": sid},
 	}); err != nil {
 		_ = l.state.Delete(sid)
+		return CreateResult{}, fmt.Errorf("%w: %v", ErrLaunchFailed, err)
+	}
+	if err := l.verifySessionAlive(sid); err != nil {
+		_ = l.state.Delete(sid)
 		return CreateResult{}, err
 	}
 	l.installFocusHooks()
 	l.bindDetachKey()
 	return CreateResult{Session: sess, Project: proj, ProjectRegistered: registered}, nil
+}
+
+func (l *Lifecycle) verifySessionAlive(sid string) error {
+	checker, ok := l.tmux.(interface{ HasSession(string) (bool, error) })
+	if !ok {
+		return nil
+	}
+	live, err := checker.HasSession(sid)
+	if err != nil {
+		return fmt.Errorf("%w: verify tmux session: %v", ErrLaunchFailed, err)
+	}
+	if !live {
+		return fmt.Errorf("%w: tmux session exited immediately", ErrLaunchFailed)
+	}
+	return nil
 }
 
 func (l *Lifecycle) bindDetachKey() {

@@ -155,6 +155,37 @@ func TestCreateInstallsFocusHooksWhenTmuxAdapterSupportsThem(t *testing.T) {
 	}
 }
 
+func TestCreateRollsBackSessionWhenTmuxLaunchReturnsButSessionIsNotAlive(t *testing.T) {
+	root := t.TempDir()
+	projectPath := mkdirProjectDir(t, "myapp")
+	p := paths.NewWithRoot(root)
+	projectStore := projects.NewStore(p.ProjectsFile())
+	registered, err := projectStore.Add(projectPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stateStore := state.NewStore(p.StateFile(), p.StateLock())
+	fake := &fakeTmux{verifySession: true, hasSession: false}
+	lifecycle := sessionlifecycle.New(sessionlifecycle.Options{
+		Config:   testConfig(),
+		Projects: projectStore,
+		State:    stateStore,
+		Tmux:     fake,
+	})
+
+	_, err = lifecycle.Create(sessionlifecycle.CreateInput{
+		Agent:     "claude",
+		Name:      "exits-immediately",
+		ProjectID: registered.ID,
+	})
+	if !errors.Is(err, sessionlifecycle.ErrLaunchFailed) {
+		t.Fatalf("Create error = %v, want ErrLaunchFailed", err)
+	}
+	if _, err := stateStore.Get("cleo-myapp-claude-exits-immediately"); !errors.Is(err, state.ErrSessionNotFound) {
+		t.Fatalf("exited create should roll back session, got err=%v", err)
+	}
+}
+
 func TestCreateRollsBackSessionWhenTmuxLaunchFails(t *testing.T) {
 	root := t.TempDir()
 	projectPath := mkdirProjectDir(t, "myapp")
@@ -359,6 +390,8 @@ func testConfig() config.Config {
 type fakeTmux struct {
 	created                 []tmux.NewSessionOpts
 	onNewSession            func(tmux.NewSessionOpts) error
+	verifySession           bool
+	hasSession              bool
 	focusHooksInstalledWith string
 	detachKeyBound          string
 }
@@ -366,9 +399,18 @@ type fakeTmux struct {
 func (f *fakeTmux) NewSession(o tmux.NewSessionOpts) error {
 	f.created = append(f.created, o)
 	if f.onNewSession != nil {
-		return f.onNewSession(o)
+		if err := f.onNewSession(o); err != nil {
+			return err
+		}
+	}
+	if !f.verifySession {
+		f.hasSession = true
 	}
 	return nil
+}
+
+func (f *fakeTmux) HasSession(string) (bool, error) {
+	return f.hasSession, nil
 }
 
 func (f *fakeTmux) InstallFocusHooks(cleoBin string) error {
