@@ -5,8 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -15,8 +13,8 @@ import (
 	"github.com/dhruvsaxena1998/cleo/internal/config"
 	"github.com/dhruvsaxena1998/cleo/internal/events"
 	"github.com/dhruvsaxena1998/cleo/internal/ids"
+	"github.com/dhruvsaxena1998/cleo/internal/sessionlifecycle"
 	"github.com/dhruvsaxena1998/cleo/internal/state"
-	"github.com/dhruvsaxena1998/cleo/internal/tmux"
 )
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -330,60 +328,28 @@ func (m Model) toggleMute() (Model, tea.Cmd) {
 
 // performSpawn executes the spawn flow when SpawnSubmitted message arrives.
 func (m Model) performSpawn(s SpawnSubmitted) (Model, tea.Cmd) {
-	agent, ok := m.ctx.Config.Agents[s.Agent]
-	if !ok {
+	if _, ok := m.ctx.Config.Agents[s.Agent]; !ok {
 		return m, nil
 	}
 
-	projectID := s.ProjectID
-	proj := s.Path
-
-	// If ProjectID is empty, this is a new project — register it first.
-	if projectID == "" {
-		registered, err := m.ctx.Projects.Add(s.Path)
-		if err != nil {
-			m.status = fmt.Sprintf("failed to register project: %v", err)
-			m.mode = ModeNormal
-			m.popup = nil
-			return m, nil
-		}
-		projectID = registered.ID
-		proj = registered.Path
-	}
-	existing := map[string]bool{}
-	prefix := fmt.Sprintf("cleo-%s-%s-", projectID, s.Agent)
-	for _, sess := range m.sessions {
-		if len(sess.ID) > len(prefix) && sess.ID[:len(prefix)] == prefix {
-			existing[sess.Name] = true
-		}
-	}
-	var slug string
-	if s.Name != "" {
-		slug = ids.DedupeSlug(ids.Slugify(s.Name), existing)
-	} else {
-		slug = ids.RandomName(existing)
-	}
-	sid := ids.MakeSessionID(projectID, s.Agent, slug)
-	_ = m.ctx.State.Put(state.Session{
-		ID: sid, ProjectID: projectID, Agent: s.Agent, Name: slug, State: state.Spawning,
-		StartedAt: time.Now(),
+	lifecycle := sessionlifecycle.New(sessionlifecycle.Options{
+		Config:   m.ctx.Config,
+		Projects: m.ctx.Projects,
+		State:    m.ctx.State,
+		Tmux:     m.ctx.Tmux,
 	})
-	if err := m.ctx.Tmux.NewSession(tmux.NewSessionOpts{
-		Name: sid, Cwd: proj, Cmd: agent.Command,
-		Env: map[string]string{"CLEO_SESSION_ID": sid},
-	}); err != nil {
-		_ = m.ctx.State.Delete(sid)
+	_, err := lifecycle.Create(sessionlifecycle.CreateInput{
+		Agent:               s.Agent,
+		Name:                s.Name,
+		Path:                s.Path,
+		ProjectID:           s.ProjectID,
+		AutoRegisterProject: s.ProjectID == "",
+	})
+	if err != nil {
 		m.status = fmt.Sprintf("spawn failed: %v", err)
 		m.mode = ModeNormal
 		m.popup = nil
 		return m, loadStateCmd(m.ctx)
-	}
-	cliInstallFocusHooks(m.ctx)
-	if dk := m.ctx.Config.Tmux.DetachKey; dk != "" {
-		parts := strings.Fields(dk)
-		if len(parts) >= 2 {
-			_ = exec.Command("tmux", "bind-key", parts[len(parts)-1], "detach-client").Run()
-		}
 	}
 	m.mode = ModeNormal
 	m.popup = nil
@@ -503,5 +469,3 @@ func cliInstallFocusHooks(c *cli.Ctx) {
 	cleoBin, _ = filepath.Abs(cleoBin)
 	_ = installer.InstallFocusHooks(cleoBin)
 }
-
-

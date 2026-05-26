@@ -33,6 +33,14 @@ func (c *Client) cmd(args ...string) *exec.Cmd {
 	return exec.Command("tmux", full...)
 }
 
+func (c *Client) BindDetachKey(detachKey string) error {
+	parts := strings.Fields(detachKey)
+	if len(parts) < 2 {
+		return nil
+	}
+	return c.cmd("bind-key", parts[len(parts)-1], "detach-client").Run()
+}
+
 func (c *Client) NewSession(o NewSessionOpts) error {
 	if o.Name == "" {
 		return errors.New("tmux: empty session name")
