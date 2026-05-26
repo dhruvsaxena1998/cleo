@@ -16,6 +16,14 @@ GitHub Actions (`.github/workflows/release.yml`) runs goreleaser on pushed tags,
 
 ## Process
 
+**Step 0 — determine version.** Always start by finding the latest tag and asking the user what the next version should be:
+
+```bash
+git tag --sort=-version:refname | head -3
+```
+
+Present the latest tag (e.g., `v0.1.2`) and ask: *"What should the next version be?"* Suggest the likely semver bump (patch/minor). Do not proceed until the user confirms a version.
+
 See [CHECKLIST.md](CHECKLIST.md) for the full step-by-step. High-level order:
 
 1. **Version** — bump in `internal/cli/root.go`

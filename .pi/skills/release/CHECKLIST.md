@@ -1,5 +1,20 @@
 # Release Checklist
 
+## 0. Determine version
+
+Find the latest tag:
+
+```bash
+git tag --sort=-version:refname | head -3
+```
+
+**Ask the user** what version to release next. Print the latest tag and suggest the likely semver bump:
+- Patch (`v0.1.2` → `v0.1.3`) for bug fixes only
+- Minor (`v0.1.2` → `v0.2.0`) for new features
+- Major (`v0.1.2` → `v1.0.0`) for breaking changes
+
+Do not proceed until the user confirms a specific version number.
+
 ## 1. Bump version
 
 Edit `internal/cli/root.go`:
