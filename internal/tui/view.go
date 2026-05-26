@@ -33,9 +33,12 @@ func renderFrame(m Model) string {
 		bodyH = 8
 	}
 
-	sideW := w * 36 / 100
-	if sideW < 32 {
-		sideW = 32
+	sideW := m.ctx.Config.UI.SidebarWidth
+	if sideW > w-40 {
+		sideW = w - 40
+	}
+	if sideW < 10 {
+		sideW = 10
 	}
 	mainW := w - sideW
 	if mainW < 40 {

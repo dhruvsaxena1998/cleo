@@ -267,7 +267,7 @@ show_pane_preview     = true       # the live mirror in `v` view
 pane_preview_lines    = 30
 pane_preview_interval = "1500ms"
 event_log_lines       = 200
-sidebar_width         = 32
+sidebar_width         = 48
 
 # Retention
 [retention]

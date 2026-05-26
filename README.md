@@ -400,7 +400,7 @@ color = "#7C3AED"
 
 [ui]
 theme = "catppuccin-mocha"
-sidebar_width = 32
+sidebar_width = 48
 event_log_lines = 200
 
 [ui.pane_preview]
@@ -520,7 +520,7 @@ Hook support is installed by `cleo hooks init` for supported agents. Custom agen
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `event_log_lines` | `200` | Number of recent event log rows available in the UI. |
-| `sidebar_width` | `32` | Configured sidebar width value. |
+| `sidebar_width` | `48` | Sidebar width in character columns (10–200). |
 | `theme` | `"catppuccin-mocha"` | Color theme used by the TUI. See list below. |
 
 ### `[ui.pane_preview]`
