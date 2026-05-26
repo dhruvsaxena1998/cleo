@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-05-25
+
+### Added
+- Send-keys popup: press `m` on a session to send text directly to its tmux pane via `send-keys`.
+- Add project from TUI: the spawn popup (`n`) now includes an editable path field with filesystem autocomplete, so you can register new projects without leaving the dashboard.
+- ANSI color passthrough in terminal preview: `tmux capture-pane -e` preserves escape sequences, and preview refresh interval is now 500ms for faster updates.
+
+### Changed
+- `cleo hook <protocol>` renamed to `cleo hooks invoke <protocol>` everywhere (configs, hook templates, docs).
+- `cleo hooks` CLI restructured: `init`, `cleanup`, and hidden `invoke` subcommands.
+- `sidebar_width` config default bumped from 32 to 48 columns.
+- Mute keybinding moved from `m` to `alt+m` (now that `m` opens the send-keys popup).
+- Spawn and rename inputs now replace spaces with dashes, max 32 characters.
+- Popup widths increased (send-keys 68, spawn 64, help 58).
+
+### Fixed
+- `sidebar_width` config was parsed and validated but never wired to TUI rendering — sidebar was always 36% of terminal width. Now uses the configured value.
+
 ## [0.1.1] - 2026-05-23
 
 ### Changed

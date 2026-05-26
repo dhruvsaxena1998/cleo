@@ -462,7 +462,7 @@ html { scroll-behavior: smooth; }
         <line x1="29.5" y1="22.5" x2="24" y2="21.6" stroke-width="0.7" opacity="0.55"/>
       </svg>
       <span>cleo</span>
-      <span class="nav-version">v0.1.1</span>
+      <span class="nav-version">v0.1.2</span>
     </a>
     <div class="nav-links">
       <a href="docs.html" class="active">docs</a>
@@ -591,7 +591,7 @@ $ ./bin/cleo --version</pre>
 
 <h3 id="verify">Verify the install</h3>
 <pre>$ cleo --version
-<span class="ok">v0.1.1</span></pre>
+<span class="ok">v0.1.2</span></pre>
 
       <p class="muted">If <code>cleo --version</code> prints anything else, see <a href="#troubleshooting" class="link">Troubleshooting</a>.</p>
 
@@ -900,7 +900,7 @@ color   = <span class="a">"#7C3AED"</span></pre>
 <pre>[ui]
 theme                 = <span class="a">"catppuccin-mocha"</span>
 event_log_lines       = <span class="a">200</span>
-sidebar_width         = <span class="a">32</span>
+sidebar_width         = <span class="a">48</span>
 
 [ui.pane_preview]
 enabled  = <span class="a">true</span>
@@ -910,7 +910,7 @@ interval = <span class="a">"1.5s"</span></pre>
       <div class="cmd-table">
         <div class="cmd-row"><span class="cmd">[ui.pane_preview]</span><span class="desc">Nested pane preview settings: <code>enabled</code>, <code>lines</code>, and <code>interval</code>.</span></div>
         <div class="cmd-row"><span class="cmd">event_log_lines</span><span class="desc">Number of recent event log rows available in the UI.</span></div>
-        <div class="cmd-row"><span class="cmd">sidebar_width</span><span class="desc">Configured sidebar width.</span></div>
+        <div class="cmd-row"><span class="cmd">sidebar_width</span><span class="desc">Sidebar width in character columns (10–200).</span></div>
         <div class="cmd-row"><span class="cmd">theme</span><span class="desc">TUI color theme. See the table below. Unknown values fall back to <code>catppuccin-mocha</code> and are reported as config warnings.</span></div>
       </div>
 

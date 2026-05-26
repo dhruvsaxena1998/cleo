@@ -1094,7 +1094,7 @@ html[data-anim] .install-pill button.copied { animation: copyPulse 320ms ease-ou
         <line x1="29.5" y1="22.5" x2="24" y2="21.6" stroke-width="0.7" opacity="0.55"/>
       </svg>
       <span>cleo</span>
-      <span class="nav-version">v0.1.1</span>
+      <span class="nav-version">v0.1.2</span>
     </a>
     <div class="nav-links">
       <a href="docs.html">docs</a>
@@ -1116,7 +1116,7 @@ html[data-anim] .install-pill button.copied { animation: copyPulse 320ms ease-ou
 <section class="hero" id="main" data-od-id="hero">
   <div class="container">
     <div class="hero-text">
-      <div class="eyebrow"><span class="dot"></span> current release · v0.1.1</div>
+      <div class="eyebrow"><span class="dot"></span> current release · v0.1.2</div>
       <h1>A session manager for <em>terminal-based AI agents.</em></h1>
       <p class="lede">
         Cleo runs <strong>Claude Code, Codex, opencode, pi</strong>, and any other terminal agent in named tmux sessions. One TUI dashboard to herd them. <strong>Nine lives in tmux</strong>, so the work keeps going whether you're watching or not.
@@ -1228,7 +1228,8 @@ html[data-anim] .install-pill button.copied { animation: copyPulse 320ms ease-ou
             <span><span class="key">K</span>kill</span>
             <span><span class="key">n</span>new sibling</span>
             <span><span class="key">/</span>filter</span>
-            <span><span class="key">m</span>mute</span>
+            <span><span class="key">m</span>send keys</span>
+            <span><span class="key">alt+m</span>mute</span>
             <span><span class="key">q</span>quit</span>
             <span class="cursor"></span>
           </div>
@@ -1332,7 +1333,7 @@ $ cleo run <span class="ac">claude</span> --name fix-auth
         <div class="num">02</div>
         <div>
           <h3>One dashboard, every session</h3>
-          <p>All registered projects and their sessions in a single TUI. Filter with <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">/</code>, attach with <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">↵</code>, view without attaching with <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">v</code>, kill with <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">K</code>.</p>
+          <p>All registered projects and their sessions in a single TUI. Filter with <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">/</code>, attach with <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">↵</code>, view with <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">v</code>, send input with <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">m</code>, kill with <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">K</code>.</p>
         </div>
       </div>
 
@@ -1348,7 +1349,7 @@ $ cleo run <span class="ac">claude</span> --name fix-auth
         <div class="num">04</div>
         <div>
           <h3>Audible transitions</h3>
-          <p>Plays a local WAV for the moments worth interrupting for: <em>session start, needs input, idle, completed, error</em>. Mute with <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">m</code>; auto-suppresses while you're focused on the session.</p>
+          <p>Plays a local WAV for the moments worth interrupting for: <em>session start, needs input, idle, completed, error</em>. Mute with <code style="font-family:var(--font-mono);font-size:13px;color:var(--muted)">alt+m</code>; auto-suppresses while you're focused on the session.</p>
         </div>
       </div>
 
@@ -1397,7 +1398,7 @@ $ curl -fsSL <span class="a">https://github.com/dhruvsaxena1998/cleo/raw/main/sc
 
         <div class="step-h">2 · verify</div>
 <pre>$ cleo --version
-<span class="ok">v0.1.1</span></pre>
+<span class="ok">v0.1.2</span></pre>
 
         <div class="step-h">homebrew option</div>
 <pre><span class="c"># package-manager install</span>
@@ -1406,7 +1407,7 @@ $ brew install <span class="a">cleo</span></pre>
 
         <div class="step-h">3 · install hooks for supported agents</div>
 <pre><span class="c"># writes hook entries for claude, codex, pi, and opencode</span>
-$ cleo <span class="a">init</span>
+$ cleo <span class="a">hooks init</span>
 <span class="ok">✓</span> claude code hooks
 <span class="ok">✓</span> codex hooks
 <span class="ok">✓</span> pi extension
