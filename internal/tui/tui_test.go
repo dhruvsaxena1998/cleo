@@ -29,11 +29,21 @@ func newTestCtx(t *testing.T) *cli.Ctx {
 	if err != nil {
 		t.Fatal(err)
 	}
+	usePortableAgentCommand(c, "claude")
+	usePortableAgentCommand(c, "codex")
+	usePortableAgentCommand(c, "opencode")
+	usePortableAgentCommand(c, "pi")
 	c.Tmux = &fakeTmux{live: map[string]bool{}}
 	return c
 }
 
 func mkdirAll(p string) error { return os.MkdirAll(p, 0o755) }
+
+func usePortableAgentCommand(c *cli.Ctx, agentName string) {
+	agent := c.Config.Agents[agentName]
+	agent.Command = "sh"
+	c.Config.Agents[agentName] = agent
+}
 
 func contains(b []byte, s string) bool {
 	return strings.Contains(string(b), s)
@@ -72,7 +82,7 @@ func (f *fakeTmux) CapturePane(_ string, lines int) (string, error) {
 	return "", nil
 }
 func (f *fakeTmux) SendKeys(name string, text string) error { return nil }
-func (f *fakeTmux) RenameSession(from, to string) error { return nil }
+func (f *fakeTmux) RenameSession(from, to string) error     { return nil }
 
 func TestRenamePopupOpensAndUpdatesSessionName(t *testing.T) {
 	root := t.TempDir()
@@ -290,6 +300,38 @@ func TestConfigWarningsShowStartupStatus(t *testing.T) {
 	}
 	if m.status != "config warnings: run cleo doctor" {
 		t.Fatalf("status = %q", m.status)
+	}
+}
+
+func TestSpawnFailureStatusRendersInFooter(t *testing.T) {
+	c := newTestCtx(t)
+	target := filepath.Join(t.TempDir(), "myapp")
+	if err := mkdirAll(target); err != nil {
+		t.Fatal(err)
+	}
+	registered, err := c.Projects.Add(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	agent := c.Config.Agents["codex"]
+	agent.Command = "zzcleo"
+	c.Config.Agents["codex"] = agent
+
+	m := New(c)
+	m.projects, _ = c.Projects.List()
+	m.width = 120
+	m.height = 40
+
+	updated, _ := m.performSpawn(SpawnSubmitted{
+		ProjectID: registered.ID,
+		Path:      target,
+		Agent:     "codex",
+		Name:      "will-fail",
+	})
+
+	view := updated.View()
+	if !strings.Contains(view, "agent command for \"codex\"") || !strings.Contains(view, "not found in PATH") {
+		t.Fatalf("spawn failure status should render in footer, status=%q view=%q", updated.status, view)
 	}
 }
 

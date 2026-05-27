@@ -5,12 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
 
-	"github.com/dhruvsaxena1998/cleo/internal/events"
+	"github.com/dhruvsaxena1998/cleo/internal/sessionlifecycle"
 )
 
 func newPruneCmd(getCtx func() *Ctx) *cobra.Command {
@@ -32,47 +31,54 @@ func newPruneCmd(getCtx func() *Ctx) *cobra.Command {
 			if len(args) == 1 {
 				projectFilter = args[0]
 			}
-			sessions, _ := c.State.List()
-			candidates := []string{}
-			byProj := map[string][]int{}
-			for i, s := range sessions {
-				if !s.State.IsFinished() {
-					continue
-				}
-				if !all && projectFilter != "" && s.ProjectID != projectFilter {
-					continue
-				}
-				byProj[s.ProjectID] = append(byProj[s.ProjectID], i)
+
+			lifecycle := sessionlifecycle.New(sessionlifecycle.Options{
+				Config:   c.Config,
+				Projects: c.Projects,
+				State:    c.State,
+				Tmux:     c.Tmux,
+				Paths:    c.Paths,
+				Focus:    c.Focus,
+			})
+
+			// Preview candidates.
+			preview, err := lifecycle.Prune(sessionlifecycle.PruneInput{
+				ProjectID:   projectFilter,
+				Keep:        keep,
+				AllProjects: all,
+				DryRun:      true,
+			})
+			if err != nil {
+				return err
 			}
-			for _, idxs := range byProj {
-				sort.Slice(idxs, func(i, j int) bool {
-					return sessions[idxs[i]].LastEventAt.After(sessions[idxs[j]].LastEventAt)
-				})
-				for i, idx := range idxs {
-					if i < keep {
-						continue
-					}
-					candidates = append(candidates, sessions[idx].ID)
-				}
-			}
+
 			if dryRun {
-				for _, id := range candidates {
+				for _, id := range preview.Pruned {
 					fmt.Fprintln(cmd.OutOrStdout(), id)
 				}
 				return nil
 			}
+
 			if !yes {
-				fmt.Fprintf(cmd.OutOrStdout(), "prune %d session(s)? [y/N] ", len(candidates))
+				fmt.Fprintf(cmd.OutOrStdout(), "prune %d session(s)? [y/N] ", len(preview.Pruned))
 				ans, _ := bufio.NewReader(os.Stdin).ReadString('\n')
 				if strings.TrimSpace(strings.ToLower(ans)) != "y" {
 					return errors.New("aborted")
 				}
 			}
-			for _, id := range candidates {
-				_ = events.Archive(c.Paths.EventsLog(id), c.Paths.ArchiveDir())
-				_ = c.State.Delete(id)
+
+			result, err := lifecycle.Prune(sessionlifecycle.PruneInput{
+				ProjectID:   projectFilter,
+				Keep:        keep,
+				AllProjects: all,
+			})
+			if err != nil {
+				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "pruned %d session(s)\n", len(candidates))
+			for _, w := range result.Warnings {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %v\n", w)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "pruned %d session(s)\n", len(result.Pruned))
 			return nil
 		},
 	}

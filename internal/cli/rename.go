@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/dhruvsaxena1998/cleo/internal/ids"
+	"github.com/dhruvsaxena1998/cleo/internal/sessionlifecycle"
 )
 
 func newRenameCmd(getCtx func() *Ctx) *cobra.Command {
@@ -15,17 +15,19 @@ func newRenameCmd(getCtx func() *Ctx) *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getCtx()
-			sess, err := c.State.Get(args[0])
+			lifecycle := sessionlifecycle.New(sessionlifecycle.Options{
+				Config:   c.Config,
+				Projects: c.Projects,
+				State:    c.State,
+				Tmux:     c.Tmux,
+				Paths:    c.Paths,
+				Focus:    c.Focus,
+			})
+			result, err := lifecycle.Rename(args[0], args[1])
 			if err != nil {
-				return fmt.Errorf("session %q not found", args[0])
-			}
-			oldSlug := sess.Name
-			newSlug := ids.Slugify(args[1])
-			sess.Name = newSlug
-			if err := c.State.Put(sess); err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "renamed %s: %s → %s\n", sess.ID, oldSlug, newSlug)
+			fmt.Fprintf(cmd.OutOrStdout(), "renamed %s: %s → %s\n", result.SessionID, result.OldName, result.NewName)
 			return nil
 		},
 	}

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/dhruvsaxena1998/cleo/internal/config"
 	"github.com/dhruvsaxena1998/cleo/internal/tmux"
 )
 
@@ -20,6 +21,15 @@ func testRootedCtx(t *testing.T, root string) func() *Ctx {
 }
 
 func mkdir(p string) error { return os.MkdirAll(p, 0o755) }
+
+func usePortableAgentCommand(c *Ctx, agentName string) {
+	agent := c.Config.Agents[agentName]
+	agent.Command = "sh"
+	if c.Config.Agents == nil {
+		c.Config.Agents = map[string]config.Agent{}
+	}
+	c.Config.Agents[agentName] = agent
+}
 
 type fakeTmux struct {
 	created []tmux.NewSessionOpts
@@ -46,5 +56,5 @@ func (f *fakeTmux) LsPrefix(p string) ([]string, error) {
 }
 func (f *fakeTmux) Kill(n string) error                     { delete(f.exists, n); return nil }
 func (f *fakeTmux) CapturePane(string, int) (string, error) { return "", nil }
-func (f *fakeTmux) SendKeys(string, string) error          { return nil }
+func (f *fakeTmux) SendKeys(string, string) error           { return nil }
 func (f *fakeTmux) RenameSession(from, to string) error     { return nil }
