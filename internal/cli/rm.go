@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/dhruvsaxena1998/cleo/internal/projects"
+	"github.com/dhruvsaxena1998/cleo/internal/sessionlifecycle"
 )
 
 func newRmCmd(getCtx func() *Ctx) *cobra.Command {
@@ -54,12 +55,26 @@ func newRmCmd(getCtx func() *Ctx) *cobra.Command {
 				}
 			}
 
-			for _, id := range inactiveSessions {
-				_ = c.State.Delete(id)
+			lifecycle := sessionlifecycle.New(sessionlifecycle.Options{
+				Config:   c.Config,
+				Projects: c.Projects,
+				State:    c.State,
+				Tmux:     c.Tmux,
+				Paths:    c.Paths,
+				Focus:    c.Focus,
+			})
+
+			result, err := lifecycle.RemoveProjectSessions(sessionlifecycle.RemoveProjectSessionsInput{
+				ProjectID: proj.ID,
+				Force:     force,
+			})
+			if err != nil {
+				return err
 			}
-			for _, id := range activeSessions {
-				_ = c.State.Delete(id)
+			for _, w := range result.Warnings {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %v\n", w)
 			}
+
 			if err := c.Projects.Remove(proj.ID); err != nil {
 				return err
 			}

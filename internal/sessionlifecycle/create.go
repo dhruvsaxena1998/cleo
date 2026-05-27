@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"github.com/dhruvsaxena1998/cleo/internal/config"
+	"github.com/dhruvsaxena1998/cleo/internal/focus"
 	"github.com/dhruvsaxena1998/cleo/internal/ids"
+	"github.com/dhruvsaxena1998/cleo/internal/paths"
 	"github.com/dhruvsaxena1998/cleo/internal/projects"
 	"github.com/dhruvsaxena1998/cleo/internal/state"
 	"github.com/dhruvsaxena1998/cleo/internal/tmux"
@@ -20,6 +22,7 @@ var (
 	ErrProjectRegistrationNeeded = errors.New("project registration needed")
 	ErrUnknownAgent              = errors.New("unknown agent")
 	ErrLaunchFailed              = errors.New("session launch failed")
+	ErrSessionNotFound           = errors.New("session not found")
 )
 
 type TmuxLauncher interface {
@@ -31,6 +34,8 @@ type Options struct {
 	Projects     *projects.Store
 	State        *state.Store
 	Tmux         TmuxLauncher
+	Paths        paths.Paths
+	Focus        *focus.Store
 	CleoBin      string
 	GenerateName func(existing map[string]bool) string
 }
@@ -40,6 +45,8 @@ type Lifecycle struct {
 	projects     *projects.Store
 	state        *state.Store
 	tmux         TmuxLauncher
+	paths        paths.Paths
+	focus        *focus.Store
 	cleoBin      string
 	generateName func(existing map[string]bool) string
 }
@@ -54,6 +61,8 @@ func New(opts Options) *Lifecycle {
 		projects:     opts.Projects,
 		state:        opts.State,
 		tmux:         opts.Tmux,
+		paths:        opts.Paths,
+		focus:        opts.Focus,
 		cleoBin:      opts.CleoBin,
 		generateName: generateName,
 	}

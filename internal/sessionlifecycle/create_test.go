@@ -433,8 +433,11 @@ type fakeTmux struct {
 	onNewSession            func(tmux.NewSessionOpts) error
 	verifySession           bool
 	hasSession              bool
+	live                    map[string]bool // per-session liveness; if set takes priority over hasSession
 	focusHooksInstalledWith string
 	detachKeyBound          string
+	killed                  []string
+	killErr                 error
 }
 
 func (f *fakeTmux) NewSession(o tmux.NewSessionOpts) error {
@@ -450,7 +453,10 @@ func (f *fakeTmux) NewSession(o tmux.NewSessionOpts) error {
 	return nil
 }
 
-func (f *fakeTmux) HasSession(string) (bool, error) {
+func (f *fakeTmux) HasSession(name string) (bool, error) {
+	if f.live != nil {
+		return f.live[name], nil
+	}
 	return f.hasSession, nil
 }
 
@@ -461,5 +467,13 @@ func (f *fakeTmux) InstallFocusHooks(cleoBin string) error {
 
 func (f *fakeTmux) BindDetachKey(detachKey string) error {
 	f.detachKeyBound = detachKey
+	return nil
+}
+
+func (f *fakeTmux) Kill(n string) error {
+	f.killed = append(f.killed, n)
+	if f.killErr != nil {
+		return f.killErr
+	}
 	return nil
 }
