@@ -124,7 +124,9 @@ func (p SpawnPopup) View() string {
 	b.WriteString(bdr.Render("│") + " " + titleLeft + strings.Repeat(" ", gap) + titleRight + " " + bdr.Render("│") + "\n")
 	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
 
-	blank := func() { b.WriteString(bdr.Render("│") + " " + strings.Repeat(" ", cw) + " " + bdr.Render("│") + "\n") }
+	blank := func() {
+		b.WriteString(bdr.Render("│") + " " + strings.Repeat(" ", cw) + " " + bdr.Render("│") + "\n")
+	}
 	row := func(s string) {
 		b.WriteString(bdr.Render("│") + " " + padRight(truncateWidth(s, cw), cw) + " " + bdr.Render("│") + "\n")
 	}
