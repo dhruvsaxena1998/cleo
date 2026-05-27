@@ -35,7 +35,7 @@ func TestLoadDefaultsWritesNewConfigShape(t *testing.T) {
 	if c.Agents["claude"].Label != "cl" {
 		t.Errorf("claude label: %q", c.Agents["claude"].Label)
 	}
-	if c.UI.PanePreview.Interval != 500*time.Millisecond {
+	if c.UI.PanePreview.Interval != 2000*time.Millisecond {
 		t.Errorf("interval: %v", c.UI.PanePreview.Interval)
 	}
 	if c.Timeouts.IdleToCompletedTimeout != 10*time.Minute {

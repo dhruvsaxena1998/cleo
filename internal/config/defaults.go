@@ -30,7 +30,7 @@ func Defaults_() Config {
 			PanePreview: PanePreview{
 				Enabled:  true,
 				Lines:    30,
-				Interval: 500 * time.Millisecond,
+				Interval: 2000 * time.Millisecond,
 			},
 		},
 		Timeouts: Timeouts{

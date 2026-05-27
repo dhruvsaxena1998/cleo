@@ -47,7 +47,7 @@ type previewTickMsg struct{}
 
 func previewTickCmd(interval time.Duration) tea.Cmd {
 	if interval <= 0 {
-		interval = 1500 * time.Millisecond
+		interval = 2000 * time.Millisecond
 	}
 	return tea.Tick(interval, func(time.Time) tea.Msg { return previewTickMsg{} })
 }
