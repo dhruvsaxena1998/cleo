@@ -474,6 +474,43 @@ func TestPreviewEmptyShowsLoading(t *testing.T) {
 	}
 }
 
+// TestPaneCapturedMsgSkipsCacheUpdateOnUnchangedContent locks in the
+// content-diff optimization for issue #34: paneCache must NOT be updated
+// when the captured content is identical, so Bubble Tea's output dedup can
+// skip the preview repaint entirely.
+func TestPaneCapturedMsgSkipsCacheUpdateOnUnchangedContent(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	m.paneCache = map[string]string{"s1": "unchanged content"}
+	m.sessions = []state.Session{{ID: "s1", State: state.Running, ProjectID: "p"}}
+	m.projects = []projects.Project{{ID: "p"}}
+	m.expanded = map[string]bool{"p": true}
+	m.cursor.projectIdx = 0
+	m.cursor.agentIdx = 0
+	m.paneCaptureInFlight = true
+
+	// Send a paneCapturedMsg with the SAME content that's already cached.
+	m2, _ := m.Update(paneCapturedMsg{sid: "s1", content: "unchanged content"})
+	updated := m2.(Model)
+
+	// paneCache must NOT be replaced (same value means the map entry is
+	// untouched, so Bubble Tea's render dedup sees identical View output).
+	if got := updated.paneCache["s1"]; got != "unchanged content" {
+		t.Errorf("paneCache should preserve old value, got %q", got)
+	}
+	// paneCaptureInFlight must still be cleared (critical for ticker health).
+	if updated.paneCaptureInFlight {
+		t.Error("paneCaptureInFlight must be cleared even on unchanged content")
+	}
+
+	// Now send DIFFERENT content — cache must update.
+	m3, _ := updated.Update(paneCapturedMsg{sid: "s1", content: "new content"})
+	updated2 := m3.(Model)
+	if got := updated2.paneCache["s1"]; got != "new content" {
+		t.Errorf("paneCache should update on content change, got %q", got)
+	}
+}
+
 // updateAsModel runs Update and asserts the resulting tea.Model is a Model.
 // Used by the Esc-hierarchy and status-clear tests below.
 func updateAsModel(m Model, msg tea.Msg) Model {

@@ -84,9 +84,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.paneCache == nil {
 			m.paneCache = map[string]string{}
 		}
-		m.paneCache[msg.sid] = msg.content
 		m.paneCaptureInFlight = false
-		// The previewTickCmd drives itself — do not schedule another tick here.
+		// Diff before render: skip cache update when content is unchanged so
+		// Bubble Tea's own output dedup avoids a repaint of the preview panel.
+		if m.paneCache[msg.sid] != msg.content {
+			m.paneCache[msg.sid] = msg.content
+		}
 		return m, nil
 	case previewTickMsg:
 		next := previewTickCmd(m.ctx.Config.UI.PanePreview.Interval)
