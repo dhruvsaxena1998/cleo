@@ -72,3 +72,53 @@ func TestFocusTTLIsUnder10Minutes(t *testing.T) {
 		t.Error("focused=true with UpdatedAt 6 min ago should be treated as stale (TTL must be <= 5 min)")
 	}
 }
+
+func TestReadPrunesStaleEntries(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(filepath.Join(dir, "focus.json"))
+
+	tenMinAgo := time.Now().Add(-10 * time.Minute)
+	now := time.Now()
+
+	// Seed file with one stale entry and one fresh entry.
+	f := fileFormat{
+		Sessions: map[string]sessionFocus{
+			"stale-session":        {Focused: true, UpdatedAt: tenMinAgo},
+			"fresh-session":        {Focused: true, UpdatedAt: now},
+			"stale-false-session":  {Focused: false, UpdatedAt: tenMinAgo},
+			"fresh-false-session":  {Focused: false, UpdatedAt: now},
+		},
+	}
+	b, _ := json.MarshalIndent(f, "", "  ")
+	if err := os.WriteFile(store.path, b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// After a Set() (which calls read + write), stale entries should be gone.
+	if err := store.Set("fresh-session", false); err != nil {
+		t.Fatal(err)
+	}
+
+	// Re-read the file directly to verify stale entries were not persisted.
+	raw, err := os.ReadFile(store.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var onDisk fileFormat
+	if err := json.Unmarshal(raw, &onDisk); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, exists := onDisk.Sessions["stale-session"]; exists {
+		t.Error("stale-session should have been pruned from disk after Set()")
+	}
+	if _, exists := onDisk.Sessions["stale-false-session"]; exists {
+		t.Error("stale-false-session should have been pruned from disk after Set()")
+	}
+	if _, exists := onDisk.Sessions["fresh-session"]; !exists {
+		t.Error("fresh-session should still be on disk")
+	}
+	if _, exists := onDisk.Sessions["fresh-false-session"]; !exists {
+		t.Error("fresh-false-session should still be on disk")
+	}
+}

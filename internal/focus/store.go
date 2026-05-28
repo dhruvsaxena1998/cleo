@@ -63,7 +63,17 @@ func (s *Store) read() (fileFormat, error) {
 		return fileFormat{}, err
 	}
 	var f fileFormat
-	return f, json.Unmarshal(b, &f)
+	if err := json.Unmarshal(b, &f); err != nil {
+		return fileFormat{}, err
+	}
+	// Prune entries older than focusTTL so focus.json stays bounded.
+	// The next Set() call will persist the compacted map to disk.
+	for id, sf := range f.Sessions {
+		if !sf.UpdatedAt.IsZero() && time.Since(sf.UpdatedAt) > focusTTL {
+			delete(f.Sessions, id)
+		}
+	}
+	return f, nil
 }
 
 func (s *Store) write(f fileFormat) error {
