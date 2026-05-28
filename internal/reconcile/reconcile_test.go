@@ -9,6 +9,219 @@ import (
 	"github.com/dhruvsaxena1998/cleo/internal/state"
 )
 
+// -- Pure Decide tests (no I/O, no temp dirs) --
+
+func needAction(t *testing.T, actions []Action, wantSID string, wantEvent state.Event, wantBump bool) Action {
+	t.Helper()
+	for _, a := range actions {
+		if a.SessionID == wantSID && a.Event == wantEvent {
+			if a.BumpTime != wantBump {
+				t.Errorf("session %s: BumpTime = %v, want %v", wantSID, a.BumpTime, wantBump)
+			}
+			return a
+		}
+	}
+	t.Errorf("session %s: no action with event %s found among %d actions", wantSID, wantEvent, len(actions))
+	return Action{}
+}
+
+func wantNoAction(t *testing.T, actions []Action, sid string) {
+	t.Helper()
+	for _, a := range actions {
+		if a.SessionID == sid {
+			t.Errorf("session %s: unexpected action %s", sid, a.Event)
+			return
+		}
+	}
+}
+
+func TestDecide_MissingSessionMarkedDead(t *testing.T) {
+	now := time.Now()
+	sessions := []state.Session{
+		{ID: "s1", State: state.Running, LastEventAt: now},
+	}
+	liveSet := map[string]bool{}
+
+	actions := Decide(sessions, liveSet, now, Options{IdleTimeout: time.Hour, SpawningTimeout: 30 * time.Second})
+
+	if len(actions) != 1 {
+		t.Fatalf("want 1 action, got %d", len(actions))
+	}
+	a := actions[0]
+	if a.SessionID != "s1" {
+		t.Errorf("want s1, got %s", a.SessionID)
+	}
+	if a.Event != state.EvDead {
+		t.Errorf("want EvDead, got %s", a.Event)
+	}
+	if a.BumpTime {
+		t.Error("EvDead should not bump time")
+	}
+}
+
+func TestDecide_ExistingDeadSessionNotReDead(t *testing.T) {
+	now := time.Now()
+	sessions := []state.Session{
+		{ID: "s1", State: state.Dead, LastEventAt: now},
+	}
+	liveSet := map[string]bool{}
+
+	actions := Decide(sessions, liveSet, now, Options{IdleTimeout: time.Hour, SpawningTimeout: 30 * time.Second})
+
+	if len(actions) != 0 {
+		t.Errorf("want 0 actions, got %d: %+v", len(actions), actions)
+	}
+}
+
+func TestDecide_CompletedSessionWithLiveTmuxRevived(t *testing.T) {
+	now := time.Now()
+	sessions := []state.Session{
+		{ID: "s1", State: state.Completed, LastEventAt: now.Add(-30 * time.Minute)},
+	}
+	liveSet := map[string]bool{"s1": true}
+
+	actions := Decide(sessions, liveSet, now, Options{IdleTimeout: time.Hour, SpawningTimeout: 30 * time.Second})
+
+	needAction(t, actions, "s1", state.EvUserResume, true)
+}
+
+func TestDecide_CompletedSessionWithDeadTmuxMarkedDead(t *testing.T) {
+	now := time.Now()
+	sessions := []state.Session{
+		{ID: "s1", State: state.Completed, LastEventAt: now.Add(-30 * time.Minute)},
+	}
+	liveSet := map[string]bool{}
+
+	actions := Decide(sessions, liveSet, now, Options{IdleTimeout: time.Hour, SpawningTimeout: 30 * time.Second})
+
+	// Completed + not in live set → hits the first condition (missing not dead) → EvDead
+	needAction(t, actions, "s1", state.EvDead, false)
+}
+
+func TestDecide_SpawningTimeoutAdvancesToRunning(t *testing.T) {
+	now := time.Now()
+	sessions := []state.Session{
+		{ID: "s1", State: state.Spawning, StartedAt: now.Add(-1 * time.Minute)},
+	}
+	liveSet := map[string]bool{"s1": true}
+
+	actions := Decide(sessions, liveSet, now, Options{IdleTimeout: time.Hour, SpawningTimeout: 5 * time.Second})
+
+	a := needAction(t, actions, "s1", state.EvSessionStart, true)
+	if a.Message == "" {
+		t.Error("spawning advance action should carry a message")
+	}
+}
+
+func TestDecide_SpawningTimeoutDoesNotFireEarly(t *testing.T) {
+	now := time.Now()
+	sessions := []state.Session{
+		{ID: "s1", State: state.Spawning, StartedAt: now.Add(-1 * time.Second)},
+	}
+	liveSet := map[string]bool{"s1": true}
+
+	actions := Decide(sessions, liveSet, now, Options{IdleTimeout: time.Hour, SpawningTimeout: 5 * time.Second})
+
+	wantNoAction(t, actions, "s1")
+}
+
+func TestDecide_IdleTimeoutPromotesToCompleted(t *testing.T) {
+	now := time.Now()
+	sessions := []state.Session{
+		{ID: "s1", State: state.Idle, LastEventAt: now.Add(-30 * time.Minute)},
+	}
+	liveSet := map[string]bool{"s1": true}
+
+	actions := Decide(sessions, liveSet, now, Options{IdleTimeout: 10 * time.Minute, SpawningTimeout: 30 * time.Second})
+
+	needAction(t, actions, "s1", state.EvIdleTimeout, false)
+}
+
+func TestDecide_WaitingForInputDowngradesToIdle(t *testing.T) {
+	now := time.Now()
+	sessions := []state.Session{
+		{ID: "s1", State: state.WaitingForInput, LastEventAt: now.Add(-10 * time.Minute)},
+	}
+	liveSet := map[string]bool{"s1": true}
+
+	actions := Decide(sessions, liveSet, now, Options{IdleTimeout: 1 * time.Minute, SpawningTimeout: 30 * time.Second})
+
+	needAction(t, actions, "s1", state.EvIdleTimeout, false)
+}
+
+// Two-cycle test: WaitingForInput → Idle (first call), then Idle → Completed (second call).
+// Simulates applying the action manually since Decide is pure.
+func TestDecide_WaitingForInputTwoCycle(t *testing.T) {
+	now := time.Now()
+	baseSession := state.Session{ID: "s1", State: state.WaitingForInput, LastEventAt: now.Add(-10 * time.Minute)}
+	liveSet := map[string]bool{"s1": true}
+	opts := Options{IdleTimeout: 1 * time.Minute, SpawningTimeout: 30 * time.Second}
+
+	// First cycle: WaitingForInput → Idle (EvIdleTimeout, no bump)
+	actions1 := Decide([]state.Session{baseSession}, liveSet, now, opts)
+	_ = needAction(t, actions1, "s1", state.EvIdleTimeout, false)
+
+	// Simulate applying the action: state transitions to Idle, LastEventAt unchanged
+	s1 := baseSession
+	s1.State = state.NextState(s1.State, state.EvIdleTimeout)
+	if s1.State != state.Idle {
+		t.Fatalf("after first EvIdleTimeout, want Idle, got %s", s1.State)
+	}
+	// LastEventAt must NOT be bumped
+	if !s1.LastEventAt.Equal(baseSession.LastEventAt) {
+		t.Fatal("LastEventAt was bumped after EvIdleTimeout")
+	}
+
+	// Second cycle: Idle → Completed (EvIdleTimeout, no bump)
+	actions2 := Decide([]state.Session{s1}, liveSet, now, opts)
+	a := needAction(t, actions2, "s1", state.EvIdleTimeout, false)
+
+	// Verify the transition would complete it
+	completedState := state.NextState(s1.State, a.Event)
+	if completedState != state.Completed {
+		t.Fatalf("after second EvIdleTimeout, want Completed, got %s", completedState)
+	}
+}
+
+func TestDecide_NoActionForRunningSession(t *testing.T) {
+	now := time.Now()
+	sessions := []state.Session{
+		{ID: "s1", State: state.Running, LastEventAt: now},
+	}
+	liveSet := map[string]bool{"s1": true}
+
+	actions := Decide(sessions, liveSet, now, Options{IdleTimeout: time.Hour, SpawningTimeout: 30 * time.Second})
+
+	if len(actions) != 0 {
+		t.Errorf("want 0 actions, got %d: %+v", len(actions), actions)
+	}
+}
+
+func TestDecide_MultipleSessionsMixed(t *testing.T) {
+	now := time.Now()
+	sessions := []state.Session{
+		{ID: "s1", State: state.Running, LastEventAt: now},                                // missing → EvDead
+		{ID: "s2", State: state.Dead, LastEventAt: now},                                   // already dead → skip
+		{ID: "s3", State: state.Completed, LastEventAt: now.Add(-30 * time.Minute)},        // live → EvUserResume
+		{ID: "s4", State: state.Idle, LastEventAt: now.Add(-30 * time.Minute)},             // idle timeout → EvIdleTimeout
+		{ID: "s5", State: state.Running, LastEventAt: now},                                // live running → skip
+	}
+	liveSet := map[string]bool{"s3": true, "s4": true, "s5": true}
+
+	actions := Decide(sessions, liveSet, now, Options{IdleTimeout: 10 * time.Minute, SpawningTimeout: 30 * time.Second})
+
+	if len(actions) != 3 {
+		t.Fatalf("want 3 actions, got %d: %+v", len(actions), actions)
+	}
+	needAction(t, actions, "s1", state.EvDead, false)
+	wantNoAction(t, actions, "s2")
+	needAction(t, actions, "s3", state.EvUserResume, true)
+	needAction(t, actions, "s4", state.EvIdleTimeout, false)
+	wantNoAction(t, actions, "s5")
+}
+
+// -- Existing RunOpts integration tests (regression for the wrapper) --
+
 type fakeTmux struct{ existing []string }
 
 func (f *fakeTmux) LsPrefix(string) ([]string, error) { return f.existing, nil }
