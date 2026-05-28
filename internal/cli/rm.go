@@ -55,14 +55,7 @@ func newRmCmd(getCtx func() *Ctx) *cobra.Command {
 				}
 			}
 
-			lifecycle := sessionlifecycle.New(sessionlifecycle.Options{
-				Config:   c.Config,
-				Projects: c.Projects,
-				State:    c.State,
-				Tmux:     c.Tmux,
-				Paths:    c.Paths,
-				Focus:    c.Focus,
-			})
+			lifecycle := c.NewLifecycle()
 
 			result, err := lifecycle.RemoveProjectSessions(sessionlifecycle.RemoveProjectSessionsInput{
 				ProjectID: proj.ID,

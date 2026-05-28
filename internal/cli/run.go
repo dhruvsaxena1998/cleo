@@ -44,12 +44,7 @@ func newRunCmd(getCtx func() *Ctx) *cobra.Command {
 			}
 			cwd, _ = filepath.Abs(cwd)
 
-			lifecycle := sessionlifecycle.New(sessionlifecycle.Options{
-				Config:   c.Config,
-				Projects: c.Projects,
-				State:    c.State,
-				Tmux:     c.Tmux,
-			})
+			lifecycle := c.NewLifecycle()
 			result, err := lifecycle.Create(sessionlifecycle.CreateInput{
 				Agent:               agentName,
 				Name:                name,
@@ -78,7 +73,7 @@ func newRunCmd(getCtx func() *Ctx) *cobra.Command {
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "spawned %s\n", result.Session.ID)
 			if !noAttach {
-				markFocused(c, result.Session.ID, true)
+				lifecycle.SetFocused(result.Session.ID, true)
 				var attachCmd *exec.Cmd
 				if os.Getenv("TMUX") != "" {
 					attachCmd = exec.Command("tmux", "switch-client", "-t", result.Session.ID)
@@ -89,7 +84,7 @@ func newRunCmd(getCtx func() *Ctx) *cobra.Command {
 				attachCmd.Stdout = os.Stdout
 				attachCmd.Stderr = os.Stderr
 				_ = attachCmd.Run()
-				markFocused(c, result.Session.ID, false)
+				lifecycle.SetFocused(result.Session.ID, false)
 			}
 			return nil
 		},

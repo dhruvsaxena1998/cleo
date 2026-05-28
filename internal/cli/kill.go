@@ -8,8 +8,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-
-	"github.com/dhruvsaxena1998/cleo/internal/sessionlifecycle"
 )
 
 func newKillCmd(getCtx func() *Ctx) *cobra.Command {
@@ -28,14 +26,7 @@ func newKillCmd(getCtx func() *Ctx) *cobra.Command {
 					return errors.New("aborted")
 				}
 			}
-			lifecycle := sessionlifecycle.New(sessionlifecycle.Options{
-				Config:   c.Config,
-				Projects: c.Projects,
-				State:    c.State,
-				Tmux:     c.Tmux,
-				Paths:    c.Paths,
-				Focus:    c.Focus,
-			})
+			lifecycle := c.NewLifecycle()
 			result, err := lifecycle.Kill(id)
 			if err != nil {
 				return err

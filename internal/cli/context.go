@@ -9,6 +9,7 @@ import (
 	"github.com/dhruvsaxena1998/cleo/internal/focus"
 	"github.com/dhruvsaxena1998/cleo/internal/paths"
 	"github.com/dhruvsaxena1998/cleo/internal/projects"
+	"github.com/dhruvsaxena1998/cleo/internal/sessionlifecycle"
 	"github.com/dhruvsaxena1998/cleo/internal/sound"
 	"github.com/dhruvsaxena1998/cleo/internal/state"
 	"github.com/dhruvsaxena1998/cleo/internal/tmux"
@@ -23,6 +24,19 @@ type Ctx struct {
 	Tmux     TmuxClient
 	Player   *sound.Player
 	Events   func(sid string) *events.Log
+}
+
+// NewLifecycle returns a Lifecycle wired with all of the Ctx dependencies.
+// Callers no longer need to construct sessionlifecycle.Options by hand.
+func (c *Ctx) NewLifecycle() *sessionlifecycle.Lifecycle {
+	return sessionlifecycle.New(sessionlifecycle.Options{
+		Config:   c.Config,
+		Projects: c.Projects,
+		State:    c.State,
+		Tmux:     c.Tmux,
+		Paths:    c.Paths,
+		Focus:    c.Focus,
+	})
 }
 
 func NewCtx() (*Ctx, error) { return NewCtxWithRoot(paths.New().ConfigDir()) }

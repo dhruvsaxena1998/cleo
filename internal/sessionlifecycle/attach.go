@@ -25,8 +25,12 @@ type PrepareAttachResult struct {
 
 // PrepareAttach validates the Session for attach, checks tmux liveness, and
 // applies any needed state transitions (mark missing as dead, revive completed).
+// As a side effect, it installs focus hooks and binds the detach key so that
+// every attach path (CLI and TUI) gets these without duplicating the logic.
 // Returns ErrSessionNotFound when the Session does not exist.
 func (l *Lifecycle) PrepareAttach(sessionID string) (PrepareAttachResult, error) {
+	l.installFocusHooks()
+	l.bindDetachKey()
 	sess, err := l.state.Get(sessionID)
 	if err != nil {
 		if errors.Is(err, state.ErrSessionNotFound) {

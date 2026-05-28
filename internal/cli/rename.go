@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-
-	"github.com/dhruvsaxena1998/cleo/internal/sessionlifecycle"
 )
 
 func newRenameCmd(getCtx func() *Ctx) *cobra.Command {
@@ -15,14 +13,7 @@ func newRenameCmd(getCtx func() *Ctx) *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getCtx()
-			lifecycle := sessionlifecycle.New(sessionlifecycle.Options{
-				Config:   c.Config,
-				Projects: c.Projects,
-				State:    c.State,
-				Tmux:     c.Tmux,
-				Paths:    c.Paths,
-				Focus:    c.Focus,
-			})
+			lifecycle := c.NewLifecycle()
 			result, err := lifecycle.Rename(args[0], args[1])
 			if err != nil {
 				return err
