@@ -17,14 +17,7 @@ func newAttachCmd(getCtx func() *Ctx) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getCtx()
-			lifecycle := sessionlifecycle.New(sessionlifecycle.Options{
-				Config:   c.Config,
-				Projects: c.Projects,
-				State:    c.State,
-				Tmux:     c.Tmux,
-				Paths:    c.Paths,
-				Focus:    c.Focus,
-			})
+			lifecycle := c.NewLifecycle()
 
 			result, err := lifecycle.PrepareAttach(args[0])
 			if err != nil {
@@ -38,7 +31,6 @@ func newAttachCmd(getCtx func() *Ctx) *cobra.Command {
 				return nil
 			}
 
-			installFocusHooks(c)
 			lifecycle.SetFocused(args[0], true)
 			t := exec.Command("tmux", "attach", "-t", args[0])
 			t.Stdin = os.Stdin

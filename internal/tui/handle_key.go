@@ -4,12 +4,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/dhruvsaxena1998/cleo/internal/cli"
 	"github.com/dhruvsaxena1998/cleo/internal/config"
 	"github.com/dhruvsaxena1998/cleo/internal/sessionlifecycle"
 	"github.com/dhruvsaxena1998/cleo/internal/state"
@@ -222,14 +220,7 @@ func (m Model) attachSelectedAgent() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	lifecycle := sessionlifecycle.New(sessionlifecycle.Options{
-		Config:   m.ctx.Config,
-		Projects: m.ctx.Projects,
-		State:    m.ctx.State,
-		Tmux:     m.ctx.Tmux,
-		Paths:    m.ctx.Paths,
-		Focus:    m.ctx.Focus,
-	})
+	lifecycle := m.ctx.NewLifecycle()
 
 	result, err := lifecycle.PrepareAttach(sess.ID)
 	if err != nil {
@@ -247,7 +238,6 @@ func (m Model) attachSelectedAgent() (Model, tea.Cmd) {
 	}
 
 	// AttachReady or AttachRevived — proceed with attaching.
-	cliInstallFocusHooks(m.ctx)
 	lifecycle.SetFocused(sess.ID, true)
 	c := exec.Command("tmux", "attach", "-t", sess.ID)
 	id := sess.ID
@@ -343,12 +333,7 @@ func (m Model) performSpawn(s SpawnSubmitted) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	lifecycle := sessionlifecycle.New(sessionlifecycle.Options{
-		Config:   m.ctx.Config,
-		Projects: m.ctx.Projects,
-		State:    m.ctx.State,
-		Tmux:     m.ctx.Tmux,
-	})
+	lifecycle := m.ctx.NewLifecycle()
 	_, err := lifecycle.Create(sessionlifecycle.CreateInput{
 		Agent:               s.Agent,
 		Name:                s.Name,
@@ -368,14 +353,7 @@ func (m Model) performSpawn(s SpawnSubmitted) (Model, tea.Cmd) {
 }
 
 func (m Model) performKill(target string) (Model, tea.Cmd) {
-	lifecycle := sessionlifecycle.New(sessionlifecycle.Options{
-		Config:   m.ctx.Config,
-		Projects: m.ctx.Projects,
-		State:    m.ctx.State,
-		Tmux:     m.ctx.Tmux,
-		Paths:    m.ctx.Paths,
-		Focus:    m.ctx.Focus,
-	})
+	lifecycle := m.ctx.NewLifecycle()
 	result, err := lifecycle.Kill(target)
 	if err != nil {
 		m.status = fmt.Sprintf("kill failed: %v", err)
@@ -410,14 +388,7 @@ func (m Model) confirmPrune() (Model, tea.Cmd) {
 }
 
 func (m Model) performPrune(projectID string) (Model, tea.Cmd) {
-	lifecycle := sessionlifecycle.New(sessionlifecycle.Options{
-		Config:   m.ctx.Config,
-		Projects: m.ctx.Projects,
-		State:    m.ctx.State,
-		Tmux:     m.ctx.Tmux,
-		Paths:    m.ctx.Paths,
-		Focus:    m.ctx.Focus,
-	})
+	lifecycle := m.ctx.NewLifecycle()
 	result, err := lifecycle.Prune(sessionlifecycle.PruneInput{
 		ProjectID: projectID,
 		Keep:      0,
@@ -463,14 +434,7 @@ func (m Model) confirmRemoveProject() (Model, tea.Cmd) {
 }
 
 func (m Model) performRemoveProject(pid string) (Model, tea.Cmd) {
-	lifecycle := sessionlifecycle.New(sessionlifecycle.Options{
-		Config:   m.ctx.Config,
-		Projects: m.ctx.Projects,
-		State:    m.ctx.State,
-		Tmux:     m.ctx.Tmux,
-		Paths:    m.ctx.Paths,
-		Focus:    m.ctx.Focus,
-	})
+	lifecycle := m.ctx.NewLifecycle()
 	result, err := lifecycle.RemoveProjectSessions(sessionlifecycle.RemoveProjectSessionsInput{
 		ProjectID: pid,
 		Force:     true,
@@ -487,14 +451,7 @@ func (m Model) performRemoveProject(pid string) (Model, tea.Cmd) {
 }
 
 func (m Model) performRename(msg RenameSubmitted) (Model, tea.Cmd) {
-	lifecycle := sessionlifecycle.New(sessionlifecycle.Options{
-		Config:   m.ctx.Config,
-		Projects: m.ctx.Projects,
-		State:    m.ctx.State,
-		Tmux:     m.ctx.Tmux,
-		Paths:    m.ctx.Paths,
-		Focus:    m.ctx.Focus,
-	})
+	lifecycle := m.ctx.NewLifecycle()
 	_, err := lifecycle.Rename(msg.SessionID, msg.NewName)
 	if err != nil {
 		m.status = fmt.Sprintf("rename failed: %v", err)
@@ -502,17 +459,4 @@ func (m Model) performRename(msg RenameSubmitted) (Model, tea.Cmd) {
 	m.mode = ModeNormal
 	m.popup = nil
 	return m, loadStateCmd(m.ctx)
-}
-
-func cliInstallFocusHooks(c *cli.Ctx) {
-	installer, ok := c.Tmux.(cli.TmuxFocusInstaller)
-	if !ok {
-		return
-	}
-	cleoBin, err := os.Executable()
-	if err != nil {
-		return
-	}
-	cleoBin, _ = filepath.Abs(cleoBin)
-	_ = installer.InstallFocusHooks(cleoBin)
 }

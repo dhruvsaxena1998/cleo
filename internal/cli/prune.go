@@ -32,14 +32,7 @@ func newPruneCmd(getCtx func() *Ctx) *cobra.Command {
 				projectFilter = args[0]
 			}
 
-			lifecycle := sessionlifecycle.New(sessionlifecycle.Options{
-				Config:   c.Config,
-				Projects: c.Projects,
-				State:    c.State,
-				Tmux:     c.Tmux,
-				Paths:    c.Paths,
-				Focus:    c.Focus,
-			})
+			lifecycle := c.NewLifecycle()
 
 			// Preview candidates.
 			preview, err := lifecycle.Prune(sessionlifecycle.PruneInput{
