@@ -2,8 +2,11 @@ package hooks
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // codexEvents are the hook events cleo observes from Codex CLI.
@@ -20,21 +23,68 @@ var codexEvents = []string{
 func CodexEvents() []string { return append([]string(nil), codexEvents...) }
 
 func (CodexProtocol) Name() string          { return "codex" }
+func (CodexProtocol) DisplayName() string   { return "Codex" }
 func (CodexProtocol) Events() []string      { return CodexEvents() }
 func (CodexProtocol) UsesCwdFallback() bool { return true }
 
-func (CodexProtocol) Install(cleoBin string, force bool) error {
-	home, _ := os.UserHomeDir()
-	return InstallCodex(
-		filepath.Join(home, ".codex", "hooks.json"),
-		filepath.Join(home, ".codex", "config.toml"),
-		cleoBin, force,
-	)
+func (CodexProtocol) hooksPath() string  { return filepath.Join(homeDir(), ".codex", "hooks.json") }
+func (CodexProtocol) configPath() string { return filepath.Join(homeDir(), ".codex", "config.toml") }
+
+func (p CodexProtocol) Locations() []Location {
+	return []Location{
+		{Label: "hooks", Path: p.hooksPath()},
+		{Label: "feature flag", Path: p.configPath()},
+	}
 }
 
-func (CodexProtocol) Cleanup() (CleanupOutcome, error) {
-	home, _ := os.UserHomeDir()
-	return CleanupCodex(filepath.Join(home, ".codex", "hooks.json"))
+func (p CodexProtocol) Install(cleoBin string, force bool) (InstallReport, error) {
+	if err := InstallCodex(p.hooksPath(), p.configPath(), cleoBin, force); err != nil {
+		return InstallReport{}, err
+	}
+	// Codex gates hooks behind in-app approval — the user must run /hooks and
+	// approve the cleo entries before they take effect.
+	return InstallReport{ManualReview: &ReviewStep{
+		Command: fmt.Sprintf("%s hooks invoke codex", cleoBin),
+		Hooks:   CodexEvents(),
+	}}, nil
+}
+
+func (p CodexProtocol) Cleanup() (CleanupOutcome, error) {
+	outcome, err := CleanupCodex(p.hooksPath())
+	if err != nil {
+		return outcome, err
+	}
+	outcome.Notes = append(outcome.Notes,
+		"left ~/.codex/config.toml [features].hooks unchanged; that flag may be used by other Codex hooks")
+	return outcome, nil
+}
+
+func (p CodexProtocol) Diagnose() []Check {
+	return []Check{
+		diagnoseCodexFeatureFlag(p.configPath()),
+		diagnoseJSONHooks("Codex hooks", p.hooksPath(), CodexEvents(), "hooks invoke codex"),
+	}
+}
+
+// diagnoseCodexFeatureFlag checks ~/.codex/config.toml has [features].hooks = true
+// and no deprecated codex_hooks flag.
+func diagnoseCodexFeatureFlag(path string) Check {
+	const label = "Codex feature flag"
+	b, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return Check{Label: label, Detail: fmt.Sprintf("missing %s; run cleo hooks init", path)}
+	}
+	if err != nil {
+		return Check{Label: label, Detail: err.Error()}
+	}
+	content := string(b)
+	if strings.Contains(content, "codex_hooks") {
+		return Check{Label: label, Detail: fmt.Sprintf("deprecated codex_hooks flag found in %s; run cleo hooks init", path)}
+	}
+	if !strings.Contains(content, "hooks = true") {
+		return Check{Label: label, Detail: fmt.Sprintf("[features].hooks = true not found in %s; run cleo hooks init", path)}
+	}
+	return Check{Label: label, OK: true, Detail: "[features].hooks = true"}
 }
 
 func (CodexProtocol) Normalize(event string, payload []byte) (NormalizedEvent, bool) {

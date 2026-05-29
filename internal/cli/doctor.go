@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -27,17 +26,7 @@ func newDoctorCmd(getCtx func() *Ctx) *cobra.Command {
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getCtx()
-			home, _ := os.UserHomeDir()
-			piExtPath := filepath.Join(home, ".pi", "agent", "extensions", "cleo.ts")
-			openCodePlugPath := filepath.Join(home, ".config", "opencode", "plugins", "cleo.ts")
-			report := diagnoseHooks(
-				filepath.Join(home, ".claude", "settings.json"),
-				filepath.Join(home, ".codex", "hooks.json"),
-				filepath.Join(home, ".codex", "config.toml"),
-				c.Paths.HookTraceLog(),
-				piExtPath,
-				openCodePlugPath,
-			)
+			report := diagnoseHooks(c.Paths.HookTraceLog())
 			if exe, err := os.Executable(); err == nil {
 				report.CleoBin = exe
 			}
@@ -59,8 +48,6 @@ type doctorReport struct {
 	HookTracePath      string
 	ClaudeSettingsPath string
 	CodexHooksPath     string
-	PiExtensionPath    string
-	OpenCodePluginPath string
 	CleoBin            string
 	ConfigWarnings     []string
 }
@@ -69,131 +56,45 @@ type doctorCheck struct {
 	Label    string
 	OK       bool
 	Detail   string
-	Protocol string // "claude" | "codex" | "" — used to attach trace inline
+	Protocol string // agent name (claude/codex/pi/opencode) or "" — attaches trace inline
 }
 
-func diagnoseHooks(claudeSettingsPath, codexHooksPath, codexConfigPath, hookTracePath, piExtPath, openCodePlugPath string) doctorReport {
-	claude := checkClaudeHooks(claudeSettingsPath)
-	claude.Protocol = "claude"
-	codexFlag := checkCodexFeatureFlag(codexConfigPath)
-	codexHooks := checkCodexHooks(codexHooksPath)
-	codexHooks.Protocol = "codex"
-	pi := checkPiExtension(piExtPath)
-	pi.Protocol = "pi"
-	openCode := checkOpenCodeExtension(openCodePlugPath)
-	openCode.Protocol = "opencode"
-	claudeAct := checkHookTrace(hookTracePath, "claude")
-	claudeAct.Protocol = "claude"
-	codexAct := checkHookTrace(hookTracePath, "codex")
-	codexAct.Protocol = "codex"
-	openCodeAct := checkHookTrace(hookTracePath, "opencode")
-	openCodeAct.Protocol = "opencode"
-	return doctorReport{
-		Checks:             []doctorCheck{claude, codexFlag, codexHooks, pi, openCode, claudeAct, codexAct, openCodeAct},
-		HookTracePath:      hookTracePath,
-		ClaudeSettingsPath: claudeSettingsPath,
-		CodexHooksPath:     codexHooksPath,
-		PiExtensionPath:    piExtPath,
-		OpenCodePluginPath: openCodePlugPath,
+// diagnoseHooks builds the doctor report by iterating the agent-protocol
+// registry: each protocol self-checks its config (Diagnose) and contributes a
+// uniform hook-activity check keyed by its name. Adding an agent needs no edit
+// here. The claude/codex settings paths are surfaced for the +/= config diff.
+func diagnoseHooks(hookTracePath string) doctorReport {
+	var checks []doctorCheck
+	for _, p := range hooks.Protocols() {
+		for _, c := range p.Diagnose() {
+			checks = append(checks, doctorCheck{Label: c.Label, OK: c.OK, Detail: c.Detail, Protocol: p.Name()})
+		}
+		act := checkHookTrace(hookTracePath, p.Name())
+		act.Protocol = p.Name()
+		checks = append(checks, act)
 	}
+	report := doctorReport{
+		Checks:        checks,
+		HookTracePath: hookTracePath,
+	}
+	if p, ok := hooks.ProtocolByName("claude"); ok {
+		report.ClaudeSettingsPath = locationPath(p, "hooks")
+	}
+	if p, ok := hooks.ProtocolByName("codex"); ok {
+		report.CodexHooksPath = locationPath(p, "hooks")
+	}
+	return report
 }
 
-func checkPiExtension(path string) doctorCheck {
-	content, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return doctorCheck{
-			Label:  "Pi extension",
-			Detail: fmt.Sprintf("not found at %s — run cleo hooks init to install", path),
+// locationPath returns the path of the protocol's location with the given
+// label, or "" if it has none.
+func locationPath(p hooks.Protocol, label string) string {
+	for _, loc := range p.Locations() {
+		if loc.Label == label {
+			return loc.Path
 		}
 	}
-	if err != nil {
-		return doctorCheck{Label: "Pi extension", Detail: err.Error()}
-	}
-	if string(content) != hooks.ExpectedPiEntry() {
-		return doctorCheck{
-			Label:  "Pi extension",
-			Detail: fmt.Sprintf("stale — re-run cleo hooks init to update %s", path),
-		}
-	}
-	return doctorCheck{Label: "Pi extension", OK: true, Detail: path}
-}
-
-func checkOpenCodeExtension(path string) doctorCheck {
-	content, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return doctorCheck{
-			Label:  "OpenCode plugin",
-			Detail: fmt.Sprintf("not found at %s — run cleo hooks init to install", path),
-		}
-	}
-	if err != nil {
-		return doctorCheck{Label: "OpenCode plugin", Detail: err.Error()}
-	}
-	if string(content) != hooks.ExpectedOpenCodeEntry() {
-		return doctorCheck{
-			Label:  "OpenCode plugin",
-			Detail: fmt.Sprintf("stale — re-run cleo hooks init to update %s", path),
-		}
-	}
-	return doctorCheck{Label: "OpenCode plugin", OK: true, Detail: path}
-}
-
-func checkClaudeHooks(path string) doctorCheck {
-	b, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return doctorCheck{Label: "Claude hooks", Detail: fmt.Sprintf("missing %s; run cleo hooks init", path)}
-	}
-	if err != nil {
-		return doctorCheck{Label: "Claude hooks", Detail: err.Error()}
-	}
-	var settings map[string]any
-	if err := json.Unmarshal(b, &settings); err != nil {
-		return doctorCheck{Label: "Claude hooks", Detail: fmt.Sprintf("invalid JSON in %s: %v", path, err)}
-	}
-	configured, _ := settings["hooks"].(map[string]any)
-	missing := missingHookEvents(configured, hooks.ClaudeEvents(), "hooks invoke claude")
-	if len(missing) > 0 {
-		return doctorCheck{Label: "Claude hooks", Detail: fmt.Sprintf("missing Cleo command for %s in %s; run cleo hooks init", strings.Join(missing, ", "), path)}
-	}
-	return doctorCheck{Label: "Claude hooks", OK: true, Detail: fmt.Sprintf("%d hooks installed", len(hooks.ClaudeEvents()))}
-}
-
-func checkCodexFeatureFlag(path string) doctorCheck {
-	b, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return doctorCheck{Label: "Codex feature flag", Detail: fmt.Sprintf("missing %s; run cleo hooks init", path)}
-	}
-	if err != nil {
-		return doctorCheck{Label: "Codex feature flag", Detail: err.Error()}
-	}
-	content := string(b)
-	if strings.Contains(content, "codex_hooks") {
-		return doctorCheck{Label: "Codex feature flag", Detail: fmt.Sprintf("deprecated codex_hooks flag found in %s; run cleo hooks init", path)}
-	}
-	if !strings.Contains(content, "hooks = true") {
-		return doctorCheck{Label: "Codex feature flag", Detail: fmt.Sprintf("[features].hooks = true not found in %s; run cleo hooks init", path)}
-	}
-	return doctorCheck{Label: "Codex feature flag", OK: true, Detail: "[features].hooks = true"}
-}
-
-func checkCodexHooks(path string) doctorCheck {
-	b, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return doctorCheck{Label: "Codex hooks", Detail: fmt.Sprintf("missing %s; run cleo hooks init", path)}
-	}
-	if err != nil {
-		return doctorCheck{Label: "Codex hooks", Detail: err.Error()}
-	}
-	var settings map[string]any
-	if err := json.Unmarshal(b, &settings); err != nil {
-		return doctorCheck{Label: "Codex hooks", Detail: fmt.Sprintf("invalid JSON in %s: %v", path, err)}
-	}
-	configured, _ := settings["hooks"].(map[string]any)
-	missing := missingHookEvents(configured, hooks.CodexEvents(), "hooks invoke codex")
-	if len(missing) > 0 {
-		return doctorCheck{Label: "Codex hooks", Detail: fmt.Sprintf("missing Cleo command for %s in %s; run cleo hooks init", strings.Join(missing, ", "), path)}
-	}
-	return doctorCheck{Label: "Codex hooks", OK: true, Detail: fmt.Sprintf("%d hooks installed", len(hooks.CodexEvents()))}
+	return ""
 }
 
 func checkHookTrace(path, protocol string) doctorCheck {
@@ -403,29 +304,11 @@ func protocolTitle(protocol string) string {
 		return "Claude"
 	case "opencode":
 		return "OpenCode"
+	case "pi":
+		return "Pi"
 	default:
 		return protocol
 	}
-}
-
-func missingHookEvents(configured map[string]any, expected []string, commandNeedle string) []string {
-	var missing []string
-	for _, event := range expected {
-		entry, ok := configured[event]
-		if !ok || !hookEntryHasCommand(entry, commandNeedle, event) {
-			missing = append(missing, event)
-		}
-	}
-	return missing
-}
-
-func hookEntryHasCommand(entry any, commandNeedle, event string) bool {
-	b, err := json.Marshal(entry)
-	if err != nil {
-		return false
-	}
-	text := string(b)
-	return strings.Contains(text, commandNeedle) && strings.Contains(text, event)
 }
 
 var (

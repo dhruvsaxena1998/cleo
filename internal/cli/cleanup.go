@@ -4,8 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -30,10 +28,8 @@ func newCleanupCmd(getCtx func() *Ctx) *cobra.Command {
 			}
 
 			_ = getCtx()
-			home, _ := os.UserHomeDir()
 
 			if selected == nil {
-				selected = []string{hookClaude, hookCodex, hookOpenCode, hookPi}
 				br := bufio.NewReader(cmd.InOrStdin())
 				if err := promptCleanupSelection(cmd.OutOrStdout(), br, &selected); err != nil {
 					return err
@@ -41,50 +37,20 @@ func newCleanupCmd(getCtx func() *Ctx) *cobra.Command {
 			}
 
 			var results []cleanupResult
-			for _, h := range selected {
-				switch h {
-				case hookClaude:
-					path := filepath.Join(home, ".claude", "settings.json")
-					outcome, err := hooks.CleanupClaude(path)
-					if err != nil {
-						return err
-					}
-					results = append(results, cleanupResult{
-						Name:    "Claude Code",
-						Outcome: outcome,
-					})
-				case hookCodex:
-					path := filepath.Join(home, ".codex", "hooks.json")
-					outcome, err := hooks.CleanupCodex(path)
-					if err != nil {
-						return err
-					}
-					results = append(results, cleanupResult{
-						Name:    "Codex",
-						Outcome: outcome,
-						Notes: []string{
-							"left ~/.codex/config.toml [features].hooks unchanged; that flag may be used by other Codex hooks",
-						},
-					})
-				case hookOpenCode:
-					outcome, err := (hooks.OpenCodeProtocol{}).Cleanup()
-					if err != nil {
-						return err
-					}
-					results = append(results, cleanupResult{
-						Name:    "OpenCode",
-						Outcome: outcome,
-					})
-				case hookPi:
-					outcome, err := (hooks.PiProtocol{}).Cleanup()
-					if err != nil {
-						return err
-					}
-					results = append(results, cleanupResult{
-						Name:    "Pi",
-						Outcome: outcome,
-					})
+			for _, name := range selected {
+				p, ok := hooks.ProtocolByName(name)
+				if !ok {
+					continue // already validated by parseAgentsFlag
 				}
+				outcome, err := p.Cleanup()
+				if err != nil {
+					return err
+				}
+				results = append(results, cleanupResult{
+					Name:    p.DisplayName(),
+					Outcome: outcome,
+					Notes:   outcome.Notes,
+				})
 			}
 			printCleanupSummary(cmd.OutOrStdout(), results)
 			return nil
@@ -127,27 +93,16 @@ func printCleanupSummary(w io.Writer, results []cleanupResult) {
 
 func promptCleanupSelection(w io.Writer, br *bufio.Reader, selected *[]string) error {
 	fmt.Fprintln(w, initAgentStyle.Render("Which hook systems to clean up?"))
-	type hookOpt struct {
-		key    string
-		label  string
-		defYes bool
-	}
-	// Locked design: cleanup defaults all four agents to Y. Removing is safe;
-	// if the user is cleaning up, scrub everything cleo touched.
-	opts := []hookOpt{
-		{hookClaude, "Claude Code  (~/.claude/settings.json)", true},
-		{hookCodex, "Codex        (~/.codex/hooks.json)", true},
-		{hookOpenCode, "OpenCode     (~/.config/opencode/plugins/cleo.ts)", true},
-		{hookPi, "Pi           (~/.pi/agent/extensions/cleo.ts)", true},
-	}
+	// Locked design: cleanup defaults all agents to Y. Removing is safe; if the
+	// user is cleaning up, scrub everything cleo touched.
 	var out []string
-	for _, o := range opts {
-		yes, err := promptYN(w, br, o.label, o.defYes)
+	for _, p := range hooks.Protocols() {
+		yes, err := promptYN(w, br, agentPromptLabel(p), true)
 		if err != nil {
 			return err
 		}
 		if yes {
-			out = append(out, o.key)
+			out = append(out, p.Name())
 		}
 	}
 	*selected = out

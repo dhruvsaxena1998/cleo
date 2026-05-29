@@ -2,9 +2,6 @@ package hooks
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/dhruvsaxena1998/cleo/internal/state"
@@ -18,16 +15,8 @@ var opencodeEvents = []string{
 // OpenCodeEvents returns the lifecycle event names cleo subscribes to in opencode.
 func OpenCodeEvents() []string { return append([]string(nil), opencodeEvents...) }
 
-// openCodePluginsDir is the directory where cleo writes its opencode plugin.
-// Overridden in tests to avoid touching the real home directory.
-var openCodePluginsDir = ""
-
 func openCodePlugDir() string {
-	if openCodePluginsDir != "" {
-		return openCodePluginsDir
-	}
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "opencode", "plugins")
+	return filepath.Join(homeDir(), ".config", "opencode", "plugins")
 }
 
 // openCodePluginTemplate is the canonical content of
@@ -74,45 +63,24 @@ func ExpectedOpenCodeEntry() string { return openCodePluginTemplate }
 type OpenCodeProtocol struct{}
 
 func (OpenCodeProtocol) Name() string          { return "opencode" }
+func (OpenCodeProtocol) DisplayName() string   { return "OpenCode" }
 func (OpenCodeProtocol) Events() []string      { return OpenCodeEvents() }
 func (OpenCodeProtocol) UsesCwdFallback() bool { return true }
 
-func (OpenCodeProtocol) Install(cleoBin string, force bool) error {
-	dir := openCodePlugDir()
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	dest := filepath.Join(dir, "cleo.ts")
-	existing, err := os.ReadFile(dest)
-	if err == nil {
-		if string(existing) == openCodePluginTemplate {
-			return nil // already up-to-date; idempotent
-		}
-		if !force {
-			return fmt.Errorf("conflict: %s already exists with different content (re-run with --force to overwrite)", dest)
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	return os.WriteFile(dest, []byte(openCodePluginTemplate), 0o644)
+func (OpenCodeProtocol) Locations() []Location {
+	return []Location{{Label: "plugin", Path: filepath.Join(openCodePlugDir(), "cleo.ts")}}
+}
+
+func (OpenCodeProtocol) Install(cleoBin string, force bool) (InstallReport, error) {
+	return InstallReport{}, installFileTemplate(openCodePlugDir(), "cleo.ts", openCodePluginTemplate, force)
+}
+
+func (OpenCodeProtocol) Diagnose() []Check {
+	return []Check{diagnoseFileTemplate("OpenCode plugin", filepath.Join(openCodePlugDir(), "cleo.ts"), openCodePluginTemplate)}
 }
 
 func (OpenCodeProtocol) Cleanup() (CleanupOutcome, error) {
-	dest := filepath.Join(openCodePlugDir(), "cleo.ts")
-	content, err := os.ReadFile(dest)
-	if errors.Is(err, os.ErrNotExist) {
-		return CleanupOutcome{Status: CleanupStatusMissing, Path: dest}, nil
-	}
-	if err != nil {
-		return CleanupOutcome{Path: dest}, err
-	}
-	if string(content) != openCodePluginTemplate {
-		return CleanupOutcome{Status: CleanupStatusSkippedModified, Path: dest}, nil
-	}
-	if err := os.Remove(dest); err != nil {
-		return CleanupOutcome{Path: dest}, err
-	}
-	return CleanupOutcome{Status: CleanupStatusRemoved, Path: dest}, nil
+	return cleanupFileTemplate(openCodePlugDir(), "cleo.ts", openCodePluginTemplate)
 }
 
 func (OpenCodeProtocol) Normalize(event string, payload []byte) (NormalizedEvent, bool) {

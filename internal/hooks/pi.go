@@ -2,9 +2,6 @@ package hooks
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/dhruvsaxena1998/cleo/internal/state"
@@ -17,16 +14,8 @@ var piEvents = []string{
 // PiEvents returns the lifecycle event names cleo subscribes to in Pi.
 func PiEvents() []string { return append([]string(nil), piEvents...) }
 
-// piExtensionsDir is the directory where cleo writes its Pi extension.
-// Overridden in tests to avoid touching the real home directory.
-var piExtensionsDir = ""
-
 func piExtDir() string {
-	if piExtensionsDir != "" {
-		return piExtensionsDir
-	}
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".pi", "agent", "extensions")
+	return filepath.Join(homeDir(), ".pi", "agent", "extensions")
 }
 
 // piExtensionTemplate is the canonical content of ~/.pi/agent/extensions/cleo.ts.
@@ -54,45 +43,24 @@ func ExpectedPiEntry() string { return piExtensionTemplate }
 type PiProtocol struct{}
 
 func (PiProtocol) Name() string          { return "pi" }
+func (PiProtocol) DisplayName() string   { return "Pi" }
 func (PiProtocol) Events() []string      { return PiEvents() }
 func (PiProtocol) UsesCwdFallback() bool { return true }
 
-func (PiProtocol) Install(cleoBin string, force bool) error {
-	dir := piExtDir()
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	dest := filepath.Join(dir, "cleo.ts")
-	existing, err := os.ReadFile(dest)
-	if err == nil {
-		if string(existing) == piExtensionTemplate {
-			return nil // already up-to-date; idempotent
-		}
-		if !force {
-			return fmt.Errorf("conflict: %s already exists with different content (re-run with --force to overwrite)", dest)
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	return os.WriteFile(dest, []byte(piExtensionTemplate), 0o644)
+func (PiProtocol) Locations() []Location {
+	return []Location{{Label: "extension", Path: filepath.Join(piExtDir(), "cleo.ts")}}
+}
+
+func (PiProtocol) Install(cleoBin string, force bool) (InstallReport, error) {
+	return InstallReport{}, installFileTemplate(piExtDir(), "cleo.ts", piExtensionTemplate, force)
+}
+
+func (PiProtocol) Diagnose() []Check {
+	return []Check{diagnoseFileTemplate("Pi extension", filepath.Join(piExtDir(), "cleo.ts"), piExtensionTemplate)}
 }
 
 func (PiProtocol) Cleanup() (CleanupOutcome, error) {
-	dest := filepath.Join(piExtDir(), "cleo.ts")
-	content, err := os.ReadFile(dest)
-	if errors.Is(err, os.ErrNotExist) {
-		return CleanupOutcome{Status: CleanupStatusMissing, Path: dest}, nil
-	}
-	if err != nil {
-		return CleanupOutcome{Path: dest}, err
-	}
-	if string(content) != piExtensionTemplate {
-		return CleanupOutcome{Status: CleanupStatusSkippedModified, Path: dest}, nil
-	}
-	if err := os.Remove(dest); err != nil {
-		return CleanupOutcome{Path: dest}, err
-	}
-	return CleanupOutcome{Status: CleanupStatusRemoved, Path: dest}, nil
+	return cleanupFileTemplate(piExtDir(), "cleo.ts", piExtensionTemplate)
 }
 
 func (PiProtocol) Normalize(event string, payload []byte) (NormalizedEvent, bool) {

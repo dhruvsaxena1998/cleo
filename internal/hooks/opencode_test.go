@@ -124,14 +124,11 @@ func TestOpenCodeProtocol_Metadata(t *testing.T) {
 
 func TestOpenCodeProtocol_Install_WritesPlugin(t *testing.T) {
 	dir := t.TempDir()
-	plugDir := filepath.Join(dir, "plugins")
-
-	origDir := openCodePluginsDir
-	openCodePluginsDir = plugDir
-	defer func() { openCodePluginsDir = origDir }()
+	plugDir := filepath.Join(dir, ".config", "opencode", "plugins")
+	setTestHome(t, dir)
 
 	proto := OpenCodeProtocol{}
-	if err := proto.Install("/usr/local/bin/cleo", false); err != nil {
+	if _, err := proto.Install("/usr/local/bin/cleo", false); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
 
@@ -146,48 +143,41 @@ func TestOpenCodeProtocol_Install_WritesPlugin(t *testing.T) {
 
 func TestOpenCodeProtocol_Install_Idempotent(t *testing.T) {
 	dir := t.TempDir()
-	plugDir := filepath.Join(dir, "plugins")
-	origDir := openCodePluginsDir
-	openCodePluginsDir = plugDir
-	defer func() { openCodePluginsDir = origDir }()
+	setTestHome(t, dir)
 
 	proto := OpenCodeProtocol{}
-	if err := proto.Install("/usr/local/bin/cleo", false); err != nil {
+	if _, err := proto.Install("/usr/local/bin/cleo", false); err != nil {
 		t.Fatal(err)
 	}
-	if err := proto.Install("/usr/local/bin/cleo", false); err != nil {
+	if _, err := proto.Install("/usr/local/bin/cleo", false); err != nil {
 		t.Errorf("re-install with same content should not fail: %v", err)
 	}
 }
 
 func TestOpenCodeProtocol_Install_ConflictWithoutForce(t *testing.T) {
 	dir := t.TempDir()
-	plugDir := filepath.Join(dir, "plugins")
-	origDir := openCodePluginsDir
-	openCodePluginsDir = plugDir
-	defer func() { openCodePluginsDir = origDir }()
+	plugDir := filepath.Join(dir, ".config", "opencode", "plugins")
+	setTestHome(t, dir)
 
 	_ = os.MkdirAll(plugDir, 0o755)
 	_ = os.WriteFile(filepath.Join(plugDir, "cleo.ts"), []byte("// different content"), 0o644)
 
 	proto := OpenCodeProtocol{}
-	if err := proto.Install("/usr/local/bin/cleo", false); err == nil {
+	if _, err := proto.Install("/usr/local/bin/cleo", false); err == nil {
 		t.Error("expected conflict error, got nil")
 	}
 }
 
 func TestOpenCodeProtocol_Install_ForceOverwrites(t *testing.T) {
 	dir := t.TempDir()
-	plugDir := filepath.Join(dir, "plugins")
-	origDir := openCodePluginsDir
-	openCodePluginsDir = plugDir
-	defer func() { openCodePluginsDir = origDir }()
+	plugDir := filepath.Join(dir, ".config", "opencode", "plugins")
+	setTestHome(t, dir)
 
 	_ = os.MkdirAll(plugDir, 0o755)
 	_ = os.WriteFile(filepath.Join(plugDir, "cleo.ts"), []byte("// different content"), 0o644)
 
 	proto := OpenCodeProtocol{}
-	if err := proto.Install("/usr/local/bin/cleo", true); err != nil {
+	if _, err := proto.Install("/usr/local/bin/cleo", true); err != nil {
 		t.Fatalf("Install with --force: %v", err)
 	}
 	got, _ := os.ReadFile(filepath.Join(plugDir, "cleo.ts"))
@@ -198,13 +188,11 @@ func TestOpenCodeProtocol_Install_ForceOverwrites(t *testing.T) {
 
 func TestOpenCodeProtocol_Cleanup_RemovesMatchingFile(t *testing.T) {
 	dir := t.TempDir()
-	plugDir := filepath.Join(dir, "plugins")
-	origDir := openCodePluginsDir
-	openCodePluginsDir = plugDir
-	defer func() { openCodePluginsDir = origDir }()
+	plugDir := filepath.Join(dir, ".config", "opencode", "plugins")
+	setTestHome(t, dir)
 
 	proto := OpenCodeProtocol{}
-	_ = proto.Install("/usr/local/bin/cleo", false)
+	_, _ = proto.Install("/usr/local/bin/cleo", false)
 
 	dest := filepath.Join(plugDir, "cleo.ts")
 	outcome, err := proto.Cleanup()
@@ -224,10 +212,8 @@ func TestOpenCodeProtocol_Cleanup_RemovesMatchingFile(t *testing.T) {
 
 func TestOpenCodeProtocol_Cleanup_SkipsModifiedFile(t *testing.T) {
 	dir := t.TempDir()
-	plugDir := filepath.Join(dir, "plugins")
-	origDir := openCodePluginsDir
-	openCodePluginsDir = plugDir
-	defer func() { openCodePluginsDir = origDir }()
+	plugDir := filepath.Join(dir, ".config", "opencode", "plugins")
+	setTestHome(t, dir)
 
 	_ = os.MkdirAll(plugDir, 0o755)
 	dest := filepath.Join(plugDir, "cleo.ts")
@@ -251,10 +237,7 @@ func TestOpenCodeProtocol_Cleanup_SkipsModifiedFile(t *testing.T) {
 
 func TestOpenCodeProtocol_Cleanup_MissingWhenFileAbsent(t *testing.T) {
 	dir := t.TempDir()
-	plugDir := filepath.Join(dir, "plugins")
-	origDir := openCodePluginsDir
-	openCodePluginsDir = plugDir
-	defer func() { openCodePluginsDir = origDir }()
+	setTestHome(t, dir)
 
 	proto := OpenCodeProtocol{}
 	outcome, err := proto.Cleanup()

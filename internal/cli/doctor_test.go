@@ -16,6 +16,7 @@ import (
 
 func TestDiagnoseHooksReportsHealthySetup(t *testing.T) {
 	dir := t.TempDir()
+	t.Setenv("HOME", dir) // roots every agent's config tree under the temp dir
 	claudePath := filepath.Join(dir, ".claude", "settings.json")
 	codexHooksPath := filepath.Join(dir, ".codex", "hooks.json")
 	codexConfigPath := filepath.Join(dir, ".codex", "config.toml")
@@ -33,6 +34,7 @@ func TestDiagnoseHooksReportsHealthySetup(t *testing.T) {
 
 	trace := `{"at":"now","protocol":"claude","event":"Stop","env_session":true,"resolved_session":"cleo-x-claude-1","result":"resolved"}` + "\n" +
 		`{"at":"now","protocol":"codex","event":"Stop","env_session":true,"resolved_session":"cleo-x-codex-1","result":"resolved"}` + "\n" +
+		`{"at":"now","protocol":"pi","event":"agent_end","env_session":true,"resolved_session":"cleo-x-pi-1","result":"resolved"}` + "\n" +
 		`{"at":"now","protocol":"opencode","event":"session.idle","env_session":true,"resolved_session":"cleo-x-opencode-1","result":"resolved"}` + "\n"
 	if err := os.WriteFile(tracePath, []byte(trace), 0o644); err != nil {
 		t.Fatal(err)
@@ -42,8 +44,7 @@ func TestDiagnoseHooksReportsHealthySetup(t *testing.T) {
 	if err := os.MkdirAll(piExtDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	piExtPath := filepath.Join(piExtDir, "cleo.ts")
-	if err := os.WriteFile(piExtPath, []byte(hooks.ExpectedPiEntry()), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(piExtDir, "cleo.ts"), []byte(hooks.ExpectedPiEntry()), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -51,14 +52,13 @@ func TestDiagnoseHooksReportsHealthySetup(t *testing.T) {
 	if err := os.MkdirAll(openCodePlugDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	openCodePlugPath := filepath.Join(openCodePlugDir, "cleo.ts")
-	if err := os.WriteFile(openCodePlugPath, []byte(hooks.ExpectedOpenCodeEntry()), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(openCodePlugDir, "cleo.ts"), []byte(hooks.ExpectedOpenCodeEntry()), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
-	report := diagnoseHooks(claudePath, codexHooksPath, codexConfigPath, tracePath, piExtPath, openCodePlugPath)
+	report := diagnoseHooks(tracePath)
 	got := fmt.Sprint(report.Checks)
-	for _, want := range []string{"Claude hook activity", "Codex hook activity", "OpenCode hook activity"} {
+	for _, want := range []string{"Claude hook activity", "Codex hook activity", "Pi hook activity", "OpenCode hook activity"} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("expected %q in diagnose checks, got %+v", want, report.Checks)
 		}
@@ -72,6 +72,7 @@ func TestDiagnoseHooksReportsHealthySetup(t *testing.T) {
 
 func TestDiagnoseHooksReportsMissingCodexHook(t *testing.T) {
 	dir := t.TempDir()
+	t.Setenv("HOME", dir)
 	claudePath := filepath.Join(dir, ".claude", "settings.json")
 	codexHooksPath := filepath.Join(dir, ".codex", "hooks.json")
 	codexConfigPath := filepath.Join(dir, ".codex", "config.toml")
@@ -93,7 +94,7 @@ func TestDiagnoseHooksReportsMissingCodexHook(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	report := diagnoseHooks(claudePath, codexHooksPath, codexConfigPath, tracePath, "", "")
+	report := diagnoseHooks(tracePath)
 	got := fmt.Sprint(report.Checks)
 	if !strings.Contains(got, "PreToolUse") {
 		t.Fatalf("expected missing codex hook detail, got %+v", report.Checks)
@@ -204,48 +205,6 @@ func TestHookConfigDiffEqualityIsKeyOrderInsensitive(t *testing.T) {
 	}
 }
 
-func TestDoctorPiCheck_FileMissing(t *testing.T) {
-	dir := t.TempDir()
-	piExtPath := filepath.Join(dir, ".pi", "agent", "extensions", "cleo.ts")
-
-	check := checkPiExtension(piExtPath)
-	if check.OK {
-		t.Error("expected not-ok when extension file is missing")
-	}
-	if !strings.Contains(check.Detail, "run cleo hooks init") {
-		t.Errorf("expected 'run cleo hooks init' in detail, got: %q", check.Detail)
-	}
-}
-
-func TestDoctorPiCheck_FileMatches(t *testing.T) {
-	dir := t.TempDir()
-	extDir := filepath.Join(dir, ".pi", "agent", "extensions")
-	_ = os.MkdirAll(extDir, 0o755)
-	dest := filepath.Join(extDir, "cleo.ts")
-	_ = os.WriteFile(dest, []byte(hooks.ExpectedPiEntry()), 0o644)
-
-	check := checkPiExtension(dest)
-	if !check.OK {
-		t.Errorf("expected ok when extension matches template, got: %q", check.Detail)
-	}
-}
-
-func TestDoctorPiCheck_FileStale(t *testing.T) {
-	dir := t.TempDir()
-	extDir := filepath.Join(dir, ".pi", "agent", "extensions")
-	_ = os.MkdirAll(extDir, 0o755)
-	dest := filepath.Join(extDir, "cleo.ts")
-	_ = os.WriteFile(dest, []byte("// old content"), 0o644)
-
-	check := checkPiExtension(dest)
-	if check.OK {
-		t.Error("expected not-ok when extension is stale")
-	}
-	if !strings.Contains(check.Detail, "re-run") && !strings.Contains(check.Detail, "stale") {
-		t.Errorf("expected 'stale' or 're-run' in detail, got: %q", check.Detail)
-	}
-}
-
 func TestDoctorQuietSuppressesPassingChecks(t *testing.T) {
 	report := doctorReport{
 		Checks: []doctorCheck{
@@ -277,48 +236,6 @@ func TestDoctorPrintsConfigWarnings(t *testing.T) {
 	}
 	if !strings.Contains(out, "sound.volume above 1") {
 		t.Fatalf("expected warning detail, got %q", out)
-	}
-}
-
-func TestDoctorOpenCodeCheck_FileMissing(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, ".config", "opencode", "plugins", "cleo.ts")
-
-	check := checkOpenCodeExtension(path)
-	if check.OK {
-		t.Error("expected not-ok when plugin file is missing")
-	}
-	if !strings.Contains(check.Detail, "run cleo hooks init") {
-		t.Errorf("expected 'run cleo hooks init' in detail, got: %q", check.Detail)
-	}
-}
-
-func TestDoctorOpenCodeCheck_FileMatches(t *testing.T) {
-	dir := t.TempDir()
-	plugDir := filepath.Join(dir, ".config", "opencode", "plugins")
-	_ = os.MkdirAll(plugDir, 0o755)
-	dest := filepath.Join(plugDir, "cleo.ts")
-	_ = os.WriteFile(dest, []byte(hooks.ExpectedOpenCodeEntry()), 0o644)
-
-	check := checkOpenCodeExtension(dest)
-	if !check.OK {
-		t.Errorf("expected ok when plugin matches template, got: %q", check.Detail)
-	}
-}
-
-func TestDoctorOpenCodeCheck_FileStale(t *testing.T) {
-	dir := t.TempDir()
-	plugDir := filepath.Join(dir, ".config", "opencode", "plugins")
-	_ = os.MkdirAll(plugDir, 0o755)
-	dest := filepath.Join(plugDir, "cleo.ts")
-	_ = os.WriteFile(dest, []byte("// old content"), 0o644)
-
-	check := checkOpenCodeExtension(dest)
-	if check.OK {
-		t.Error("expected not-ok when plugin is stale")
-	}
-	if !strings.Contains(check.Detail, "stale") && !strings.Contains(check.Detail, "re-run") {
-		t.Errorf("expected 'stale' or 're-run' in detail, got: %q", check.Detail)
 	}
 }
 
