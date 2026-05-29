@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -74,12 +73,7 @@ func newRunCmd(getCtx func() *Ctx) *cobra.Command {
 			fmt.Fprintf(cmd.OutOrStdout(), "spawned %s\n", result.Session.ID)
 			if !noAttach {
 				lifecycle.SetFocused(result.Session.ID, true)
-				var attachCmd *exec.Cmd
-				if os.Getenv("TMUX") != "" {
-					attachCmd = exec.Command("tmux", "switch-client", "-t", result.Session.ID)
-				} else {
-					attachCmd = exec.Command("tmux", "attach-session", "-t", result.Session.ID)
-				}
+				attachCmd := c.Tmux.AttachCmd(result.Session.ID)
 				attachCmd.Stdin = os.Stdin
 				attachCmd.Stdout = os.Stdout
 				attachCmd.Stderr = os.Stderr

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -438,6 +439,7 @@ type fakeTmux struct {
 	detachKeyBound          string
 	killed                  []string
 	killErr                 error
+	attached                []string
 }
 
 func (f *fakeTmux) NewSession(o tmux.NewSessionOpts) error {
@@ -476,4 +478,9 @@ func (f *fakeTmux) Kill(n string) error {
 		return f.killErr
 	}
 	return nil
+}
+
+func (f *fakeTmux) AttachCmd(sessionID string) *exec.Cmd {
+	f.attached = append(f.attached, sessionID)
+	return exec.Command("true") // harmless no-op; records the attach request
 }

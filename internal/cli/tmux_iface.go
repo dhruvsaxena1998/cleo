@@ -1,6 +1,10 @@
 package cli
 
-import "github.com/dhruvsaxena1998/cleo/internal/tmux"
+import (
+	"os/exec"
+
+	"github.com/dhruvsaxena1998/cleo/internal/tmux"
+)
 
 // TmuxClient is the production tmux adapter's full surface. It is a superset of
 // sessionlifecycle.Tmux, so Ctx.Tmux satisfies the lifecycle seam by structural
@@ -15,4 +19,7 @@ type TmuxClient interface {
 	CapturePane(name string, lines int) (string, error)
 	SendKeys(name string, text string) error
 	RenameSession(from, to string) error
+	// AttachCmd builds (does not run) the command to attach to a session. The
+	// caller wires stdio and runs it; see tmux.Client.AttachCmd.
+	AttachCmd(sessionID string) *exec.Cmd
 }

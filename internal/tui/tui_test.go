@@ -3,6 +3,7 @@ package tui
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -54,6 +55,7 @@ type fakeTmux struct {
 	live          map[string]bool
 	capturedLines []int
 	newSessionErr error
+	attached      []string
 }
 
 func (f *fakeTmux) NewSession(o tmux.NewSessionOpts) error {
@@ -85,6 +87,10 @@ func (f *fakeTmux) CapturePane(_ string, lines int) (string, error) {
 }
 func (f *fakeTmux) SendKeys(name string, text string) error { return nil }
 func (f *fakeTmux) RenameSession(from, to string) error     { return nil }
+func (f *fakeTmux) AttachCmd(sessionID string) *exec.Cmd {
+	f.attached = append(f.attached, sessionID)
+	return exec.Command("true") // harmless no-op; records the attach request
+}
 
 func TestRenamePopupOpensAndUpdatesSessionName(t *testing.T) {
 	root := t.TempDir()
@@ -199,6 +205,47 @@ func TestEnterOnDeadSessionDoesNotAttach(t *testing.T) {
 	}
 	if !strings.Contains(got.status, "press K") {
 		t.Fatalf("expected remove hint status, got %q", got.status)
+	}
+}
+
+// TestEnterOnLiveSessionAttachesViaSeam is the live-session counterpart to the
+// dead-session test: pressing Enter on a ready Session must produce an attach
+// command and obtain it from the Tmux seam (so the socket and inside-tmux
+// decision apply), not hand-build a raw tmux command.
+func TestEnterOnLiveSessionAttachesViaSeam(t *testing.T) {
+	root := t.TempDir()
+	c, err := cli.NewCtxWithRoot(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sid := "cleo-myapp-claude-1"
+	fake := &fakeTmux{live: map[string]bool{sid: true}}
+	c.Tmux = fake
+	target := filepath.Join(t.TempDir(), "myapp")
+	if err := mkdirAll(target); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Projects.Add(target); err != nil {
+		t.Fatal(err)
+	}
+	_ = c.State.Put(state.Session{
+		ID: sid, ProjectID: "myapp", Agent: "claude",
+		Name: "1", State: state.Running, StartedAt: time.Now(),
+	})
+
+	m := New(c)
+	m.projects, _ = c.Projects.List()
+	m.sessions, _ = c.State.List()
+	m.expanded["myapp"] = true
+	m.cursor.projectIdx = 0
+	m.cursor.agentIdx = 0
+
+	_, cmd := m.attachSelectedAgent()
+	if cmd == nil {
+		t.Fatal("live session should produce an attach command")
+	}
+	if len(fake.attached) != 1 || fake.attached[0] != sid {
+		t.Fatalf("expected attach requested for %q via the seam, got %v", sid, fake.attached)
 	}
 }
 

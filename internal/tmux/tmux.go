@@ -3,6 +3,7 @@ package tmux
 import (
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -105,6 +106,17 @@ func (c *Client) KillServer() error {
 	return c.cmd("kill-server").Run()
 }
 
+// attachArgs builds the argv for attaching the caller to sessionID. Inside an
+// existing tmux client we switch-client so we don't nest a tmux inside the
+// current pane; otherwise we attach-session. Pure so the decision is testable
+// in isolation, mirroring capturePaneArgs.
+func attachArgs(sessionID string, insideTmux bool) []string {
+	if insideTmux {
+		return []string{"switch-client", "-t", sessionID}
+	}
+	return []string{"attach-session", "-t", sessionID}
+}
+
 // capturePaneArgs builds the argv for `tmux capture-pane` honoring the lines
 // parameter via -S -<lines> (start N lines back from the bottom of history).
 // Falls back to 30 lines when lines <= 0.
@@ -138,4 +150,15 @@ func (c *Client) SendKeys(name string, text string) error {
 
 func (c *Client) RenameSession(from, to string) error {
 	return c.cmd("rename-session", "-t", from, to).Run()
+}
+
+// AttachCmd builds — but does not run — the command that attaches the caller to
+// sessionID. It honors the configured socket via cmd() and reads $TMUX here, in
+// the adapter, to choose switch-client (inside tmux) or attach-session (outside)
+// via the pure attachArgs helper. It returns the unstarted command with stdio
+// unset and no error: unlike every other method it only builds, because the CLI
+// and the TUI own their terminals differently and must run it themselves.
+func (c *Client) AttachCmd(sessionID string) *exec.Cmd {
+	insideTmux := os.Getenv("TMUX") != ""
+	return c.cmd(attachArgs(sessionID, insideTmux)...)
 }

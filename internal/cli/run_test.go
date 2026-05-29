@@ -9,6 +9,35 @@ import (
 	"github.com/dhruvsaxena1998/cleo/internal/state"
 )
 
+// TestRunRoutesAttachThroughSeam drops --no-attach and proves spawn-and-attach
+// obtains its attach command from the Tmux seam (so the socket is honored and
+// attach is finally mockable) instead of hand-building a raw tmux command that
+// goes around the adapter.
+func TestRunRoutesAttachThroughSeam(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(t.TempDir(), "myapp")
+	_ = mkdir(target)
+
+	c, _ := NewCtxWithRoot(root)
+	usePortableAgentCommand(c, "claude")
+	_, _ = c.Projects.Add(target)
+
+	fake := &fakeTmux{}
+	c.Tmux = fake
+
+	cmd := newRunCmd(func() *Ctx { return c })
+	cmd.SetArgs([]string{"claude", "--name", "fix-auth-bug", "--cwd", target, "--yes"})
+	cmd.SetOut(&bytes.Buffer{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	wantID := "cleo-myapp-claude-fix-auth-bug"
+	if len(fake.attached) != 1 || fake.attached[0] != wantID {
+		t.Fatalf("expected attach requested for %q via the seam, got %v", wantID, fake.attached)
+	}
+}
+
 func TestRunSpawnsAndRecordsSession(t *testing.T) {
 	root := t.TempDir()
 	target := filepath.Join(t.TempDir(), "myapp")
