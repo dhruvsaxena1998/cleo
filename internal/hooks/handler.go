@@ -132,57 +132,44 @@ func resolveSession(d Deps, proto Protocol, event string, payload []byte) string
 	return sid
 }
 
-// applyNormalized applies a NormalizedEvent to state, event log, and sound.
+// applyNormalized turns a NormalizedEvent into its Hook outcome and performs
+// it: gather the inputs the decision needs (IO), decide (pure), then apply the
+// transition, event-log entry, and sound (IO).
+//
+// The idle-nudge rule reads the pre-transition state: a Notification arriving
+// while the session is already Idle (set by the preceding Stop) is Claude's
+// ~60s internal timer, not a genuine blocking request, so its sound is
+// suppressed — the transition still happens so the TUI shows the indicator.
+// decideHook owns that rule; here we just hand it the "from" state.
 func applyNormalized(d Deps, sid string, norm NormalizedEvent) error {
-	// Read the pre-transition state so idle-nudge detection can check the
-	// "from" state after Apply has already mutated it.
 	var fromState state.State
 	if d.State != nil {
 		if sess, err := d.State.Get(sid); err == nil {
 			fromState = sess.State
 		}
 	}
+	// Guard the lookups on SoundEvent so the no-sound path stays read-free.
+	soundEnabled := norm.SoundEvent != "" && d.Config.SoundEventEnabled(norm.SoundEvent)
+	focused := norm.SoundEvent != "" && sessionFocused(d, sid)
+
+	out := decideHook(norm, fromState, soundEnabled, focused)
 
 	var applyErr error
-	if !norm.LogOnly && d.State != nil {
-		if _, err := d.State.Apply(sid, norm.StateEvent, norm.Message); err != nil {
+	if out.Transition != "" && d.State != nil {
+		if _, err := d.State.Apply(sid, out.Transition, out.Message); err != nil {
 			applyErr = err
 			// continue — still log event and play sound; the agent notified us
 		}
 	}
-	entryType := string(norm.StateEvent)
-	if norm.LogType != "" {
-		entryType = norm.LogType
-	}
-	_ = d.Events(sid).Append(events.Entry{
-		Type:   entryType,
-		Tool:   norm.ToolName,
-		Detail: norm.Message,
-	})
-
-	// Idle-nudge suppression: a Notification that arrives while the session is
-	// already Idle (set by the preceding Stop) is Claude's ~60s internal timer,
-	// not a genuine blocking request. Suppress the sound; the state transition to
-	// WaitingForInput still happens so the TUI shows the visual indicator.
-	idleNudge := norm.SuppressWhenIdle && fromState == state.Idle
-
-	if norm.SoundEvent != "" {
-		var reason string
-		switch {
-		case !d.Config.SoundEventEnabled(norm.SoundEvent):
-			reason = "disabled"
-		case sessionFocused(d, sid):
-			reason = "focus"
-		case idleNudge:
-			reason = "idle-nudge"
-		default:
-			reason = "played"
-			playSound(d, norm.SoundEvent)
+	_ = d.Events(sid).Append(out.LogEntry)
+	if out.SoundEvent != "" {
+		if out.PlaySound {
+			playSound(d, out.SoundEvent)
 		}
 		logSoundDecision(d.Paths, soundDecision{
 			SessionID:  sid,
-			SoundEvent: norm.SoundEvent,
-			Reason:     reason,
+			SoundEvent: out.SoundEvent,
+			Reason:     string(out.SoundReason),
 		})
 	}
 	return applyErr
