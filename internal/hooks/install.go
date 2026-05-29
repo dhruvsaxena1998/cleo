@@ -15,19 +15,18 @@ func ClaudeEvents() []string {
 	return append([]string(nil), claudeEvents...)
 }
 
-// ExpectedClaudeEntries returns the per-event hook entries that
-// InstallClaude would write for the given cleo binary path. Keyed by
-// Claude hook event name (SessionStart, PreToolUse, …). The values match
-// the on-disk JSON shape expected by Claude Code.
-func ExpectedClaudeEntries(cleoBin string) map[string]any {
-	out := make(map[string]any, len(claudeEvents))
-	for _, ev := range claudeEvents {
+// expectedJSONEntries builds the per-event hook entries cleo writes for a
+// JSON-hook agent, keyed by event name. protocol is the agent name embedded in
+// the invoke command. The shape matches what Claude Code / Codex expect on disk.
+func expectedJSONEntries(protocol, cleoBin string, events []string) map[string]any {
+	out := make(map[string]any, len(events))
+	for _, ev := range events {
 		out[ev] = []any{
 			map[string]any{
 				"hooks": []any{
 					map[string]any{
 						"type":    "command",
-						"command": fmt.Sprintf("%s hooks invoke claude %s", cleoBin, ev),
+						"command": fmt.Sprintf("%s hooks invoke %s %s", cleoBin, protocol, ev),
 						"timeout": 5,
 					},
 				},
@@ -37,8 +36,16 @@ func ExpectedClaudeEntries(cleoBin string) map[string]any {
 	return out
 }
 
-func InstallClaude(settingsPath, cleoBin string, force bool) error {
-	b, err := os.ReadFile(settingsPath)
+// installJSONHooks writes cleo hook entries for each event into the JSON config
+// at path (creating the parent directory). It skips events already wired to
+// cleo, refuses to clobber a foreign entry unless force, and is idempotent.
+// protocol names the agent in the invoke command; fileLabel names the file in
+// parse-error messages.
+func installJSONHooks(path, protocol, fileLabel, cleoBin string, events []string, force bool) error {
+	if err := os.MkdirAll(dirOf(path), 0o755); err != nil {
+		return err
+	}
+	b, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		b = []byte("{}")
 	} else if err != nil {
@@ -46,16 +53,16 @@ func InstallClaude(settingsPath, cleoBin string, force bool) error {
 	}
 	var settings map[string]any
 	if err := json.Unmarshal(b, &settings); err != nil {
-		return fmt.Errorf("settings.json: %w", err)
+		return fmt.Errorf("%s: %w", fileLabel, err)
 	}
 	hooks, _ := settings["hooks"].(map[string]any)
 	if hooks == nil {
 		hooks = map[string]any{}
 	}
-	expected := ExpectedClaudeEntries(cleoBin)
-	for _, ev := range claudeEvents {
+	expected := expectedJSONEntries(protocol, cleoBin, events)
+	for _, ev := range events {
 		want := expected[ev]
-		cmd := fmt.Sprintf("%s hooks invoke claude %s", cleoBin, ev)
+		cmd := fmt.Sprintf("%s hooks invoke %s %s", cleoBin, protocol, ev)
 		if hookCommandPresent(hooks[ev], cmd) {
 			continue // already installed — skip, don't overwrite
 		}
@@ -68,71 +75,72 @@ func InstallClaude(settingsPath, cleoBin string, force bool) error {
 	}
 	settings["hooks"] = hooks
 	out, _ := json.MarshalIndent(settings, "", "  ")
-	return os.WriteFile(settingsPath, out, 0o644)
+	return os.WriteFile(path, out, 0o644)
+}
+
+// ExpectedClaudeEntries returns the per-event hook entries that InstallClaude
+// would write for the given cleo binary path. Used by doctor's config diff.
+func ExpectedClaudeEntries(cleoBin string) map[string]any {
+	return expectedJSONEntries("claude", cleoBin, claudeEvents)
+}
+
+func InstallClaude(settingsPath, cleoBin string, force bool) error {
+	return installJSONHooks(settingsPath, "claude", "settings.json", cleoBin, claudeEvents, force)
 }
 
 func CleanupClaude(settingsPath string) (CleanupOutcome, error) {
 	return cleanupHookFile(settingsPath, "claude", "settings.json")
 }
 
-// ExpectedCodexEntries returns the per-event hook entries that
-// InstallCodex would write for the given cleo binary path. Keyed by
-// Codex hook event name (SessionStart, PreToolUse, …).
-func ExpectedCodexEntries(cleoBin string) map[string]any {
-	out := make(map[string]any, len(codexEvents))
-	for _, ev := range codexEvents {
-		out[ev] = []any{
-			map[string]any{
-				"hooks": []any{
-					map[string]any{
-						"type":    "command",
-						"command": fmt.Sprintf("%s hooks invoke codex %s", cleoBin, ev),
-						"timeout": 5,
-					},
-				},
-			},
+// diagnoseJSONHooks checks that the JSON hook-config file at path wires a cleo
+// command for every expected event. label names the check; commandNeedle is the
+// per-protocol command fragment ("hooks invoke claude"). Shared by the claude
+// and codex Diagnose() methods.
+func diagnoseJSONHooks(label, path string, events []string, commandNeedle string) Check {
+	b, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return Check{Label: label, Detail: fmt.Sprintf("missing %s; run cleo hooks init", path)}
+	}
+	if err != nil {
+		return Check{Label: label, Detail: err.Error()}
+	}
+	var settings map[string]any
+	if err := json.Unmarshal(b, &settings); err != nil {
+		return Check{Label: label, Detail: fmt.Sprintf("invalid JSON in %s: %v", path, err)}
+	}
+	configured, _ := settings["hooks"].(map[string]any)
+	var missing []string
+	for _, ev := range events {
+		entry, ok := configured[ev]
+		if !ok || !jsonHookEntryHasCommand(entry, commandNeedle, ev) {
+			missing = append(missing, ev)
 		}
 	}
-	return out
+	if len(missing) > 0 {
+		return Check{Label: label, Detail: fmt.Sprintf("missing Cleo command for %s in %s; run cleo hooks init", strings.Join(missing, ", "), path)}
+	}
+	return Check{Label: label, OK: true, Detail: fmt.Sprintf("%d hooks installed", len(events))}
+}
+
+func jsonHookEntryHasCommand(entry any, commandNeedle, event string) bool {
+	b, err := json.Marshal(entry)
+	if err != nil {
+		return false
+	}
+	text := string(b)
+	return strings.Contains(text, commandNeedle) && strings.Contains(text, event)
+}
+
+// ExpectedCodexEntries returns the per-event hook entries that InstallCodex
+// would write for the given cleo binary path. Used by doctor's config diff.
+func ExpectedCodexEntries(cleoBin string) map[string]any {
+	return expectedJSONEntries("codex", cleoBin, codexEvents)
 }
 
 // InstallCodex writes hook entries to hooksPath (~/.codex/hooks.json) and
 // ensures the feature flag is set in configPath (~/.codex/config.toml).
 func InstallCodex(hooksPath, configPath, cleoBin string, force bool) error {
-	if err := os.MkdirAll(dirOf(hooksPath), 0o755); err != nil {
-		return err
-	}
-	b, err := os.ReadFile(hooksPath)
-	if errors.Is(err, os.ErrNotExist) {
-		b = []byte("{}")
-	} else if err != nil {
-		return err
-	}
-	var settings map[string]any
-	if err := json.Unmarshal(b, &settings); err != nil {
-		return fmt.Errorf("hooks.json: %w", err)
-	}
-	hooks, _ := settings["hooks"].(map[string]any)
-	if hooks == nil {
-		hooks = map[string]any{}
-	}
-	expected := ExpectedCodexEntries(cleoBin)
-	for _, ev := range codexEvents {
-		want := expected[ev]
-		cmd := fmt.Sprintf("%s hooks invoke codex %s", cleoBin, ev)
-		if hookCommandPresent(hooks[ev], cmd) {
-			continue // already installed — skip, don't overwrite
-		}
-		if existing, ok := hooks[ev]; ok {
-			if !equalsHook(existing, want) && !force {
-				return fmt.Errorf("conflict: %s already has a different hook (re-run with --force to overwrite)", ev)
-			}
-		}
-		hooks[ev] = want
-	}
-	settings["hooks"] = hooks
-	out, _ := json.MarshalIndent(settings, "", "  ")
-	if err := os.WriteFile(hooksPath, out, 0o644); err != nil {
+	if err := installJSONHooks(hooksPath, "codex", "hooks.json", cleoBin, codexEvents, force); err != nil {
 		return err
 	}
 	return ensureCodexFeatureFlag(configPath)

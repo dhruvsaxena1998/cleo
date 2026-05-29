@@ -109,12 +109,10 @@ func TestPiProtocol_Install_WritesExtension(t *testing.T) {
 	dir := t.TempDir()
 	extDir := filepath.Join(dir, ".pi", "agent", "extensions")
 
-	origDir := piExtensionsDir
-	piExtensionsDir = extDir
-	defer func() { piExtensionsDir = origDir }()
+	setTestHome(t, dir)
 
 	proto := PiProtocol{}
-	if err := proto.Install("/usr/local/bin/cleo", false); err != nil {
+	if _, err := proto.Install("/usr/local/bin/cleo", false); err != nil {
 		t.Fatalf("Install: %v", err)
 	}
 
@@ -129,17 +127,14 @@ func TestPiProtocol_Install_WritesExtension(t *testing.T) {
 
 func TestPiProtocol_Install_Idempotent(t *testing.T) {
 	dir := t.TempDir()
-	extDir := filepath.Join(dir, ".pi", "agent", "extensions")
-	origDir := piExtensionsDir
-	piExtensionsDir = extDir
-	defer func() { piExtensionsDir = origDir }()
+	setTestHome(t, dir)
 
 	proto := PiProtocol{}
-	if err := proto.Install("/usr/local/bin/cleo", false); err != nil {
+	if _, err := proto.Install("/usr/local/bin/cleo", false); err != nil {
 		t.Fatal(err)
 	}
 	// Re-install with same content — must not fail.
-	if err := proto.Install("/usr/local/bin/cleo", false); err != nil {
+	if _, err := proto.Install("/usr/local/bin/cleo", false); err != nil {
 		t.Errorf("re-install with same content should not fail: %v", err)
 	}
 }
@@ -147,16 +142,14 @@ func TestPiProtocol_Install_Idempotent(t *testing.T) {
 func TestPiProtocol_Install_ConflictWithoutForce(t *testing.T) {
 	dir := t.TempDir()
 	extDir := filepath.Join(dir, ".pi", "agent", "extensions")
-	origDir := piExtensionsDir
-	piExtensionsDir = extDir
-	defer func() { piExtensionsDir = origDir }()
+	setTestHome(t, dir)
 
 	// Write a different file first.
 	_ = os.MkdirAll(extDir, 0o755)
 	_ = os.WriteFile(filepath.Join(extDir, "cleo.ts"), []byte("// different content"), 0o644)
 
 	proto := PiProtocol{}
-	if err := proto.Install("/usr/local/bin/cleo", false); err == nil {
+	if _, err := proto.Install("/usr/local/bin/cleo", false); err == nil {
 		t.Error("expected conflict error, got nil")
 	}
 }
@@ -164,15 +157,13 @@ func TestPiProtocol_Install_ConflictWithoutForce(t *testing.T) {
 func TestPiProtocol_Install_ForceOverwrites(t *testing.T) {
 	dir := t.TempDir()
 	extDir := filepath.Join(dir, ".pi", "agent", "extensions")
-	origDir := piExtensionsDir
-	piExtensionsDir = extDir
-	defer func() { piExtensionsDir = origDir }()
+	setTestHome(t, dir)
 
 	_ = os.MkdirAll(extDir, 0o755)
 	_ = os.WriteFile(filepath.Join(extDir, "cleo.ts"), []byte("// different content"), 0o644)
 
 	proto := PiProtocol{}
-	if err := proto.Install("/usr/local/bin/cleo", true); err != nil {
+	if _, err := proto.Install("/usr/local/bin/cleo", true); err != nil {
 		t.Fatalf("Install with --force: %v", err)
 	}
 	got, _ := os.ReadFile(filepath.Join(extDir, "cleo.ts"))
@@ -184,12 +175,10 @@ func TestPiProtocol_Install_ForceOverwrites(t *testing.T) {
 func TestPiProtocol_Cleanup_RemovesMatchingFile(t *testing.T) {
 	dir := t.TempDir()
 	extDir := filepath.Join(dir, ".pi", "agent", "extensions")
-	origDir := piExtensionsDir
-	piExtensionsDir = extDir
-	defer func() { piExtensionsDir = origDir }()
+	setTestHome(t, dir)
 
 	proto := PiProtocol{}
-	_ = proto.Install("/usr/local/bin/cleo", false)
+	_, _ = proto.Install("/usr/local/bin/cleo", false)
 
 	dest := filepath.Join(extDir, "cleo.ts")
 	outcome, err := proto.Cleanup()
@@ -210,9 +199,7 @@ func TestPiProtocol_Cleanup_RemovesMatchingFile(t *testing.T) {
 func TestPiProtocol_Cleanup_SkipsModifiedFile(t *testing.T) {
 	dir := t.TempDir()
 	extDir := filepath.Join(dir, ".pi", "agent", "extensions")
-	origDir := piExtensionsDir
-	piExtensionsDir = extDir
-	defer func() { piExtensionsDir = origDir }()
+	setTestHome(t, dir)
 
 	_ = os.MkdirAll(extDir, 0o755)
 	dest := filepath.Join(extDir, "cleo.ts")
@@ -236,10 +223,7 @@ func TestPiProtocol_Cleanup_SkipsModifiedFile(t *testing.T) {
 
 func TestPiProtocol_Cleanup_MissingWhenFileAbsent(t *testing.T) {
 	dir := t.TempDir()
-	extDir := filepath.Join(dir, ".pi", "agent", "extensions")
-	origDir := piExtensionsDir
-	piExtensionsDir = extDir
-	defer func() { piExtensionsDir = origDir }()
+	setTestHome(t, dir)
 
 	proto := PiProtocol{}
 	outcome, err := proto.Cleanup()

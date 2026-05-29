@@ -50,13 +50,13 @@ func TestPrintCleanupSummary(t *testing.T) {
 func TestPromptCleanupSelection(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    string // one line per agent: claude, codex, opencode, pi
+		input    string // one line per agent, in registry order: claude, codex, pi, opencode
 		wantKeys []string
 	}{
 		{
 			name:     "all defaults (enter×4)",
 			input:    "\n\n\n\n",
-			wantKeys: []string{hookClaude, hookCodex, hookOpenCode, hookPi},
+			wantKeys: []string{hookClaude, hookCodex, hookPi, hookOpenCode},
 		},
 		{
 			name:     "claude only",

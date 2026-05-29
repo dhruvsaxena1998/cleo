@@ -2,25 +2,37 @@ package hooks
 
 import (
 	"encoding/json"
-	"os"
 	"path/filepath"
 
 	"github.com/dhruvsaxena1998/cleo/internal/state"
 )
 
-// ClaudeEvents returns the hook event names Claude Code fires.
 func (ClaudeProtocol) Name() string          { return "claude" }
+func (ClaudeProtocol) DisplayName() string   { return "Claude Code" }
 func (ClaudeProtocol) Events() []string      { return ClaudeEvents() }
 func (ClaudeProtocol) UsesCwdFallback() bool { return false }
 
-func (ClaudeProtocol) Install(cleoBin string, force bool) error {
-	home, _ := os.UserHomeDir()
-	return InstallClaude(filepath.Join(home, ".claude", "settings.json"), cleoBin, force)
+func (ClaudeProtocol) settingsPath() string {
+	return filepath.Join(homeDir(), ".claude", "settings.json")
 }
 
-func (ClaudeProtocol) Cleanup() (CleanupOutcome, error) {
-	home, _ := os.UserHomeDir()
-	return CleanupClaude(filepath.Join(home, ".claude", "settings.json"))
+func (p ClaudeProtocol) Locations() []Location {
+	return []Location{{Label: "hooks", Path: p.settingsPath()}}
+}
+
+func (p ClaudeProtocol) Install(cleoBin string, force bool) (InstallReport, error) {
+	if err := InstallClaude(p.settingsPath(), cleoBin, force); err != nil {
+		return InstallReport{}, err
+	}
+	return InstallReport{}, nil
+}
+
+func (p ClaudeProtocol) Cleanup() (CleanupOutcome, error) {
+	return CleanupClaude(p.settingsPath())
+}
+
+func (p ClaudeProtocol) Diagnose() []Check {
+	return []Check{diagnoseJSONHooks("Claude hooks", p.settingsPath(), ClaudeEvents(), "hooks invoke claude")}
 }
 
 func (ClaudeProtocol) Normalize(event string, payload []byte) (NormalizedEvent, bool) {
