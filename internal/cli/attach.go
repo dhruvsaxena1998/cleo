@@ -18,25 +18,23 @@ func newAttachCmd(getCtx func() *Ctx) *cobra.Command {
 			c := getCtx()
 			lifecycle := c.NewLifecycle()
 
-			result, err := lifecycle.PrepareAttach(args[0])
+			plan, err := lifecycle.Attach(args[0])
 			if err != nil {
 				return err
 			}
-			switch result.Action {
+			switch plan.Action {
 			case sessionlifecycle.AttachBlocked:
-				return fmt.Errorf("session %q is %s; cannot attach", args[0], result.Session.State)
+				return fmt.Errorf("session %q is %s; cannot attach", args[0], plan.Session.State)
 			case sessionlifecycle.AttachMarkedDead:
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %s is no longer running; marked dead\n", args[0])
 				return nil
 			}
 
-			lifecycle.SetFocused(args[0], true)
-			t := c.Tmux.AttachCmd(args[0])
-			t.Stdin = os.Stdin
-			t.Stdout = os.Stdout
-			t.Stderr = os.Stderr
-			err = t.Run()
-			lifecycle.SetFocused(args[0], false)
+			plan.Cmd.Stdin = os.Stdin
+			plan.Cmd.Stdout = os.Stdout
+			plan.Cmd.Stderr = os.Stderr
+			err = plan.Cmd.Run()
+			plan.Done()
 			return err
 		},
 	}

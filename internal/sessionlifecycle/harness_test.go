@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/dhruvsaxena1998/cleo/internal/events"
+	"github.com/dhruvsaxena1998/cleo/internal/focus"
 	"github.com/dhruvsaxena1998/cleo/internal/ids"
 	"github.com/dhruvsaxena1998/cleo/internal/paths"
 	"github.com/dhruvsaxena1998/cleo/internal/projects"
@@ -19,6 +20,7 @@ type testHarness struct {
 	Projects  *projects.Store
 	State     *state.Store
 	Tmux      *fakeTmux
+	Focus     *focus.Store
 	Lifecycle *sessionlifecycle.Lifecycle
 }
 
@@ -28,18 +30,21 @@ func newTestHarness(t *testing.T) *testHarness {
 	p := paths.NewWithRoot(root)
 	fake := &fakeTmux{verifySession: true, hasSession: true}
 	projectStore := projects.NewStore(p.ProjectsFile())
+	focusStore := focus.NewStore(p.FocusFile())
 	l := sessionlifecycle.New(sessionlifecycle.Options{
 		Config:   testConfig(),
 		Projects: projectStore,
 		State:    state.NewStore(p.StateFile(), p.StateLock()),
 		Tmux:     fake,
 		Paths:    p,
+		Focus:    focusStore,
 	})
 	return &testHarness{
 		Paths:     p,
 		Projects:  projectStore,
 		State:     state.NewStore(p.StateFile(), p.StateLock()),
 		Tmux:      fake,
+		Focus:     focusStore,
 		Lifecycle: l,
 	}
 }

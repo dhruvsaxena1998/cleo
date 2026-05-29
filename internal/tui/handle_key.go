@@ -221,27 +221,26 @@ func (m Model) attachSelectedAgent() (Model, tea.Cmd) {
 
 	lifecycle := m.ctx.NewLifecycle()
 
-	result, err := lifecycle.PrepareAttach(sess.ID)
+	plan, err := lifecycle.Attach(sess.ID)
 	if err != nil {
 		m.status = fmt.Sprintf("attach failed: %v", err)
 		return m, nil
 	}
 
-	switch result.Action {
+	switch plan.Action {
 	case sessionlifecycle.AttachBlocked:
-		m.status = fmt.Sprintf("%s is %s; press K to remove it", sess.ID, result.Session.State)
+		m.status = fmt.Sprintf("%s is %s; press K to remove it", sess.ID, plan.Session.State)
 		return m, nil
 	case sessionlifecycle.AttachMarkedDead:
 		m.status = fmt.Sprintf("%s is no longer running; marked dead", sess.ID)
 		return m, loadStateCmd(m.ctx)
 	}
 
-	// AttachReady or AttachRevived — proceed with attaching.
-	lifecycle.SetFocused(sess.ID, true)
-	c := m.ctx.Tmux.AttachCmd(sess.ID)
-	id := sess.ID
-	return m, tea.ExecProcess(c, func(err error) tea.Msg {
-		lifecycle.SetFocused(id, false)
+	// AttachReady or AttachRevived — proceed with attaching. Done clears focus
+	// once the user detaches and Bubble Tea resumes.
+	done := plan.Done
+	return m, tea.ExecProcess(plan.Cmd, func(err error) tea.Msg {
+		done()
 		// nothing to send back; just resume rendering
 		return nil
 	})
