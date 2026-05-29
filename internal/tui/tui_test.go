@@ -76,7 +76,9 @@ func (f *fakeTmux) LsPrefix(prefix string) ([]string, error) {
 	}
 	return out, nil
 }
-func (f *fakeTmux) Kill(n string) error { delete(f.live, n); return nil }
+func (f *fakeTmux) Kill(n string) error            { delete(f.live, n); return nil }
+func (f *fakeTmux) BindDetachKey(string) error     { return nil }
+func (f *fakeTmux) InstallFocusHooks(string) error { return nil }
 func (f *fakeTmux) CapturePane(_ string, lines int) (string, error) {
 	f.capturedLines = append(f.capturedLines, lines)
 	return "", nil

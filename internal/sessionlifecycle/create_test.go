@@ -92,7 +92,7 @@ func TestCreateWithExplicitProjectIDUsesRegisteredProjectPath(t *testing.T) {
 	assertCreatedSession(t, p, fake, result, "cleo-myapp-claude-work-here", projectPath)
 }
 
-func TestCreateBindsConfiguredDetachKeyWhenTmuxAdapterSupportsIt(t *testing.T) {
+func TestCreateBindsConfiguredDetachKey(t *testing.T) {
 	root := t.TempDir()
 	projectPath := mkdirProjectDir(t, "myapp")
 	p := paths.NewWithRoot(root)
@@ -124,7 +124,7 @@ func TestCreateBindsConfiguredDetachKeyWhenTmuxAdapterSupportsIt(t *testing.T) {
 	}
 }
 
-func TestCreateInstallsFocusHooksWhenTmuxAdapterSupportsThem(t *testing.T) {
+func TestCreateInstallsFocusHooks(t *testing.T) {
 	root := t.TempDir()
 	projectPath := mkdirProjectDir(t, "myapp")
 	p := paths.NewWithRoot(root)
@@ -411,7 +411,7 @@ func mkdirProjectDir(t *testing.T, base string) string {
 	return target
 }
 
-func newTestLifecycle(p paths.Paths, tmux sessionlifecycle.TmuxLauncher) *sessionlifecycle.Lifecycle {
+func newTestLifecycle(p paths.Paths, tmux sessionlifecycle.Tmux) *sessionlifecycle.Lifecycle {
 	return sessionlifecycle.New(sessionlifecycle.Options{
 		Config:   testConfig(),
 		Projects: projects.NewStore(p.ProjectsFile()),

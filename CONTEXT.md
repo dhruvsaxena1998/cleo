@@ -19,3 +19,7 @@ _Avoid_: session service, runner
 **Worktree**:
 A git worktree created by Cleo for an agent session, living at `<project>/.cleo/worktrees/<session-name>/` on branch `cleo/wt-<session-slug>`. Isolates agent work from the project's main working tree so multiple agents can work in parallel without branch conflicts. Branches off the current HEAD by default, overridable with `--base <branch>`. Worktrees persist after session end and are cleaned up by `cleo prune` (or `cleo kill`). Whether a project uses worktrees by default is configurable per project in `projects.json`.
 _Avoid_: sandbox, isolated workspace
+
+**Tmux seam**:
+The single interface (`sessionlifecycle.Tmux`) through which the Session lifecycle drives tmux — spawning a session, checking liveness, binding the detach key, installing focus hooks, and killing. The real `tmux.Client` satisfies it in production; a fake satisfies it in tests. The lifecycle depends on this seam alone and never reaches past it to the concrete client.
+_Avoid_: tmux launcher, tmux wrapper, tmux client (when you mean the interface — `tmux.Client` is the production adapter, not the seam)
