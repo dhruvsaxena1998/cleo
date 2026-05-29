@@ -48,18 +48,16 @@ func (l *Lifecycle) PrepareAttach(sessionID string) (PrepareAttachResult, error)
 	}
 
 	// Check tmux liveness — if the tmux session is gone, mark it dead.
-	if checker, ok := l.tmux.(interface{ HasSession(string) (bool, error) }); ok {
-		live, err := checker.HasSession(sessionID)
-		if err != nil || !live {
-			updated, applyErr := l.state.ApplySynthetic(sessionID, state.EvDead, "")
-			if applyErr != nil {
-				return PrepareAttachResult{}, applyErr
-			}
-			return PrepareAttachResult{
-				Session: updated,
-				Action:  AttachMarkedDead,
-			}, nil
+	live, err := l.tmux.HasSession(sessionID)
+	if err != nil || !live {
+		updated, applyErr := l.state.ApplySynthetic(sessionID, state.EvDead, "")
+		if applyErr != nil {
+			return PrepareAttachResult{}, applyErr
 		}
+		return PrepareAttachResult{
+			Session: updated,
+			Action:  AttachMarkedDead,
+		}, nil
 	}
 
 	// Revive completed-but-live sessions.

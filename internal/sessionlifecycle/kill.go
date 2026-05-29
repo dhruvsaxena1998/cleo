@@ -24,10 +24,8 @@ func (l *Lifecycle) Kill(sessionID string) (KillResult, error) {
 	}
 
 	var warning error
-	if killer, ok := l.tmux.(interface{ Kill(string) error }); ok {
-		if err := killer.Kill(sessionID); err != nil {
-			warning = fmt.Errorf("tmux kill failed: %w", err)
-		}
+	if err := l.tmux.Kill(sessionID); err != nil {
+		warning = fmt.Errorf("tmux kill failed: %w", err)
 	}
 
 	if err := l.state.Delete(sessionID); err != nil {

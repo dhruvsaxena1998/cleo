@@ -25,15 +25,23 @@ var (
 	ErrSessionNotFound           = errors.New("session not found")
 )
 
-type TmuxLauncher interface {
+// Tmux is the Session lifecycle's seam onto tmux: it names every tmux method
+// the lifecycle calls, so the compiler enforces that every adapter satisfies the
+// whole contract. The interface is declared here, by the consumer, not exported
+// from the tmux package. See docs/adr/0001-tmux-seam-consumer-side-interface.md.
+type Tmux interface {
 	NewSession(tmux.NewSessionOpts) error
+	HasSession(name string) (bool, error)
+	BindDetachKey(detachKey string) error
+	InstallFocusHooks(cleoBin string) error
+	Kill(name string) error
 }
 
 type Options struct {
 	Config       config.Config
 	Projects     *projects.Store
 	State        *state.Store
-	Tmux         TmuxLauncher
+	Tmux         Tmux
 	Paths        paths.Paths
 	Focus        *focus.Store
 	CleoBin      string
@@ -44,7 +52,7 @@ type Lifecycle struct {
 	cfg          config.Config
 	projects     *projects.Store
 	state        *state.Store
-	tmux         TmuxLauncher
+	tmux         Tmux
 	paths        paths.Paths
 	focus        *focus.Store
 	cleoBin      string
@@ -165,11 +173,7 @@ func validateAgentCommand(agentName, command string) error {
 }
 
 func (l *Lifecycle) verifySessionAlive(sid string) error {
-	checker, ok := l.tmux.(interface{ HasSession(string) (bool, error) })
-	if !ok {
-		return nil
-	}
-	live, err := checker.HasSession(sid)
+	live, err := l.tmux.HasSession(sid)
 	if err != nil {
 		return fmt.Errorf("%w: verify tmux session: %v", ErrLaunchFailed, err)
 	}
@@ -183,18 +187,10 @@ func (l *Lifecycle) bindDetachKey() {
 	if l.cfg.Tmux.DetachKey == "" {
 		return
 	}
-	binder, ok := l.tmux.(interface{ BindDetachKey(string) error })
-	if !ok {
-		return
-	}
-	_ = binder.BindDetachKey(l.cfg.Tmux.DetachKey)
+	_ = l.tmux.BindDetachKey(l.cfg.Tmux.DetachKey)
 }
 
 func (l *Lifecycle) installFocusHooks() {
-	installer, ok := l.tmux.(interface{ InstallFocusHooks(string) error })
-	if !ok {
-		return
-	}
 	cleoBin := l.cleoBin
 	if cleoBin == "" {
 		var err error
@@ -204,7 +200,7 @@ func (l *Lifecycle) installFocusHooks() {
 		}
 		cleoBin, _ = filepath.Abs(cleoBin)
 	}
-	_ = installer.InstallFocusHooks(cleoBin)
+	_ = l.tmux.InstallFocusHooks(cleoBin)
 }
 
 func (l *Lifecycle) resolveProject(input CreateInput) (projects.Project, bool, error) {

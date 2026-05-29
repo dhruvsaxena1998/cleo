@@ -58,11 +58,9 @@ func (l *Lifecycle) RemoveProjectSessions(input RemoveProjectSessionsInput) (Rem
 	var removed []string
 
 	// Best-effort kill active Sessions.
-	if killer, ok := l.tmux.(interface{ Kill(string) error }); ok {
-		for _, id := range active {
-			if err := killer.Kill(id); err != nil {
-				warnings = append(warnings, fmt.Errorf("kill %s: %w", id, err))
-			}
+	for _, id := range active {
+		if err := l.tmux.Kill(id); err != nil {
+			warnings = append(warnings, fmt.Errorf("kill %s: %w", id, err))
 		}
 	}
 
