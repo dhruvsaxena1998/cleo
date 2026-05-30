@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -32,8 +33,9 @@ func usePortableAgentCommand(c *Ctx, agentName string) {
 }
 
 type fakeTmux struct {
-	created []tmux.NewSessionOpts
-	exists  map[string]bool
+	created  []tmux.NewSessionOpts
+	exists   map[string]bool
+	attached []string
 }
 
 func (f *fakeTmux) NewSession(o tmux.NewSessionOpts) error {
@@ -60,3 +62,7 @@ func (f *fakeTmux) InstallFocusHooks(string) error          { return nil }
 func (f *fakeTmux) CapturePane(string, int) (string, error) { return "", nil }
 func (f *fakeTmux) SendKeys(string, string) error           { return nil }
 func (f *fakeTmux) RenameSession(from, to string) error     { return nil }
+func (f *fakeTmux) AttachCmd(sessionID string) *exec.Cmd {
+	f.attached = append(f.attached, sessionID)
+	return exec.Command("true") // harmless no-op; records the attach request
+}

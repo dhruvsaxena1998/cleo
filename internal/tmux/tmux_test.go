@@ -86,6 +86,61 @@ func TestCapturePaneArgsIncludeScrollbackFlag(t *testing.T) {
 	}
 }
 
+// attachArgs is pure, so the switch-client-vs-attach-session decision is a
+// table: inside an existing tmux client we switch the client (so attach does
+// not nest a tmux inside the current pane); otherwise we attach the session.
+// The target session id must always appear in the argv.
+func TestAttachArgs(t *testing.T) {
+	tests := []struct {
+		name       string
+		sessionID  string
+		insideTmux bool
+		want       []string
+	}{
+		{
+			name:       "inside tmux switches the client",
+			sessionID:  "cleo-myapp-claude-1",
+			insideTmux: true,
+			want:       []string{"switch-client", "-t", "cleo-myapp-claude-1"},
+		},
+		{
+			name:       "outside tmux attaches the session",
+			sessionID:  "cleo-myapp-claude-1",
+			insideTmux: false,
+			want:       []string{"attach-session", "-t", "cleo-myapp-claude-1"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := attachArgs(tt.sessionID, tt.insideTmux)
+			if !equalStrings(got, tt.want) {
+				t.Errorf("attachArgs(%q, %v) = %v, want %v", tt.sessionID, tt.insideTmux, got, tt.want)
+			}
+		})
+	}
+}
+
+// AttachCmd must build (not run) a socket-aware command and pick the subcommand
+// from $TMUX. Asserting on cmd.Args proves the -L socket flag is honored — the
+// latent bug the seam closes — and that the inside/outside decision is wired in.
+func TestAttachCmdHonorsSocketAndInsideTmuxDecision(t *testing.T) {
+	c := NewClient("cleo-sock")
+
+	t.Setenv("TMUX", "/tmp/tmux-1000/default,9999,0")
+	got := c.AttachCmd("cleo-myapp-claude-1")
+	want := []string{"tmux", "-L", "cleo-sock", "switch-client", "-t", "cleo-myapp-claude-1"}
+	if !equalStrings(got.Args, want) {
+		t.Errorf("inside tmux: argv = %v, want %v", got.Args, want)
+	}
+
+	t.Setenv("TMUX", "")
+	got = c.AttachCmd("cleo-myapp-claude-1")
+	want = []string{"tmux", "-L", "cleo-sock", "attach-session", "-t", "cleo-myapp-claude-1"}
+	if !equalStrings(got.Args, want) {
+		t.Errorf("outside tmux: argv = %v, want %v", got.Args, want)
+	}
+}
+
 func equalStrings(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

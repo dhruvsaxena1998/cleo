@@ -3,7 +3,6 @@ package tui
 import (
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -239,7 +238,7 @@ func (m Model) attachSelectedAgent() (Model, tea.Cmd) {
 
 	// AttachReady or AttachRevived — proceed with attaching.
 	lifecycle.SetFocused(sess.ID, true)
-	c := exec.Command("tmux", "attach", "-t", sess.ID)
+	c := m.ctx.Tmux.AttachCmd(sess.ID)
 	id := sess.ID
 	return m, tea.ExecProcess(c, func(err error) tea.Msg {
 		lifecycle.SetFocused(id, false)

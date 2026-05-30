@@ -3,7 +3,6 @@ package cli
 import (
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/spf13/cobra"
 
@@ -32,7 +31,7 @@ func newAttachCmd(getCtx func() *Ctx) *cobra.Command {
 			}
 
 			lifecycle.SetFocused(args[0], true)
-			t := exec.Command("tmux", "attach", "-t", args[0])
+			t := c.Tmux.AttachCmd(args[0])
 			t.Stdin = os.Stdin
 			t.Stdout = os.Stdout
 			t.Stderr = os.Stderr

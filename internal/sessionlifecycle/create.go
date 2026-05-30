@@ -35,6 +35,10 @@ type Tmux interface {
 	BindDetachKey(detachKey string) error
 	InstallFocusHooks(cleoBin string) error
 	Kill(name string) error
+	// AttachCmd builds (does not run) the attach command. The lifecycle.Attach
+	// verb will build with it; it lives on the seam now so every adapter honors
+	// the same contract. See tmux.Client.AttachCmd.
+	AttachCmd(sessionID string) *exec.Cmd
 }
 
 type Options struct {
