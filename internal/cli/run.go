@@ -72,13 +72,17 @@ func newRunCmd(getCtx func() *Ctx) *cobra.Command {
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "spawned %s\n", result.Session.ID)
 			if !noAttach {
-				lifecycle.SetFocused(result.Session.ID, true)
-				attachCmd := c.Tmux.AttachCmd(result.Session.ID)
-				attachCmd.Stdin = os.Stdin
-				attachCmd.Stdout = os.Stdout
-				attachCmd.Stderr = os.Stderr
-				_ = attachCmd.Run()
-				lifecycle.SetFocused(result.Session.ID, false)
+				plan, err := lifecycle.Attach(result.Session.ID)
+				if err != nil {
+					return err
+				}
+				if plan.Cmd != nil {
+					plan.Cmd.Stdin = os.Stdin
+					plan.Cmd.Stdout = os.Stdout
+					plan.Cmd.Stderr = os.Stderr
+					_ = plan.Cmd.Run()
+					plan.Done()
+				}
 			}
 			return nil
 		},

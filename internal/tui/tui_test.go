@@ -209,9 +209,11 @@ func TestEnterOnDeadSessionDoesNotAttach(t *testing.T) {
 }
 
 // TestEnterOnLiveSessionAttachesViaSeam is the live-session counterpart to the
-// dead-session test: pressing Enter on a ready Session must produce an attach
-// command and obtain it from the Tmux seam (so the socket and inside-tmux
-// decision apply), not hand-build a raw tmux command.
+// dead-session test: pressing Enter on a ready Session must request the attach
+// plan from lifecycle.Attach (which sets focus and builds the command via the
+// Tmux seam) and run the returned command — not hand-build a raw tmux command.
+// Focus-clear on detach is pinned at the lifecycle level (TestAttachDoneClearsFocus);
+// here it lives in the opaque ExecProcess callback.
 func TestEnterOnLiveSessionAttachesViaSeam(t *testing.T) {
 	root := t.TempDir()
 	c, err := cli.NewCtxWithRoot(root)
@@ -246,6 +248,11 @@ func TestEnterOnLiveSessionAttachesViaSeam(t *testing.T) {
 	}
 	if len(fake.attached) != 1 || fake.attached[0] != sid {
 		t.Fatalf("expected attach requested for %q via the seam, got %v", sid, fake.attached)
+	}
+	// The verb sets focus on before handing back the command; the TUI clears it
+	// in the ExecProcess detach callback (plan.Done).
+	if !c.Focus.IsFocused(sid) {
+		t.Fatal("expected focus set after attach routed through lifecycle.Attach")
 	}
 }
 
