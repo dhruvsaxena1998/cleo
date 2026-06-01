@@ -109,6 +109,7 @@ func (m Model) renderFooter(width int) string {
 			if sess.State.IsFinished() {
 				hints = []string{
 					faint.Render(m.statusOr(fmt.Sprintf("%s is %s", sess.ID, sess.State))),
+					m.theme.KeyHint("e", "editor"),
 					m.theme.KeyHint("K", "remove"),
 					m.theme.KeyHint("P", "prune project"),
 					m.theme.KeyHint("n", "new sibling"),
@@ -123,6 +124,7 @@ func (m Model) renderFooter(width int) string {
 					hints = append(hints, m.theme.KeyHint("v", "view"))
 				}
 				hints = append(hints,
+					m.theme.KeyHint("e", "editor"),
 					m.theme.KeyHint("r", "rename"),
 					m.theme.KeyHint("K", "kill"),
 					m.theme.KeyHint("n", "new sibling"),
@@ -143,6 +145,7 @@ func (m Model) renderFooter(width int) string {
 			}
 			hints = []string{
 				m.theme.KeyHint("n", "new session"),
+				m.theme.KeyHint("e", "editor"),
 				m.theme.KeyHint("space", "expand"),
 				m.theme.KeyHint("j/k", "move"),
 				m.theme.KeyHint("↵ ", "attach"),

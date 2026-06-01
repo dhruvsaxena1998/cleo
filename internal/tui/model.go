@@ -12,21 +12,22 @@ import (
 )
 
 type Model struct {
-	ctx           *cli.Ctx
-	theme         Theme
-	projects      []projects.Project
-	sessions      []state.Session
-	cursor        cursor
-	expanded      map[string]bool   // project id → expanded
-	paneCache     map[string]string // session id → last captured pane content
-	selected      string            // session id selected for "v" view; "" = none
-	status        string
-	statusTimerID int
-	mode          Mode
-	popup         tea.Model
-	help          help.Model
-	width, height int
-	err           error
+	ctx            *cli.Ctx
+	theme          Theme
+	projects       []projects.Project
+	sessions       []state.Session
+	cursor         cursor
+	expanded       map[string]bool   // project id → expanded
+	paneCache      map[string]string // session id → last captured pane content
+	selected       string            // session id selected for "v" view; "" = none
+	status         string
+	statusTimerID  int
+	mode           Mode
+	popup          tea.Model
+	help           help.Model
+	editorLauncher editorLauncher
+	width, height  int
+	err            error
 
 	// paneCaptureInFlight is true between dispatching a capturePaneCmd and
 	// receiving the corresponding paneCapturedMsg. The selection-driven
@@ -38,7 +39,7 @@ type Model struct {
 	// startup instead of waiting for the first previewTickCmd interval.
 	firstStateLoaded bool
 
-	heapAlloc    uint64 // updated once per state tick via runtime.ReadMemStats
+	heapAlloc     uint64 // updated once per state tick via runtime.ReadMemStats
 	agentMemAlloc uint64 // combined RSS of all agent process trees (bytes)
 }
 
@@ -62,12 +63,13 @@ type cursor struct {
 
 func New(ctx *cli.Ctx) Model {
 	m := Model{
-		ctx:       ctx,
-		theme:     Resolve(ctx.Config.UI.Theme),
-		expanded:  map[string]bool{},
-		paneCache: map[string]string{},
-		help:      help.New(),
-		heapAlloc: readHeapAlloc(),
+		ctx:            ctx,
+		theme:          Resolve(ctx.Config.UI.Theme),
+		expanded:       map[string]bool{},
+		paneCache:      map[string]string{},
+		help:           help.New(),
+		editorLauncher: processEditorLauncher{},
+		heapAlloc:      readHeapAlloc(),
 	}
 	if len(ctx.Config.Warnings) > 0 {
 		m.status = "config warnings: run cleo doctor"

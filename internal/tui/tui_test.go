@@ -87,10 +87,183 @@ func (f *fakeTmux) CapturePane(_ string, lines int) (string, error) {
 }
 func (f *fakeTmux) SendKeys(name string, text string) error { return nil }
 func (f *fakeTmux) RenameSession(from, to string) error     { return nil }
-func (f *fakeTmux) SessionPIDs(name string) ([]int, error) { return nil, nil }
+func (f *fakeTmux) SessionPIDs(name string) ([]int, error)  { return nil, nil }
 func (f *fakeTmux) AttachCmd(sessionID string) *exec.Cmd {
 	f.attached = append(f.attached, sessionID)
 	return exec.Command("true") // harmless no-op; records the attach request
+}
+
+type fakeEditorLauncher struct {
+	started []*exec.Cmd
+	err     error
+}
+
+func (f *fakeEditorLauncher) StartDetached(cmd *exec.Cmd) error {
+	f.started = append(f.started, cmd)
+	return f.err
+}
+
+func TestOpenEditorKeyOnProjectRowStartsDetachedEditorForProjectPath(t *testing.T) {
+	c := newTestCtx(t)
+	c.Config.UI.Editor = "code --reuse-window"
+	target := filepath.Join(t.TempDir(), "myapp")
+	if err := mkdirAll(target); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Projects.Add(target); err != nil {
+		t.Fatal(err)
+	}
+	m := New(c)
+	m.projects, _ = c.Projects.List()
+	m.cursor.projectIdx = 0
+	m.cursor.agentIdx = -1
+	launcher := &fakeEditorLauncher{}
+	m.editorLauncher = launcher
+
+	gotModel, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")})
+	got := gotModel.(Model)
+
+	if len(launcher.started) != 1 {
+		t.Fatalf("started detached editors = %d, want 1", len(launcher.started))
+	}
+	if !containsEnv(launcher.started[0].Env, "CLEO_PROJECT_PATH="+target) {
+		t.Fatalf("project path env missing: %v", launcher.started[0].Env)
+	}
+	if !strings.Contains(got.status, "opening Project myapp") {
+		t.Fatalf("status = %q", got.status)
+	}
+	if cmd == nil {
+		t.Fatal("successful detached launch should schedule status expiry")
+	}
+}
+
+func TestOpenEditorKeyOnFinishedSessionTargetsParentProjectPath(t *testing.T) {
+	c := newTestCtx(t)
+	c.Config.UI.Editor = "code"
+	target := filepath.Join(t.TempDir(), "myapp")
+	if err := mkdirAll(target); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Projects.Add(target); err != nil {
+		t.Fatal(err)
+	}
+	_ = c.State.Put(state.Session{
+		ID: "cleo-myapp-codex-1", ProjectID: "myapp", Agent: "codex",
+		Name: "1", State: state.Dead, StartedAt: time.Now(), LastEventAt: time.Now(),
+	})
+	m := New(c)
+	m.projects, _ = c.Projects.List()
+	m.sessions, _ = c.State.List()
+	m.expanded["myapp"] = true
+	m.cursor.projectIdx = 0
+	m.cursor.agentIdx = 0
+	launcher := &fakeEditorLauncher{}
+	m.editorLauncher = launcher
+
+	_, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")})
+
+	if len(launcher.started) != 1 {
+		t.Fatalf("started detached editors = %d, want 1", len(launcher.started))
+	}
+	if !containsEnv(launcher.started[0].Env, "CLEO_PROJECT_PATH="+target) {
+		t.Fatalf("project path env missing: %v", launcher.started[0].Env)
+	}
+}
+
+func TestOpenEditorKeyReportsMissingAndUnsupportedEditors(t *testing.T) {
+	t.Setenv("EDITOR", "")
+	c := newTestCtx(t)
+	target := filepath.Join(t.TempDir(), "myapp")
+	if err := mkdirAll(target); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Projects.Add(target); err != nil {
+		t.Fatal(err)
+	}
+	m := New(c)
+	m.projects, _ = c.Projects.List()
+	m.cursor.projectIdx = 0
+	m.cursor.agentIdx = -1
+
+	gotModel, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")})
+	got := gotModel.(Model)
+	if cmd != nil {
+		t.Fatal("missing editor should not return a command")
+	}
+	if !strings.Contains(got.status, "no editor configured") {
+		t.Fatalf("missing editor status = %q", got.status)
+	}
+
+	got.ctx.Config.UI.Editor = "mystery-editor"
+	gotModel, cmd = got.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")})
+	got = gotModel.(Model)
+	if cmd != nil {
+		t.Fatal("unsupported editor should not return a command")
+	}
+	if !strings.Contains(got.status, "unsupported editor") {
+		t.Fatalf("unsupported editor status = %q", got.status)
+	}
+}
+
+func TestOpenEditorKeyReportsDetachedLaunchFailure(t *testing.T) {
+	c := newTestCtx(t)
+	c.Config.UI.Editor = "code"
+	target := filepath.Join(t.TempDir(), "myapp")
+	if err := mkdirAll(target); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Projects.Add(target); err != nil {
+		t.Fatal(err)
+	}
+	m := New(c)
+	m.projects, _ = c.Projects.List()
+	m.cursor.projectIdx = 0
+	m.cursor.agentIdx = -1
+	m.editorLauncher = &fakeEditorLauncher{err: errors.New("boom")}
+
+	gotModel, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")})
+	got := gotModel.(Model)
+	if cmd != nil {
+		t.Fatal("failed launch should not schedule status expiry")
+	}
+	if !strings.Contains(got.status, "open editor failed: boom") {
+		t.Fatalf("status = %q", got.status)
+	}
+}
+
+func TestOpenEditorKeyWithTerminalEditorReturnsProcessCommand(t *testing.T) {
+	c := newTestCtx(t)
+	c.Config.UI.Editor = "nvim -p"
+	target := filepath.Join(t.TempDir(), "myapp")
+	if err := mkdirAll(target); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Projects.Add(target); err != nil {
+		t.Fatal(err)
+	}
+	m := New(c)
+	m.projects, _ = c.Projects.List()
+	m.cursor.projectIdx = 0
+	m.cursor.agentIdx = -1
+	launcher := &fakeEditorLauncher{}
+	m.editorLauncher = launcher
+
+	_, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")})
+	if cmd == nil {
+		t.Fatal("terminal editor should return a process command")
+	}
+	if len(launcher.started) != 0 {
+		t.Fatalf("terminal editor should not launch detached, got %d starts", len(launcher.started))
+	}
+}
+
+func containsEnv(env []string, want string) bool {
+	for _, e := range env {
+		if e == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestRenamePopupOpensAndUpdatesSessionName(t *testing.T) {

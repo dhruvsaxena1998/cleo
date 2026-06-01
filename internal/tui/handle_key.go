@@ -43,6 +43,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.viewSelectedAgent()
 	case key.Matches(msg, km.Enter):
 		return m.attachSelectedAgent()
+	case key.Matches(msg, km.Editor):
+		return m.openSelectedProjectInEditor()
 	case key.Matches(msg, km.Kill):
 		return m.confirmKill()
 	case key.Matches(msg, km.Prune):

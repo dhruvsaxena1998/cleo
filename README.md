@@ -400,6 +400,7 @@ color = "#7C3AED"
 
 [ui]
 theme = "catppuccin-mocha"
+editor = ""
 sidebar_width = 48
 event_log_lines = 200
 
@@ -519,6 +520,7 @@ Hook support is installed by `cleo hooks init` for supported agents. Custom agen
 
 | Key | Default | Meaning |
 | --- | --- | --- |
+| `editor` | `""` | Optional editor command for Dashboard `e`; falls back to `$EDITOR` when empty. |
 | `event_log_lines` | `200` | Number of recent event log rows available in the UI. |
 | `sidebar_width` | `48` | Sidebar width in character columns (10–200). |
 | `theme` | `"catppuccin-mocha"` | Color theme used by the TUI. See list below. |
@@ -653,6 +655,15 @@ color = "#CC785C"
 ```
 
 The whole string is passed to tmux's `new-session`, so flags and arguments are preserved.
+
+#### Open Projects from the Dashboard in your editor
+
+Press `e` on a Project row, or on any Session row, to open that Project directory. Cleo uses `[ui].editor` first, then `$EDITOR`. GUI launchers such as `code`, `cursor`, `zed`, `subl`, `open`, `mate`, `bbedit`, and common JetBrains launchers open detached. Terminal editors such as `nvim`, `vim`, `emacs`, `hx`, `micro`, and `nano` take over the terminal until they exit.
+
+```toml
+[ui]
+editor = "code --reuse-window"
+```
 
 #### Larger preview pane / more UI breathing room
 

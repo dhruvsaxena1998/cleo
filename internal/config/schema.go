@@ -36,6 +36,7 @@ type Agent struct {
 
 type UI struct {
 	Theme         string      `toml:"theme"`
+	Editor        string      `toml:"editor"`
 	SidebarWidth  int         `toml:"sidebar_width"`
 	EventLogLines int         `toml:"event_log_lines"`
 	PanePreview   PanePreview `toml:"pane_preview"`

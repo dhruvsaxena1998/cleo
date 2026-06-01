@@ -49,6 +49,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.status = ""
 		}
 		return m, nil
+	case editorFinishedMsg:
+		if msg.err != nil {
+			m.status = "editor failed: " + msg.err.Error()
+		}
+		return m, nil
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	case SpawnSubmitted:

@@ -163,6 +163,7 @@ func (m Model) renderActionsPanel(w, h int) string {
 	if hasSess {
 		actions = []panelAction{
 			{"attach tmux session", "enter", true},
+			{"open Project in editor", "e", false},
 			{"spawn sibling agent", "n", false},
 			{"view session detail", "v", false},
 			{"kill after confirm", "K", false},
@@ -170,6 +171,7 @@ func (m Model) renderActionsPanel(w, h int) string {
 	} else {
 		actions = []panelAction{
 			{"spawn new agent", "n", true},
+			{"open Project in editor", "e", false},
 			{"find sessions", "/", false},
 			{"expand / collapse", "space", false},
 			{"quit", "q", false},
