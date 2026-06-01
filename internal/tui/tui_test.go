@@ -346,6 +346,33 @@ func TestPanePreviewUsesConfiguredLineCount(t *testing.T) {
 	}
 }
 
+// TestFooterHidesViewHintWhenPreviewEnabled locks in the keybind-relevance fix:
+// the "v" (manual capture) hint is redundant when the preview panel already
+// auto-refreshes, so it only appears for a running session when pane preview is
+// disabled.
+func TestFooterHidesViewHintWhenPreviewEnabled(t *testing.T) {
+	mkModel := func(previewEnabled bool) Model {
+		c := newTestCtx(t)
+		c.Config.UI.PanePreview.Enabled = previewEnabled
+		m := New(c)
+		m.projects = []projects.Project{{ID: "p"}}
+		m.sessions = []state.Session{{ID: "s1", State: state.Running, ProjectID: "p"}}
+		m.cursor.projectIdx = 0
+		m.cursor.agentIdx = 0
+		m.expanded = map[string]bool{"p": true}
+		m.width = 120
+		m.height = 40
+		return m
+	}
+
+	if footer := mkModel(true).renderFooter(120); strings.Contains(footer, "view") {
+		t.Errorf("preview enabled: footer should omit view hint, got %q", footer)
+	}
+	if footer := mkModel(false).renderFooter(120); !strings.Contains(footer, "view") {
+		t.Errorf("preview disabled: footer should include view hint, got %q", footer)
+	}
+}
+
 func TestConfigWarningsShowStartupStatus(t *testing.T) {
 	c := newTestCtx(t)
 	c.Config.Warnings = []string{"sound.volume above 1; clamped to 1"}
