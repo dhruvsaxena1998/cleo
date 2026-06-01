@@ -131,6 +131,7 @@ The dashboard shows registered projects, their sessions, current state, and a pr
 | `down` / `j` | Move down |
 | `space` | Expand or collapse a project |
 | `enter` | Attach to the selected session |
+| `ctrl+g` or `e` | Open the selected Project in your editor |
 | `n` | Start a new session |
 | `v` | View a selected session without attaching |
 | `r` | Rename a session |
@@ -520,7 +521,7 @@ Hook support is installed by `cleo hooks init` for supported agents. Custom agen
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `editor` | `""` | Optional editor command for Dashboard `e`; falls back to `$EDITOR` when empty. |
+| `editor` | `""` | Optional editor command for Dashboard `ctrl+g`; falls back to `$EDITOR` when empty. |
 | `event_log_lines` | `200` | Number of recent event log rows available in the UI. |
 | `sidebar_width` | `48` | Sidebar width in character columns (10–200). |
 | `theme` | `"catppuccin-mocha"` | Color theme used by the TUI. See list below. |
@@ -658,7 +659,7 @@ The whole string is passed to tmux's `new-session`, so flags and arguments are p
 
 #### Open Projects from the Dashboard in your editor
 
-Press `e` on a Project row, or on any Session row, to open that Project directory. Cleo uses `[ui].editor` first, then `$EDITOR`. GUI launchers such as `code`, `cursor`, `zed`, `subl`, `open`, `mate`, `bbedit`, and common JetBrains launchers open detached. Terminal editors such as `nvim`, `vim`, `emacs`, `hx`, `micro`, and `nano` take over the terminal until they exit.
+Press `ctrl+g` on a Project row, or on any Session row, to open that Project directory. `e` also works as a secondary binding. Cleo uses `[ui].editor` first, then `$EDITOR`. GUI launchers such as `code`, `cursor`, `zed`, `subl`, `open`, `mate`, `bbedit`, and common JetBrains launchers open detached. Terminal editors such as `nvim`, `vim`, `emacs`, `hx`, `micro`, and `nano` take over the terminal until they exit.
 
 ```toml
 [ui]

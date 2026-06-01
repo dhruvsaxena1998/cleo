@@ -598,7 +598,7 @@ Full keymap from `DefaultKeymap()`:
 | `up` / `k` | `↑/k` | Move cursor up |
 | `down` / `j` | `↓/j` | Move cursor down |
 | `enter` | `↵` | Attach to selected session (if on a session row; no-op on project row) |
-| `e` | `e` | Open the selected Project in the configured editor |
+| `ctrl+g` / `e` | `ctrl+g` | Open the selected Project in the configured editor |
 | `n` | `n` | Open spawn popup to create a new session |
 | `v` | `v` | View selected session (capture pane, pin to right panel). Hidden when preview pane auto-refresh is enabled. |
 | `K` / `ctrl+k` | `K` | Confirm-kill popup for the selected session |
@@ -808,7 +808,7 @@ Cleo's TOML config file at `~/.config/cleo/config.toml` (or `$XDG_CONFIG_HOME/cl
 | `[agents.<name>]` | `label` | - | Short 2-3 char label for TUI badges |
 | `[agents.<name>]` | `color` | - | Hex color for TUI badges |
 | `[ui]` | `theme` | `"catppuccin-mocha"` | Color theme name |
-| `[ui]` | `editor` | `""` | Optional editor command for Dashboard `e`; falls back to `$EDITOR` when empty |
+| `[ui]` | `editor` | `""` | Optional editor command for Dashboard `ctrl+g`; falls back to `$EDITOR` when empty |
 | `[ui]` | `sidebar_width` | `48` | Sidebar width in character columns (10-200) |
 | `[ui]` | `event_log_lines` | `200` | Max event log entries to tail |
 | `[ui.pane_preview]` | `enabled` | `true` | Show tmux pane previews |

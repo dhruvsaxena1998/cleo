@@ -137,6 +137,33 @@ func TestOpenEditorKeyOnProjectRowStartsDetachedEditorForProjectPath(t *testing.
 	}
 }
 
+func TestOpenEditorCtrlGKeyStartsDetachedEditorForProjectPath(t *testing.T) {
+	c := newTestCtx(t)
+	c.Config.UI.Editor = "code"
+	target := filepath.Join(t.TempDir(), "myapp")
+	if err := mkdirAll(target); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Projects.Add(target); err != nil {
+		t.Fatal(err)
+	}
+	m := New(c)
+	m.projects, _ = c.Projects.List()
+	m.cursor.projectIdx = 0
+	m.cursor.agentIdx = -1
+	launcher := &fakeEditorLauncher{}
+	m.editorLauncher = launcher
+
+	_, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyCtrlG})
+
+	if len(launcher.started) != 1 {
+		t.Fatalf("started detached editors = %d, want 1", len(launcher.started))
+	}
+	if !containsEnv(launcher.started[0].Env, "CLEO_PROJECT_PATH="+target) {
+		t.Fatalf("project path env missing: %v", launcher.started[0].Env)
+	}
+}
+
 func TestOpenEditorKeyOnFinishedSessionTargetsParentProjectPath(t *testing.T) {
 	c := newTestCtx(t)
 	c.Config.UI.Editor = "code"

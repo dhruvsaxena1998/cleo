@@ -53,7 +53,7 @@ func (p HelpPopup) View() string {
 		}},
 		{"Session Actions", []row{
 			{"↵", "attach"},
-			{"e", "open Project in editor"},
+			{"ctrl+g", "open Project in editor (e also works)"},
 			{"v", "view pane"},
 			{"m", "send message (single-line, attach for prompts)"},
 			{"n", "new session"},
