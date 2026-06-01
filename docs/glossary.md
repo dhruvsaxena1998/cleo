@@ -54,19 +54,19 @@ _Avoid_: output pane, terminal preview
 ## Seams and Interfaces
 
 **Tmux seam**
-The single interface (`sessionlifecycle.Tmux`) through which the Session lifecycle drives tmux — spawning a session, checking liveness, binding the detach key, installing focus hooks, killing, and producing the attach invocation (`switch-client` inside tmux, `attach-session` otherwise). The real `tmux.Client` satisfies it in production; a fake satisfies it in tests. The lifecycle depends on this seam alone and never reaches past it to the concrete client.
-_Avoid_: tmux launcher, tmux wrapper, tmux client (when you mean the interface — `tmux.Client` is the production adapter, not the seam)
+The single interface (`sessionlifecycle.Tmux`) through which the Session lifecycle drives tmux - spawning a session, checking liveness, binding the detach key, installing focus hooks, killing, and producing the attach invocation (`switch-client` inside tmux, `attach-session` otherwise). The real `tmux.Client` satisfies it in production; a fake satisfies it in tests. The lifecycle depends on this seam alone and never reaches past it to the concrete client.
+_Avoid_: tmux launcher, tmux wrapper, tmux client (when you mean the interface - `tmux.Client` is the production adapter, not the seam)
 
 **Agent protocol**
 One supported agent integration, behind the single `hooks.Protocol` interface; `hooks.Protocols()` is the registry. It is the source of truth for everything cleo must know about an agent: the hook events it fires, the config files it owns (`Locations()`), how to install / clean up / diagnose those files, how to normalize a raw hook event, and its display identity. `init`, `cleanup`, and `doctor` iterate the registry rather than switching on agent name. The concrete structs (`ClaudeProtocol`, `CodexProtocol`, …) are the adapters; the interface is the seam.
-_Avoid_: agent driver, hook plugin, agent adapter (when you mean the seam — the concrete struct is the adapter, "Agent protocol" is the interface)
+_Avoid_: agent driver, hook plugin, agent adapter (when you mean the seam - the concrete struct is the adapter, "Agent protocol" is the interface)
 
 **Hook outcome**
-The complete set of effects a normalized hook event produces: the Session state transition, the event-log entry, and the sound decision (play, or the reason it was suppressed — disabled, focus, or idle-nudge). Computed purely by `hooks.decideHook` from the normalized event, the pre-transition state, and whether sound is enabled / the Session is focused; `applyNormalized` gathers those inputs, calls the decision, then performs the outcome. The pure decision is the test surface — no temp dirs, config, or fakes.
-_Avoid_: hook result, hook action (when you mean the decision — the outcome is the data, `decideHook` is the decision)
+The complete set of effects a normalized hook event produces: the Session state transition, the event-log entry, and the sound decision (play, or the reason it was suppressed - disabled, focus, or idle-nudge). Computed purely by `hooks.decideHook` from the normalized event, the pre-transition state, and whether sound is enabled / the Session is focused; `applyNormalized` gathers those inputs, calls the decision, then performs the outcome. The pure decision is the test surface - no temp dirs, config, or fakes.
+_Avoid_: hook result, hook action (when you mean the decision - the outcome is the data, `decideHook` is the decision)
 
 **Normalized event** (`NormalizedEvent`)
-The canonical form every protocol produces after parsing its raw payload. Contains a state event, sound event, message, tool name, and flags (`LogOnly`, `SuppressWhenIdle`). `Handle()` consumes only this — no protocol-specific logic lives outside the `Protocol` implementation.
+The canonical form every protocol produces after parsing its raw payload. Contains a state event, sound event, message, tool name, and flags (`LogOnly`, `SuppressWhenIdle`). `Handle()` consumes only this - no protocol-specific logic lives outside the `Protocol` implementation.
 
 ---
 
@@ -108,10 +108,10 @@ A named transition driver. Events come from two sources: hook events (emitted by
 **State transition**
 The mapping from current `State` + incoming `Event` → next `State`, defined in `state.NextState()`.
 
-- **Hard terminal states**: `dead` and `error` are hard-sticky — only `EvDead` can change them. No other event will transition out.
-- **Soft terminal state**: `completed` is soft-sticky — `EvDead` and `EvUserResume` (reconciler reviving a completed session whose tmux is still alive) can change it, others are ignored.
+- **Hard terminal states**: `dead` and `error` are hard-sticky - only `EvDead` can change them. No other event will transition out.
+- **Soft terminal state**: `completed` is soft-sticky - `EvDead` and `EvUserResume` (reconciler reviving a completed session whose tmux is still alive) can change it, others are ignored.
 - **Timeout progression**: `EvIdleTimeout` on `waiting_for_input` downgrades to `idle` first (so the user sees one cycle of "idle" before it completes), then on a second cycle from `idle` it moves to `completed`.
-- **Implicit resume**: `EvPreToolUse` and `EvPostToolUse` from `spawning`, `waiting_for_input`, or `idle` all move to `running` — no explicit resume event needed.
+- **Implicit resume**: `EvPreToolUse` and `EvPostToolUse` from `spawning`, `waiting_for_input`, or `idle` all move to `running` - no explicit resume event needed.
 
 **Apply**
 A state store operation that transitions a session by event and bumps `LastEventAt`. Used for real activity (hook events, user resume). Controlled via `BumpTime: true` in `reconcile.Action`.
@@ -135,10 +135,10 @@ _Avoid_: tmux snapshot, running list
 
 **Action** (`reconcile.Action`)
 One intended state transition produced by `Decide`. Fields:
-- `SessionID` — which session to transition
-- `Event` — the transition event to apply
-- `Message` — optional detail message to set on the session
-- `BumpTime` — `true` → use `Apply` (bumps `LastEventAt`), `false` → use `ApplySynthetic`
+- `SessionID` - which session to transition
+- `Event` - the transition event to apply
+- `Message` - optional detail message to set on the session
+- `BumpTime` - `true` → use `Apply` (bumps `LastEventAt`), `false` → use `ApplySynthetic`
 
 **Decide** (`reconcile.Decide`)
 The pure function that computes the set of `Actions` needed for a given session snapshot. Signature: `(sessions []Session, liveSet map[string]bool, now time.Time, opts Options) []Action`. Has zero I/O and is fully deterministic. The test surface for the reconciler.
@@ -163,8 +163,8 @@ Consumer-side interface in the reconcile package: `List()`, `Apply()`, `ApplySyn
 
 **Options**
 Configure timeout thresholds:
-- `IdleTimeout` — from `config.toml` `[timeouts].idle_to_completed_timeout` (default: `10m`)
-- `SpawningTimeout` — from `config.toml` `[timeouts].spawning_timeout` (default: `30s`)
+- `IdleTimeout` - from `config.toml` `[timeouts].idle_to_completed_timeout` (default: `10m`)
+- `SpawningTimeout` - from `config.toml` `[timeouts].spawning_timeout` (default: `30s`)
 
 ---
 
@@ -179,7 +179,7 @@ Launches the TUI dashboard. No flags. This is the primary user-facing surface.
 
 Registers a project directory with Cleo.
 
-- **Arguments**: `[path]` — directory path (optional). Defaults to current working directory if omitted.
+- **Arguments**: `[path]` - directory path (optional). Defaults to current working directory if omitted.
 - **Max args**: 1
 - **Flags**: none
 - **Output**: `registered project "<ID>" at <path>`
@@ -192,10 +192,10 @@ Registers a project directory with Cleo.
 
 Unregisters a project from Cleo's project registry. Does **not** delete the project directory on disk.
 
-- **Arguments**: `<project>` — project ID (required, exact 1)
+- **Arguments**: `<project>` - project ID (required, exact 1)
 - **Flags**:
-  - `--force` — remove even if active (non-finished) sessions exist
-  - `--yes` / `-y` — skip confirmation prompt
+  - `--force` - remove even if active (non-finished) sessions exist
+  - `--yes` / `-y` - skip confirmation prompt
 - **Behavior**: Resolves `<project>` by exact ID match first, then by absolute path match. If active sessions exist and `--force` is not set, refuses with an error. On success, removes all session records and event logs for that project, then removes the project from `projects.json`.
 - **Confirmation**: interactive `[y/N]` prompt unless `--yes` is set.
 
@@ -205,12 +205,12 @@ Unregisters a project from Cleo's project registry. Does **not** delete the proj
 
 Starts an agent session in tmux. This is the primary way to launch a new session.
 
-- **Arguments**: `<agent>` — agent name (required, exact 1). Must match a configured agent key in `config.toml`'s `[agents]` section.
+- **Arguments**: `<agent>` - agent name (required, exact 1). Must match a configured agent key in `config.toml`'s `[agents]` section.
 - **Flags**:
-  - `--name <name>` — human-friendly session name. Cleo slugifies and deduplicates it against existing sessions in the same project+agent scope.
-  - `--cwd <path>` — override working directory (default: current working directory)
-  - `--yes` — skip auto-registration confirmation when the directory is not yet registered
-  - `--no-attach` — spawn the session without attaching to it immediately. The session starts in the background.
+  - `--name <name>` - human-friendly session name. Cleo slugifies and deduplicates it against existing sessions in the same project+agent scope.
+  - `--cwd <path>` - override working directory (default: current working directory)
+  - `--yes` - skip auto-registration confirmation when the directory is not yet registered
+  - `--no-attach` - spawn the session without attaching to it immediately. The session starts in the background.
 - **Flow**:
   1. Resolve or auto-register the project for the working directory (`ErrProjectRegistrationNeeded` returned if unregistered and `--yes` not set; prompts user, retries with yes)
   2. Slugify and deduplicate session name
@@ -231,7 +231,7 @@ Lists registered projects and known sessions.
 
 - **Arguments**: none
 - **Flags**:
-  - `--json` — output as JSON array instead of tab-separated columns
+  - `--json` - output as JSON array instead of tab-separated columns
 - **Behavior**: Runs the reconciler first (same as TUI poll), then prints all projects and their sessions. Columns: `PROJECT`, `AGENT`, `NAME`, `STATE`, `ID`, `AGE`.
 - **Sorting**: projects alphabetically by ID. Sessions within a project sorted by `LastEventAt` descending (most recently active first). Sessions with zero `LastEventAt` sort after those with a value.
 - **Empty projects**: shown with `-` in all session columns.
@@ -243,11 +243,11 @@ Lists registered projects and known sessions.
 
 Attaches to an existing running tmux session.
 
-- **Arguments**: `<session-id>` — full session ID (required, exact 1)
+- **Arguments**: `<session-id>` - full session ID (required, exact 1)
 - **Flags**: none
 - **Operations**:
   - Uses the Session lifecycle's `Attach` method
-  - Returns an `AttachPlan` with an `Action`: `AttachBlocked` (session is finished — cannot attach), `AttachMarkedDead` (tmux session is gone — marked dead), `AttachReady` (attachable), or `AttachRevived` (completed session whose tmux is still alive — revived to idle, then attached)
+  - Returns an `AttachPlan` with an `Action`: `AttachBlocked` (session is finished - cannot attach), `AttachMarkedDead` (tmux session is gone - marked dead), `AttachReady` (attachable), or `AttachRevived` (completed session whose tmux is still alive - revived to idle, then attached)
   - Runs `tmux switch-client` if already inside tmux, `tmux attach-session` otherwise
   - Calls `Done()` when the user detaches, which clears focus state
 - **Detach**: Use the configured tmux detach key (default `Ctrl-b d`) to detach back to the dashboard.
@@ -269,9 +269,9 @@ Renames a session's Cleo-side label. The underlying tmux session ID is **not** c
 
 Kills a running tmux session and removes it from Cleo state.
 
-- **Arguments**: `<session-id>` — full session ID (required, exact 1)
+- **Arguments**: `<session-id>` - full session ID (required, exact 1)
 - **Flags**:
-  - `--yes` — skip confirmation prompt
+  - `--yes` - skip confirmation prompt
 - **Behavior**: Calls `tmux kill-session` via the Session lifecycle. Removes the session record from `state.json`. Event log is NOT archived (use `prune` for that).
 - **Confirmation**: interactive `[y/N]` prompt unless `--yes` is set.
 
@@ -281,12 +281,12 @@ Kills a running tmux session and removes it from Cleo state.
 
 Removes finished sessions (states: `completed`, `error`, `dead`) from active Cleo state and archives their event logs to `events/archive/` as gzipped JSONL.
 
-- **Arguments**: `[project]` — project ID to scope to (optional). If omitted with `--all`, considers all projects.
+- **Arguments**: `[project]` - project ID to scope to (optional). If omitted with `--all`, considers all projects.
 - **Flags**:
-  - `--keep <n>` — keep the newest `n` finished sessions per project (default: `pruning.keep_default` from config, which defaults to 5). Use `--keep 0` to purge all.
-  - `--all` — consider sessions across all projects (required when no project argument given)
-  - `--dry-run` — print session IDs that would be pruned without changing state
-  - `--yes` — skip confirmation prompt
+  - `--keep <n>` - keep the newest `n` finished sessions per project (default: `pruning.keep_default` from config, which defaults to 5). Use `--keep 0` to purge all.
+  - `--all` - consider sessions across all projects (required when no project argument given)
+  - `--dry-run` - print session IDs that would be pruned without changing state
+  - `--yes` - skip confirmation prompt
 - **Archiving**: Event logs are gzipped and moved to `events/archive/<session-id>.jsonl.gz`. Original `events/<session-id>.jsonl` is deleted.
 - **Confirmation**: shows count of prunable sessions and prompts `[y/N]` unless `--yes`.
 
@@ -298,9 +298,9 @@ Installs Cleo hook commands into supported agent config files and extracts bundl
 
 - **Arguments**: none
 - **Flags**:
-  - `--yes` / `-y` — install all supported hook systems without prompting
-  - `--force` — overwrite conflicting hook entries
-  - `--agents <list>` — comma-separated list of agent names to install (e.g. `claude,codex`). If not set, installs all.
+  - `--yes` / `-y` - install all supported hook systems without prompting
+  - `--force` - overwrite conflicting hook entries
+  - `--agents <list>` - comma-separated list of agent names to install (e.g. `claude,codex`). If not set, installs all.
 - **Installed files**:
   - Claude Code: `~/.claude/settings.json` (hook entries in `hooks` map)
   - Codex: `~/.codex/hooks.json` + `~/.codex/config.toml` (`[features].hooks = true`)
@@ -318,7 +318,7 @@ Removes Cleo hook commands from supported agent config files.
 
 - **Arguments**: none
 - **Flags**:
-  - `--yes` / `-y` — skip confirmation prompt
+  - `--yes` / `-y` - skip confirmation prompt
 - **Behavior**: Removes cleo-owned entries from hook files. Leaves `~/.codex/config.toml` `[features].hooks` unchanged (other Codex hooks may depend on it). Files that diverged from cleo's template are left untouched (`SkippedModified`).
 - **Alias**: `cleo uninstall --yes`
 
@@ -330,13 +330,13 @@ Checks whether Cleo hooks look correctly installed and whether hook events have 
 
 - **Arguments**: none
 - **Flags**:
-  - `--quiet` — only print failures and non-empty diagnostic sections. Exits 1 if any failures found.
+  - `--quiet` - only print failures and non-empty diagnostic sections. Exits 1 if any failures found.
 - **Checks performed**:
   - **Per-protocol config checks**: each protocol's `Diagnose()` method checks file presence, content validity, and freshness (stale detection)
   - **Hook trace activity**: reads `hook-trace.log` for each protocol, reports the most recent hook event and whether it resolved, and how (via `CLEO_SESSION_ID` or cwd fallback)
   - **Attribution failures**: scan for hooks that failed resolution (`fallback_reason` = `no_match` or `env_unknown_session`) in the last 24h
   - **Config warnings**: any warnings from `config.toml` loading (e.g. unknown theme name)
-  - **Hook diff**: for Claude and Codex, compares on-disk hook entries against what cleo would install — reports `=` (matched), `+` (would install), `-` (conflict)
+  - **Hook diff**: for Claude and Codex, compares on-disk hook entries against what cleo would install - reports `=` (matched), `+` (would install), `-` (conflict)
   - **Codex approval note**: reminder that Codex keeps hook approval state internally and may need manual `/hooks` approval
 - **Last hook traces**: for each protocol, shows up to 3 most recent trace rows with timestamp, event, resolved session, and fallback reason
 
@@ -346,13 +346,13 @@ Checks whether Cleo hooks look correctly installed and whether hook events have 
 
 Prints or tails the event log for a session.
 
-- **Arguments**: `<session-id>` — full session ID (required, exact 1)
+- **Arguments**: `<session-id>` - full session ID (required, exact 1)
 - **Flags**:
-  - `-f` / `--follow` — tail the file. Poll-based at 500ms cadence. Reopens on inode change (survives `cleo prune` archiving).
-  - `--type <kind>` — filter to one event type (e.g. `notification`, `pre_tool_use`)
-  - `--since <duration>` — only events newer than `now - duration` (Go duration string, e.g. `5m`, `1h`)
-  - `-n <N>` / `--limit <N>` — show only the most recent N events. Mutually exclusive with `--follow`.
-  - `--json` — emit raw JSONL lines for `jq` pipelines
+  - `-f` / `--follow` - tail the file. Poll-based at 500ms cadence. Reopens on inode change (survives `cleo prune` archiving).
+  - `--type <kind>` - filter to one event type (e.g. `notification`, `pre_tool_use`)
+  - `--since <duration>` - only events newer than `now - duration` (Go duration string, e.g. `5m`, `1h`)
+  - `-n <N>` / `--limit <N>` - show only the most recent N events. Mutually exclusive with `--follow`.
+  - `--json` - emit raw JSONL lines for `jq` pipelines
 - **Session resolution order**:
   1. Exact match against active sessions in `state.json`
   2. Exact match against archived event files under `events/archive/`
@@ -367,7 +367,7 @@ Prints or tails the event log for a session.
 
 Called by agent hook scripts. Not for direct user use.
 
-- **Arguments**: `<protocol>` — agent name (`claude`, `codex`, `pi`, `opencode`), `<event>` — hook event name
+- **Arguments**: `<protocol>` - agent name (`claude`, `codex`, `pi`, `opencode`), `<event>` - hook event name
 - **Input**: reads JSON payload from stdin
 - **Processing**: normalizes via protocol, decides hook outcome via `decideHook`, applies state transition, logs event, writes trace, plays sound if appropriate
 
@@ -417,9 +417,9 @@ The central struct holding all TUI state:
 
 ### Modes
 
-- **`ModeNormal`** — default. Key presses go to navigation and action handlers. Footer shows context-sensitive key hints.
-- **`ModeFilter`** — activated by `/`. Runes append to the filter string. Enter applies (exits filter mode). Backspace deletes. Esc clears filter and exits.
-- **`ModePopup`** — a modal overlay is active (spawn, rename, confirm, help, send). Key presses forwarded to the popup model. Esc dismisses the popup.
+- **`ModeNormal`** - default. Key presses go to navigation and action handlers. Footer shows context-sensitive key hints.
+- **`ModeFilter`** - activated by `/`. Runes append to the filter string. Enter applies (exits filter mode). Backspace deletes. Esc clears filter and exits.
+- **`ModePopup`** - a modal overlay is active (spawn, rename, confirm, help, send). Key presses forwarded to the popup model. Esc dismisses the popup.
 
 **Esc hierarchy** (spec §2.2): popup → filter → status. Esc first tries to close the active popup; if none, clears filter; if no filter, clears the status message.
 
@@ -429,28 +429,29 @@ The central struct holding all TUI state:
 
 The TUI is divided into three vertical zones:
 
-1. **Topbar** (1 row) — application header
-2. **Body** (flexible) — split horizontally into left column and right column
-3. **Footer** (1 row) — context-sensitive key hints and status messages
+1. **Topbar** (1 row) - application header
+2. **Body** (flexible) - split horizontally into left column and right column
+3. **Footer** (1 row) - context-sensitive key hints and status messages
 
 Background colour is stamped on every line so no transparent gaps show the terminal default.
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│ cleo  ai agents    3 projects  2 live  15.2 MB  muted │  ← topbar
+│ cleo  ai agents   3 projects  2 live  15.1MB  muted │  ← topbar
 ├──────────────────────┬──────────────────────────────┤
 │ ┌ Filter panel ┐     │ ┌ Session metadata (6-row) ┐ │
 │ │ / myapp      │     │ │ agent  state  project... │ │
-│ └──────────────┘     │ └─────────────────────────┘ │
-│ ┌ Tree panel ──┐     │ ┌ Events panel ───────────┐ │
-│ │ ▾ myapp    2 │     │ │ 14:05:23  session_start │ │  ← body
-│ │   [cx] fix   │     │ │ 14:05:25  pre_tool_use  │ │
-│ │ ▸ otherproj  │     │ └─────────────────────────┘ │
+│ └──────────────┘     │ └──────────────────────────┘ │
+│ ┌ Tree panel ──┐     │ ┌ Events panel ────────────┐ │
+│ │ ▾ myapp    2 │     │ │ 14:05:23  session_start  │ │  ← body
+│ │   [cx] fix   │     │ │ 14:05:25  pre_tool_use   │ │
+│ │ ▸ otherproj  │     │ └──────────────────────────┘ │
 │ └──────────────┘     │ ┌ Terminal Preview ────────┐ │
-│                      │ │ > Editing auth.go       │ │
-│                      │ └─────────────────────────┘ │
+│                      │ │ > Editing auth.go        │ │
+│                      │ └──────────────────────────┘ │
+│                      │                              │
 ├──────────────────────┴──────────────────────────────┤
-│  ↵ attach  r rename  K kill  n new  / filter  q quit │  ← footer
+│  ↵ attach  r rename  K kill  n new  / filter  q quit│  ← footer
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -565,7 +566,7 @@ Rendered via `renderPreviewPanel(w, h, sess, has)`.
 - **No session selected**: "navigate to a session to view its terminal"
 - **Finished session**: "tmux session is gone; press K to remove this record"
 - **Empty cache**: "loading… press v to refresh"
-- **Blank capture**: "agent hasn't rendered yet — press Enter to attach"
+- **Blank capture**: "agent hasn't rendered yet - press Enter to attach"
 - **Active content**: shows bottom N lines of captured tmux pane output (N = panel height minus 4 border rows). ANSI escape sequences preserved for agent output colors.
   - Trailing blank lines stripped (full-screen TUIs pad to terminal height)
   - Lines truncated with ANSI-awareness (`ansi.Truncate`) to prevent mid-escape-sequence slicing
@@ -576,8 +577,8 @@ Rendered via `renderPreviewPanel(w, h, sess, has)`.
 ### Navigation
 
 **Cursor** is a `cursor` struct with:
-- `projectIdx` — index into the current visible project list
-- `agentIdx` — session index within the expanded project; `-1` means "on the project row"
+- `projectIdx` - index into the current visible project list
+- `agentIdx` - session index within the expanded project; `-1` means "on the project row"
 
 **Arrow keys / vim-style**:
 - `up` / `k` → move cursor up (`cursorUp()`). From a session row: move to previous session, or to the project row if at the first session. From a project row: move to previous project; if it's expanded, jump to its last session.
@@ -636,9 +637,9 @@ Triggered by `r` on a session row. Pre-filled with the current session name. On 
 Triggered by `K` (kill), `P` (prune), `D` (remove project). Shows a confirmation prompt with the action description.
 
 Three confirmation kinds:
-- `confirmKindKill` — on yes (`ConfirmYes`), calls `lifecycle.Kill()`
-- `confirmKindPrune` — on yes, calls `lifecycle.Prune()` with `Keep: 0` (unlimited removal from TUI context, since it's project-scoped)
-- `confirmKindRemoveProject` — on yes, calls `lifecycle.RemoveProjectSessions()` then removes the project from the projects store
+- `confirmKindKill` - on yes (`ConfirmYes`), calls `lifecycle.Kill()`
+- `confirmKindPrune` - on yes, calls `lifecycle.Prune()` with `Keep: 0` (unlimited removal from TUI context, since it's project-scoped)
+- `confirmKindRemoveProject` - on yes, calls `lifecycle.RemoveProjectSessions()` then removes the project from the projects store
 
 On no (`ConfirmNo`), clears popup.
 
@@ -713,9 +714,9 @@ Rendered by `renderTopbar(width)`.
 - **Left**: `cleo` (in mauve bold) + `ai agents` (dimmed)
 - **Right**: four pills + sound status:
   - `N projects` (Subtext0)
-  - `N live` (Green) — sessions in `running`, `spawning`, or `idle`
-  - `N waiting` (Peach) — sessions in `waiting_for_input`
-  - `N.N MB` (Overlay0) — heap allocation
+  - `N live` (Green) - sessions in `running`, `spawning`, or `idle`
+  - `N waiting` (Peach) - sessions in `waiting_for_input`
+  - `N.N MB` (Overlay0) - heap allocation
   - `sound on` / `muted`
 
 ---
@@ -745,15 +746,15 @@ Resolved via `Resolve(themeName string) Theme` from config `ui.theme`. Unknown v
 **Built-in themes**: `catppuccin-mocha` (default), `gruvbox-dark`, `onedark`, `void`, `synthwave`
 
 **Theme rendering methods**:
-- `StateColor(s string)` — maps state names to theme colors
-- `StyledGlyph(s string)` / `StyledStateText(s string)` — colored state indicators
-- `AgentBadge(label, bgColor string)` — colored badge with agent label on agent color background
-- `Pill(label string, fg Color)` — pill-shaped label with colored foreground on Mantle background
-- `KeyHint(k, desc string)` — gold bold key + dimmed description
-- `PanelBox(title, hint string, body []string, w, h int)` — box-drawing panel with title bar, separator, and body content
-- `SectionDivider(label string, width int)` — horizontal rule with label
-- `EventTypeColor(evType string)` — maps event types to theme colors
-- `FormatEventRow(e Entry, width int, highlight bool)` — renders one event log entry as a formatted row
+- `StateColor(s string)` - maps state names to theme colors
+- `StyledGlyph(s string)` / `StyledStateText(s string)` - colored state indicators
+- `AgentBadge(label, bgColor string)` - colored badge with agent label on agent color background
+- `Pill(label string, fg Color)` - pill-shaped label with colored foreground on Mantle background
+- `KeyHint(k, desc string)` - gold bold key + dimmed description
+- `PanelBox(title, hint string, body []string, w, h int)` - box-drawing panel with title bar, separator, and body content
+- `SectionDivider(label string, width int)` - horizontal rule with label
+- `EventTypeColor(evType string)` - maps event types to theme colors
+- `FormatEventRow(e Entry, width int, highlight bool)` - renders one event log entry as a formatted row
 
 **Terminal background sync**: on startup, `Run()` emits OSC 11 to set the terminal background to the theme's `Base` color, preventing gaps from showing the terminal's configured background. OSC 111 is emitted on exit to restore it.
 
@@ -767,9 +768,9 @@ _Avoid_: alert, notification sound
 
 **Sound suppression**
 Cleo suppresses session sounds while that exact tmux session is focused. This prevents duplicate attention sounds when you are already attached to the agent and watching it work. Suppression reasons:
-- `disabled` — sound is globally disabled (`sound.enabled = false`)
-- `focus` — the session is currently focused (user is attached and watching)
-- `idle-nudge` — the protocol's event is an idle-nudge and the session is already `idle` (no point re-alerting)
+- `disabled` - sound is globally disabled (`sound.enabled = false`)
+- `focus` - the session is currently focused (user is attached and watching)
+- `idle-nudge` - the protocol's event is an idle-nudge and the session is already `idle` (no point re-alerting)
 
 **Sound players**: `afplay` on macOS (with `-v` volume flag), first available of `paplay`/`aplay`/`play` on Linux. Volume is only applied on macOS.
 
@@ -802,9 +803,9 @@ Cleo's TOML config file at `~/.config/cleo/config.toml` (or `$XDG_CONFIG_HOME/cl
 | `[sound.events.session_completed]` | `enabled` | `true` | Whether to play on completion |
 | `[sound.events.session_error]` | `file` | `"error.wav"` | Sound file for errors |
 | `[sound.events.session_error]` | `enabled` | `true` | Whether to play on errors |
-| `[agents.<name>]` | `command` | — | Executable command Cleo starts inside tmux |
-| `[agents.<name>]` | `label` | — | Short 2-3 char label for TUI badges |
-| `[agents.<name>]` | `color` | — | Hex color for TUI badges |
+| `[agents.<name>]` | `command` | - | Executable command Cleo starts inside tmux |
+| `[agents.<name>]` | `label` | - | Short 2-3 char label for TUI badges |
+| `[agents.<name>]` | `color` | - | Hex color for TUI badges |
 | `[ui]` | `theme` | `"catppuccin-mocha"` | Color theme name |
 | `[ui]` | `sidebar_width` | `48` | Sidebar width in character columns (10-200) |
 | `[ui]` | `event_log_lines` | `200` | Max event log entries to tail |
@@ -881,7 +882,7 @@ The Go interface every supported agent must implement:
 Contains `Label` (e.g. `"hooks"`, `"feature flag"`, `"extension"`, `"plugin"`) and `Path` (absolute).
 
 **InstallReport**
-Returned by `Install()`. Contains `ManualReview *ReviewStep` — non-nil only for Codex (gates hooks behind in-app `/hooks` approval).
+Returned by `Install()`. Contains `ManualReview *ReviewStep` - non-nil only for Codex (gates hooks behind in-app `/hooks` approval).
 
 **ReviewStep**
 Contains `Command` (the cleo command whose entries must be approved) and `Hooks` (event names awaiting approval).
@@ -891,9 +892,9 @@ One line of self-diagnosis: `Label`, `OK` (bool), `Detail` (human description). 
 
 **CleanupStatus**
 Categorises a per-protocol cleanup outcome:
-- `CleanupStatusMissing` — nothing cleo-owned existed; no-op
-- `CleanupStatusRemoved` — cleo content existed and was removed
-- `CleanupStatusSkippedModified` — file exists but diverged from cleo's template; left untouched
+- `CleanupStatusMissing` - nothing cleo-owned existed; no-op
+- `CleanupStatusRemoved` - cleo content existed and was removed
+- `CleanupStatusSkippedModified` - file exists but diverged from cleo's template; left untouched
 
 **Hook trace** (`hook-trace.log`)
 JSONL file recording every `cleo hooks invoke` call. Each row (`hookTraceRow`): `at`, `protocol`, `event`, `cwd`, `env_session`, `resolved_session`, `result` (resolved / no_match / env_unknown_session), `fallback_reason`. Used by `cleo doctor` for attribution analysis and activity checks.
@@ -956,7 +957,7 @@ _Avoid_: tmux session name (the underlying tmux session name happens to match th
 
 ## Conventions
 
-- **Terminal states**: `dead` and `error` are hard terminal — only `EvDead` can change them. `completed` is soft terminal — can be revived by `EvUserResume`.
+- **Terminal states**: `dead` and `error` are hard terminal - only `EvDead` can change them. `completed` is soft terminal - can be revived by `EvUserResume`.
 - **State-first creation**: A `spawning` Session is written before starting tmux. If tmux launch fails, the session is rolled back. If the process dies after write but before launch, the reconciler can mark it `dead`.
 - **Best-effort focus**: Focus tracking via tmux hooks is best-effort. If Cleo cannot determine focus, it plays sounds rather than risk hiding an alert.
 - **Pure decisions**: `decideHook` and `reconcile.Decide` are pure functions with zero I/O. They are the test surfaces for hook processing and reconciliation respectively.
