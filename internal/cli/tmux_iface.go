@@ -22,4 +22,6 @@ type TmuxClient interface {
 	// AttachCmd builds (does not run) the command to attach to a session. The
 	// caller wires stdio and runs it; see tmux.Client.AttachCmd.
 	AttachCmd(sessionID string) *exec.Cmd
+	// SessionPIDs returns the process IDs of every pane in the named session.
+	SessionPIDs(name string) ([]int, error)
 }

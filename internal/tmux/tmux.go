@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -150,6 +151,26 @@ func (c *Client) SendKeys(name string, text string) error {
 
 func (c *Client) RenameSession(from, to string) error {
 	return c.cmd("rename-session", "-t", from, to).Run()
+}
+
+// SessionPIDs returns the process IDs of every pane in the named tmux session.
+func (c *Client) SessionPIDs(name string) ([]int, error) {
+	out, err := c.cmd("list-panes", "-t", name, "-F", "#{pane_pid}").Output()
+	if err != nil {
+		return nil, err
+	}
+	var pids []int
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if line == "" {
+			continue
+		}
+		pid, err := strconv.Atoi(line)
+		if err != nil {
+			continue
+		}
+		pids = append(pids, pid)
+	}
+	return pids, nil
 }
 
 // AttachCmd builds — but does not run — the command that attaches the caller to
