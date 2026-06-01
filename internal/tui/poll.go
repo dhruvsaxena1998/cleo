@@ -19,6 +19,10 @@ type stateLoadedMsg struct {
 
 type tickStateMsg struct{}
 
+type statusExpiredMsg struct {
+	id int
+}
+
 type paneCapturedMsg struct {
 	sid     string
 	content string
@@ -38,6 +42,10 @@ func loadStateCmd(c *cli.Ctx) tea.Cmd {
 
 func tickStateCmd() tea.Cmd {
 	return tea.Tick(750*time.Millisecond, func(time.Time) tea.Msg { return tickStateMsg{} })
+}
+
+func statusExpiryCmd(id int) tea.Cmd {
+	return tea.Tick(3*time.Second, func(time.Time) tea.Msg { return statusExpiredMsg{id: id} })
 }
 
 // previewTickMsg fires on a fixed interval and drives all pane-preview

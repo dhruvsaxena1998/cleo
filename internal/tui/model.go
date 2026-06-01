@@ -21,6 +21,7 @@ type Model struct {
 	paneCache     map[string]string // session id → last captured pane content
 	selected      string            // session id selected for "v" view; "" = none
 	status        string
+	statusTimerID int
 	filter        string
 	mode          Mode
 	popup         tea.Model
@@ -81,4 +82,12 @@ func (m Model) Init() tea.Cmd {
 		tickStateCmd(),
 		previewTickCmd(m.ctx.Config.UI.PanePreview.Interval),
 	)
+}
+
+func (m *Model) clearStatus() {
+	if m.status == "" {
+		return
+	}
+	m.status = ""
+	m.statusTimerID++
 }

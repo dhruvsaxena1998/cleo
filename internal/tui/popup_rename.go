@@ -32,7 +32,7 @@ func (p RenamePopup) Init() tea.Cmd { return textinput.Blink }
 
 func (p RenamePopup) View() string {
 	const popW = 48
-	bdr := lipgloss.NewStyle().Foreground(p.theme.Overlay1)
+	bdr := popupBorderStyle(p.theme)
 	iw := popW - 2
 	cw := iw - 2
 

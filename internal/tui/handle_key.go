@@ -122,7 +122,7 @@ func (m Model) toggleExpand() (Model, tea.Cmd) {
 }
 
 func (m Model) cursorUp() (Model, tea.Cmd) {
-	m.status = ""
+	m.clearStatus()
 	if m.cursor.agentIdx >= 0 {
 		m.cursor.agentIdx--
 		if m.cursor.agentIdx < 0 {
@@ -143,7 +143,7 @@ func (m Model) cursorUp() (Model, tea.Cmd) {
 }
 
 func (m Model) cursorDown() (Model, tea.Cmd) {
-	m.status = ""
+	m.clearStatus()
 	pid, ok := m.projectAtCursor()
 	if !ok {
 		return m, nil
@@ -310,10 +310,11 @@ func (m Model) performSend(msg SendSubmitted) (Model, tea.Cmd) {
 	m.popup = nil
 	if err := m.ctx.Tmux.SendKeys(msg.SessionID, msg.Text); err != nil {
 		m.status = fmt.Sprintf("send failed: %v", err)
-	} else {
-		m.status = fmt.Sprintf("sent to %s", msg.SessionID)
+		return m, nil
 	}
-	return m, nil
+	m.status = fmt.Sprintf("sent to %s", msg.SessionID)
+	m.statusTimerID++
+	return m, statusExpiryCmd(m.statusTimerID)
 }
 
 func (m Model) toggleMute() (Model, tea.Cmd) {

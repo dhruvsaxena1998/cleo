@@ -641,6 +641,67 @@ func TestEscInNormalClearsStatus(t *testing.T) {
 	}
 }
 
+func TestQuickMessageStatusExpires(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+
+	m2, cmd := m.performSend(SendSubmitted{SessionID: "s1", Text: "hello"})
+	if cmd == nil {
+		t.Fatal("performSend should schedule status expiry")
+	}
+	if m2.status != "sent to s1" {
+		t.Fatalf("status = %q, want sent confirmation", m2.status)
+	}
+
+	updated, _ := m2.Update(statusExpiredMsg{id: m2.statusTimerID})
+	got := updated.(Model)
+	if got.status != "" {
+		t.Fatalf("status should expire, got %q", got.status)
+	}
+}
+
+func TestStaleQuickMessageStatusExpiryDoesNotClearNewerStatus(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+
+	m2, _ := m.performSend(SendSubmitted{SessionID: "s1", Text: "hello"})
+	staleID := m2.statusTimerID
+	m3, _ := m2.performSend(SendSubmitted{SessionID: "s1", Text: "again"})
+
+	updated, _ := m3.Update(statusExpiredMsg{id: staleID})
+	got := updated.(Model)
+	if got.status != "sent to s1" {
+		t.Fatalf("stale expiry cleared newer status, got %q", got.status)
+	}
+}
+
+func TestQuickMessageStatusClearsAndInvalidatesOnNavigation(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	m.projects = []projects.Project{{ID: "p1"}}
+	m.sessions = []state.Session{
+		{ID: "s1", ProjectID: "p1", State: state.Running},
+		{ID: "s2", ProjectID: "p1", State: state.Running},
+	}
+	m.expanded = map[string]bool{"p1": true}
+	m.cursor.projectIdx = 0
+	m.cursor.agentIdx = 0
+
+	m2, _ := m.performSend(SendSubmitted{SessionID: "s1", Text: "hello"})
+	staleID := m2.statusTimerID
+	m3, _ := m2.cursorDown()
+	if m3.status != "" {
+		t.Fatalf("navigation should clear quick message status, got %q", m3.status)
+	}
+
+	m3.status = "new status"
+	updated, _ := m3.Update(statusExpiredMsg{id: staleID})
+	got := updated.(Model)
+	if got.status != "new status" {
+		t.Fatalf("stale expiry cleared status after navigation, got %q", got.status)
+	}
+}
+
 // TestStatusClearsOnExpand locks in v0.1 behavior: toggleExpand wipes any
 // stale status line so the next user-initiated state change starts clean.
 func TestStatusClearsOnExpand(t *testing.T) {

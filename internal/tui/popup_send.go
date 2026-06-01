@@ -9,6 +9,8 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+const sendPopupWidth = 84
+
 type SendPopup struct {
 	sessionID string
 	input     textinput.Model
@@ -24,9 +26,10 @@ type SendCancelled struct{}
 
 func NewSendPopup(sessionID string, theme Theme) SendPopup {
 	ti := textinput.New()
-	ti.Placeholder = "type your message…"
+	ti.Prompt = ""
+	ti.Placeholder = "type message"
 	ti.CharLimit = 4096
-	ti.Width = 62
+	ti.Width = sendPopupInputViewportWidth(theme)
 	ti.Focus()
 
 	return SendPopup{
@@ -39,39 +42,65 @@ func NewSendPopup(sessionID string, theme Theme) SendPopup {
 func (p SendPopup) Init() tea.Cmd { return textinput.Blink }
 
 func (p SendPopup) View() string {
-	const popW = 68
-	bdr := lipgloss.NewStyle().Foreground(p.theme.Overlay1)
-	iw := popW - 2
+	bdr := popupBorderStyle(p.theme)
+	iw := sendPopupWidth - 2
 	cw := iw - 2
 
-	hbar := strings.Repeat("─", iw)
 	var b strings.Builder
 
-	b.WriteString(bdr.Render("┌"+hbar+"┐") + "\n")
-	titleLeft := lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render("Send Message")
-	titleRight := lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render(truncateWidth(p.sessionID, cw-lipgloss.Width(titleLeft)-1))
-	gap := cw - lipgloss.Width(titleLeft) - lipgloss.Width(titleRight)
-	if gap < 0 {
-		gap = 0
+	title := lipgloss.NewStyle().Foreground(p.theme.Text).Bold(true).Render("Quick Message")
+	sid := lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render(truncateWidth(p.sessionID, cw-lipgloss.Width(title)-3))
+	topLabel := " " + title + " "
+	topRight := " " + sid + " "
+	fill := iw - lipgloss.Width(topLabel) - lipgloss.Width(topRight)
+	if fill < 0 {
+		fill = 0
 	}
-	b.WriteString(bdr.Render("│") + " " + titleLeft + strings.Repeat(" ", gap) + titleRight + " " + bdr.Render("│") + "\n")
-	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
+	b.WriteString(bdr.Render("┌") + topLabel + bdr.Render(strings.Repeat("─", fill)) + topRight + bdr.Render("┐") + "\n")
 
-	// Blank line for spacing
-	b.WriteString(bdr.Render("│") + " " + strings.Repeat(" ", cw) + " " + bdr.Render("│") + "\n")
-	// Text input — pad to fixed width so borders stay aligned.
-	// The textinput handles its own cursor scrolling internally.
-	inputVis := "  " + p.input.View()
-	b.WriteString(bdr.Render("│") + " " + padRight(ansi.Truncate(inputVis, cw, ""), cw) + " " + bdr.Render("│") + "\n")
-	// Blank line for spacing
-	b.WriteString(bdr.Render("│") + " " + strings.Repeat(" ", cw) + " " + bdr.Render("│") + "\n")
+	blank := func() {
+		b.WriteString(bdr.Render("│") + " " + strings.Repeat(" ", cw) + " " + bdr.Render("│") + "\n")
+	}
+	blank()
 
-	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
-	foot := p.theme.KeyHint("enter", "send") + "  " + p.theme.KeyHint("esc", "cancel")
-	b.WriteString(bdr.Render("│") + " " + padRight(truncateWidth(foot, cw), cw) + " " + bdr.Render("│") + "\n")
-	b.WriteString(bdr.Render("└" + hbar + "┘"))
+	prompt := lipgloss.NewStyle().Foreground(p.theme.Gold).Bold(true).Render("›")
+	inputSlot := sendPopupInputSlotWidth(p.theme)
+	input := p.input
+	input.Prompt = ""
+	input.Width = sendPopupInputViewportWidth(p.theme)
+	inputView := padRight(ansi.Truncate(input.View(), inputSlot, ""), inputSlot)
+	line := prompt + " " + inputView
+	b.WriteString(bdr.Render("│") + " " + padRight(ansi.Truncate(line, cw, ""), cw) + " " + bdr.Render("│") + "\n")
+
+	blank()
+
+	hint := sendPopupHint(p.theme)
+	hintGap := cw - lipgloss.Width(hint)
+	if hintGap < 0 {
+		hintGap = 0
+		hint = ansi.Truncate(hint, cw, "")
+	}
+	b.WriteString(bdr.Render("│") + " " + strings.Repeat(" ", hintGap) + hint + " " + bdr.Render("│") + "\n")
+
+	b.WriteString(bdr.Render("└" + strings.Repeat("─", iw) + "┘"))
 
 	return b.String()
+}
+
+func sendPopupHint(theme Theme) string {
+	return theme.KeyHint("enter", "send") + "  " + theme.KeyHint("esc", "cancel")
+}
+
+func sendPopupInputSlotWidth(theme Theme) int {
+	cw := sendPopupWidth - 4
+	promptWidth := lipgloss.Width("› ")
+	return cw - promptWidth
+}
+
+func sendPopupInputViewportWidth(theme Theme) int {
+	// textinput renders the cursor in one extra cell, so its viewport must be
+	// one cell narrower than the slot reserved in the popup row.
+	return sendPopupInputSlotWidth(theme) - 1
 }
 
 func (p SendPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -90,6 +119,8 @@ func (p SendPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	}
+	p.input.Prompt = ""
+	p.input.Width = sendPopupInputViewportWidth(p.theme)
 	var cmd tea.Cmd
 	p.input, cmd = p.input.Update(msg)
 	return p, cmd

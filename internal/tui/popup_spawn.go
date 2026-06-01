@@ -107,7 +107,7 @@ func (p SpawnPopup) Init() tea.Cmd { return textinput.Blink }
 
 func (p SpawnPopup) View() string {
 	const popW = 64
-	bdr := lipgloss.NewStyle().Foreground(p.theme.Overlay1)
+	bdr := popupBorderStyle(p.theme)
 	iw := popW - 2
 	cw := iw - 2
 

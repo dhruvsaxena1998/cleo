@@ -36,7 +36,7 @@ func (p ConfirmPopup) Init() tea.Cmd { return nil }
 
 func (p ConfirmPopup) View() string {
 	const popW = 58
-	bdr := lipgloss.NewStyle().Foreground(p.theme.Overlay1)
+	bdr := popupBorderStyle(p.theme)
 	iw := popW - 2
 
 	var b strings.Builder

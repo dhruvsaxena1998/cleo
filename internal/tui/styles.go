@@ -117,6 +117,10 @@ func (t Theme) KeyHint(k, desc string) string {
 	return key + sub
 }
 
+func popupBorderStyle(t Theme) lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(t.Mauve).Bold(true)
+}
+
 func (t Theme) PanelBox(title, hint string, body []string, w, h int) string {
 	iw := w - 2
 	if iw < 4 {

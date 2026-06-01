@@ -37,7 +37,7 @@ func (p HelpPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (p HelpPopup) View() string {
 	const popW = 58
-	bdr := lipgloss.NewStyle().Foreground(p.theme.Overlay1)
+	bdr := popupBorderStyle(p.theme)
 	iw := popW - 2
 	cw := iw - 2
 
