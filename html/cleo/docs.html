@@ -517,6 +517,7 @@ html { scroll-behavior: smooth; }
           <li><a href="#cmd-projects">add / rm / ls</a></li>
           <li><a href="#cmd-sessions">run / attach / rename / kill / prune</a></li>
           <li><a href="#cmd-keys">TUI keybindings</a></li>
+          <li><a href="#frictionless-alias">Frictionless alias</a></li>
         </ol>
       </li>
       <li><a href="#hooks">4. Hooks & state</a>
@@ -734,6 +735,40 @@ $ cleo run codex --yes</pre>
         <div class="cmd-row"><span class="cmd">esc</span><span class="desc">Cancel the current popup or filter mode.</span></div>
         <div class="cmd-row"><span class="cmd">q</span><span class="desc">Quit the dashboard.</span></div>
       </div>
+    </section>
+
+    <!-- ============ FRICTIONLESS ALIAS ============ -->
+    <section id="frictionless-alias">
+      <h3>Frictionless alias</h3>
+      <p>Map a short shell alias straight to <code>cleo run &lt;agent&gt; --yes</code>. CWD is detected automatically. One word lands you in a running agent session.</p>
+
+      <p>Add one of these to your <code>.zshrc</code>, <code>.bashrc</code>, or equivalent:</p>
+<pre><span class="c"># one alias per agent</span>
+alias <span class="a">cc</span>='cleo run claude --yes'
+alias <span class="a">cp</span>='cleo run pi --yes'
+alias <span class="a">co</span>='cleo run codex --yes'</pre>
+
+      <p>Then from any project directory:</p>
+<pre>$ cc
+<span class="ok">spawned cleo-my-project-claude-witty-koala</span>
+<span class="c"># tmux attaches immediately</span></pre>
+
+      <div class="alert">
+        <div class="ico">i</div>
+        <div>
+          Every directory you run the alias from gets permanently registered in <code>projects.json</code>. Clean up stray entries with <code>cleo ls</code> and <code>cleo rm &lt;id&gt;</code>.
+        </div>
+      </div>
+
+      <p><strong>Advanced: default agent per project.</strong> If you want a single alias that picks the right agent for each project, use a shell function that reads <code>default_agent</code> from <code>projects.json</code>:</p>
+<pre><span class="c"># requires jq; falls back to claude</span>
+<span class="a">cc</span>() {
+  local dir=$(pwd)
+  local agent
+  agent=$(jq -r --arg d "$dir" '.projects[] | select(.path == $d) | .default_agent // "claude"' ~/.cleo/projects.json 2&gt;/dev/null)
+  agent="${agent:-claude}"
+  cleo run "$agent"
+}</pre>
     </section>
 
     <!-- ============ HOOKS ============ -->

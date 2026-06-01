@@ -4,6 +4,8 @@ Terminal session manager for AI coding agents. Manages projects, spawns agent se
 
 ## Language
 
+Full terminology reference: [docs/glossary.md](docs/glossary.md)
+
 **Project**:
 A directory registered with Cleo that agents can work in. Has an ID, name, and path.
 _Avoid_: workspace, repo
