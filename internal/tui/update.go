@@ -86,6 +86,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.mode = ModeNormal
 		m.popup = nil
 		return m, nil
+	case FinderSubmitted:
+		m.mode = ModeNormal
+		m.popup = nil
+		return m.attachToSession(msg.SessionID)
+	case FinderCancelled:
+		m.mode = ModeNormal
+		m.popup = nil
+		return m, nil
 	case HelpClosed:
 		m.mode = ModeNormal
 		m.popup = nil

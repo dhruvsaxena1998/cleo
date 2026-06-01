@@ -22,7 +22,6 @@ type Model struct {
 	selected      string            // session id selected for "v" view; "" = none
 	status        string
 	statusTimerID int
-	filter        string
 	mode          Mode
 	popup         tea.Model
 	help          help.Model
@@ -53,7 +52,6 @@ type Mode int
 
 const (
 	ModeNormal Mode = iota
-	ModeFilter
 	ModePopup
 )
 

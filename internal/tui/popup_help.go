@@ -62,7 +62,7 @@ func (p HelpPopup) View() string {
 			{"D", "remove project"},
 		}},
 		{"Global", []row{
-			{"/", "filter"},
+			{"/", "find"},
 			{"alt+m", "mute / unmute"},
 			{"?", "help"},
 			{"q", "quit"},

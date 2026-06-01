@@ -13,7 +13,7 @@ import (
 )
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Explicit Esc hierarchy (spec §2.2): popup -> filter -> status.
+	// Explicit Esc hierarchy: popup -> status.
 	// Intercepted at the top level so each layer behaves predictably no
 	// matter which mode forwarded the keypress.
 	if msg.Type == tea.KeyEsc {
@@ -23,16 +23,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.status = ""
 			return m, nil
 		}
-		if m.mode == ModeFilter {
-			m.mode = ModeNormal
-			m.filter = ""
-			return m.clampCursor(), nil
-		}
 		m.status = ""
 		return m, nil
-	}
-	if m.mode == ModeFilter {
-		return m.handleFilterKey(msg)
 	}
 	if m.mode == ModePopup && m.popup != nil {
 		var cmd tea.Cmd
@@ -44,9 +36,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, km.Quit):
 		return m, tea.Quit
 	case key.Matches(msg, km.Filter):
-		m.status = ""
-		m.mode = ModeFilter
-		return m, nil
+		return m.openFinderPopup()
 	case key.Matches(msg, km.New):
 		return m.openSpawnPopup()
 	case key.Matches(msg, km.View):
@@ -213,15 +203,10 @@ func (m Model) viewSelectedAgent() (Model, tea.Cmd) {
 	return m, capturePaneCmd(m.ctx, sess.ID, m.ctx.Config.UI.PanePreview.Lines)
 }
 
-func (m Model) attachSelectedAgent() (Model, tea.Cmd) {
-	sess, ok := m.sessionAtCursor()
-	if !ok {
-		return m, nil
-	}
-
+func (m Model) attachToSession(sessionID string) (Model, tea.Cmd) {
 	lifecycle := m.ctx.NewLifecycle()
 
-	plan, err := lifecycle.Attach(sess.ID)
+	plan, err := lifecycle.Attach(sessionID)
 	if err != nil {
 		m.status = fmt.Sprintf("attach failed: %v", err)
 		return m, nil
@@ -229,10 +214,10 @@ func (m Model) attachSelectedAgent() (Model, tea.Cmd) {
 
 	switch plan.Action {
 	case sessionlifecycle.AttachBlocked:
-		m.status = fmt.Sprintf("%s is %s; press K to remove it", sess.ID, plan.Session.State)
+		m.status = fmt.Sprintf("%s is %s; press K to remove it", sessionID, plan.Session.State)
 		return m, nil
 	case sessionlifecycle.AttachMarkedDead:
-		m.status = fmt.Sprintf("%s is no longer running; marked dead", sess.ID)
+		m.status = fmt.Sprintf("%s is no longer running; marked dead", sessionID)
 		return m, loadStateCmd(m.ctx)
 	}
 
@@ -244,6 +229,14 @@ func (m Model) attachSelectedAgent() (Model, tea.Cmd) {
 		// nothing to send back; just resume rendering
 		return nil
 	})
+}
+
+func (m Model) attachSelectedAgent() (Model, tea.Cmd) {
+	sess, ok := m.sessionAtCursor()
+	if !ok {
+		return m, nil
+	}
+	return m.attachToSession(sess.ID)
 }
 
 func (m Model) confirmKill() (Model, tea.Cmd) {
@@ -273,6 +266,13 @@ func (m Model) openRenamePopup() (Model, tea.Cmd) {
 	// Clear stale status only on the success path (popup actually opens).
 	m.status = ""
 	m.popup = NewRenamePopup(sess.ID, sess.Name, m.theme)
+	m.mode = ModePopup
+	return m, m.popup.Init()
+}
+
+func (m Model) openFinderPopup() (Model, tea.Cmd) {
+	m.status = ""
+	m.popup = NewFinderPopup(m.ctx, m.theme, m.sessions)
 	m.mode = ModePopup
 	return m, m.popup.Init()
 }

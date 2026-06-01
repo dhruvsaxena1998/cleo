@@ -186,7 +186,7 @@ func (m Model) renderDashboard(width int) string {
 	if len(m.sessions) == 0 {
 		return "\n\n  " + bright.Render("No sessions yet") + "\n\n" +
 			"  " + dimmed.Render("Register projects with cleo add, then press n to spawn an agent.") + "\n\n" +
-			"  " + m.theme.KeyHint("n", "new agent") + "   " + m.theme.KeyHint("/", "filter projects")
+			"  " + m.theme.KeyHint("n", "new agent") + "   " + m.theme.KeyHint("/", "find sessions")
 	}
 	var b strings.Builder
 	stats := m.sessionStats()

@@ -10,50 +10,14 @@ import (
 	"github.com/dhruvsaxena1998/cleo/internal/state"
 )
 
-// renderLeftColumn assembles the two-panel left stack:
-// ┌ Filter ┐  (fixed height)
-// └ Tree   ┘  (flexible)
+// renderLeftColumn renders the full-height projects / sessions tree.
 func (m Model) renderLeftColumn(w, h int) string {
-	const filterH = 6 // border(2) + title(1) + sep(1) + 2 content rows — matches metaH on the right
-	treeH := h - filterH
-	if treeH < 5 {
-		treeH = 5
-	}
-
-	filter := m.renderFilterPanel(w, filterH)
-	tree := m.renderTreePanel(w, treeH)
-	return filter + "\n" + tree
+	return m.renderTreePanel(w, h)
 }
 
 // renderSidebar is kept for the snapshot test (uses the tree content).
 func (m Model) renderSidebar(width int) string {
 	return m.renderTreeContent(width - 4)
-}
-
-// ── Filter panel ──────────────────────────────────────────────────────────────
-
-func (m Model) renderFilterPanel(w, h int) string {
-	faint := lipgloss.NewStyle().Foreground(m.theme.Overlay0)
-	hint := "inactive"
-	if m.mode == ModeFilter {
-		hint = "active"
-	} else if m.filter != "" {
-		hint = m.filter
-	}
-
-	var line string
-	if m.filter != "" || m.mode == ModeFilter {
-		cur := m.filter
-		if m.mode == ModeFilter {
-			cur = m.filter + "▌"
-		}
-		line = lipgloss.NewStyle().Foreground(m.theme.Gold).Bold(true).Render("/") + " " +
-			lipgloss.NewStyle().Foreground(m.theme.Text).Bold(true).Render(cur)
-	} else {
-		line = faint.Render("/ type to filter sessions and projects")
-	}
-
-	return m.theme.PanelBox("Filter", hint, []string{line, ""}, w, h)
 }
 
 // ── Tree panel ────────────────────────────────────────────────────────────────
@@ -206,7 +170,7 @@ func (m Model) renderActionsPanel(w, h int) string {
 	} else {
 		actions = []panelAction{
 			{"spawn new agent", "n", true},
-			{"filter sessions", "/", false},
+			{"find sessions", "/", false},
 			{"expand / collapse", "space", false},
 			{"quit", "q", false},
 		}
@@ -245,19 +209,13 @@ func (m Model) renderActionsPanel(w, h int) string {
 func (m Model) visibleProjects() []projects.Project {
 	projs := append([]projects.Project(nil), m.projects...)
 	sort.Slice(projs, func(i, j int) bool { return projs[i].ID < projs[j].ID })
-	var out []projects.Project
-	for _, p := range projs {
-		if m.matchesFilter(p.ID) || m.projectHasMatching(p.ID) {
-			out = append(out, p)
-		}
-	}
-	return out
+	return projs
 }
 
 func (m Model) sessionsFor(pid string) []state.Session {
 	var out []state.Session
 	for _, s := range m.sessions {
-		if s.ProjectID == pid && m.matchesFilter(s.ID, s.Name, s.Agent) {
+		if s.ProjectID == pid {
 			out = append(out, s)
 		}
 	}
@@ -268,27 +226,6 @@ func (m Model) sessionsFor(pid string) []state.Session {
 		return out[i].ID < out[j].ID // stable tiebreaker for sessions with equal/zero StartedAt
 	})
 	return out
-}
-
-func (m Model) matchesFilter(parts ...string) bool {
-	if m.filter == "" {
-		return true
-	}
-	for _, p := range parts {
-		if strings.Contains(strings.ToLower(p), strings.ToLower(m.filter)) {
-			return true
-		}
-	}
-	return false
-}
-
-func (m Model) projectHasMatching(pid string) bool {
-	for _, s := range m.sessions {
-		if s.ProjectID == pid && m.matchesFilter(s.ID, s.Name, s.Agent) {
-			return true
-		}
-	}
-	return false
 }
 
 func truncate(s string, n int) string {

@@ -93,7 +93,7 @@ func (m Model) renderFooter(width int) string {
 	sep := faint.Render("  ·  ")
 
 	var hints []string
-	if m.status != "" && m.mode != ModeFilter {
+	if m.status != "" {
 		hints = []string{
 			lipgloss.NewStyle().Foreground(m.theme.Red).Bold(true).Render(m.status),
 			m.theme.KeyHint("esc", "clear"),
@@ -103,12 +103,6 @@ func (m Model) renderFooter(width int) string {
 		return lipgloss.NewStyle().Background(m.theme.Base).Width(width).Render(truncateWidth(line, width))
 	}
 	switch {
-	case m.mode == ModeFilter:
-		hints = []string{
-			m.theme.KeyHint("enter", "apply"),
-			m.theme.KeyHint("esc", "clear"),
-			faint.Render("type to filter projects and sessions"),
-		}
 	default:
 		sess, hasSess := m.sessionAtCursor()
 		if hasSess {
@@ -118,7 +112,7 @@ func (m Model) renderFooter(width int) string {
 					m.theme.KeyHint("K", "remove"),
 					m.theme.KeyHint("P", "prune project"),
 					m.theme.KeyHint("n", "new sibling"),
-					m.theme.KeyHint("/", "filter"),
+					m.theme.KeyHint("/", "find"),
 					m.theme.KeyHint("q", "quit"),
 				}
 			} else {
@@ -133,7 +127,7 @@ func (m Model) renderFooter(width int) string {
 					m.theme.KeyHint("K", "kill"),
 					m.theme.KeyHint("n", "new sibling"),
 					m.theme.KeyHint("space", "collapse"),
-					m.theme.KeyHint("/", "filter"),
+					m.theme.KeyHint("/", "find"),
 					m.theme.KeyHint("m", "send"),
 					m.theme.KeyHint("q", "quit"),
 				)
@@ -153,7 +147,7 @@ func (m Model) renderFooter(width int) string {
 				m.theme.KeyHint("j/k", "move"),
 				m.theme.KeyHint("↵ ", "attach"),
 				m.theme.KeyHint("D", "remove project"),
-				m.theme.KeyHint("/", "filter"),
+				m.theme.KeyHint("/", "find"),
 				m.theme.KeyHint("m", "send"),
 				m.theme.KeyHint("q", "quit"),
 			}
