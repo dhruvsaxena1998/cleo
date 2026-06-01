@@ -10,6 +10,7 @@ import (
 	"github.com/dhruvsaxena1998/cleo/internal/projects"
 	"github.com/dhruvsaxena1998/cleo/internal/reconcile"
 	"github.com/dhruvsaxena1998/cleo/internal/state"
+	"github.com/dhruvsaxena1998/cleo/internal/sys"
 )
 
 type stateLoadedMsg struct {
@@ -64,5 +65,44 @@ func capturePaneCmd(c *cli.Ctx, sid string, lines int) tea.Cmd {
 	return func() tea.Msg {
 		out, _ := c.Tmux.CapturePane(sid, lines)
 		return paneCapturedMsg{sid: sid, content: out}
+	}
+}
+
+// ── Agent memory collection ───────────────────────────────────────────────────
+
+type agentMemTickMsg struct{}
+type agentMemMsg struct{ bytes uint64 }
+
+// agentMemTickCmd fires a slow (~2s) tick to collect memory usage of all agent
+// processes managed by cleo. This is separate from the main 750ms state tick
+// because walking process trees can be expensive with many sessions.
+func agentMemTickCmd() tea.Cmd {
+	return tea.Tick(2*time.Second, func(time.Time) tea.Msg { return agentMemTickMsg{} })
+}
+
+func agentMemCmd(c *cli.Ctx) tea.Cmd {
+	return func() tea.Msg {
+		var total int64
+		sessions, err := c.State.List()
+		if err != nil {
+			return agentMemMsg{bytes: 0}
+		}
+		for _, sess := range sessions {
+			if sess.State.IsFinished() {
+				continue
+			}
+			pids, err := c.Tmux.SessionPIDs(sess.ID)
+			if err != nil {
+				continue
+			}
+			for _, pid := range pids {
+				rss, err := sys.ProcessTreeRSS(pid)
+				if err != nil {
+					continue
+				}
+				total += rss
+			}
+		}
+		return agentMemMsg{bytes: uint64(total)}
 	}
 }

@@ -39,6 +39,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tickStateMsg:
 		m.heapAlloc = readHeapAlloc()
 		return m, tea.Batch(loadStateCmd(m.ctx), tickStateCmd())
+	case agentMemTickMsg:
+		return m, tea.Batch(agentMemCmd(m.ctx), agentMemTickCmd())
+	case agentMemMsg:
+		m.agentMemAlloc = msg.bytes
+		return m, nil
 	case statusExpiredMsg:
 		if msg.id == m.statusTimerID {
 			m.status = ""

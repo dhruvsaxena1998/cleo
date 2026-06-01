@@ -87,6 +87,7 @@ func (f *fakeTmux) CapturePane(_ string, lines int) (string, error) {
 }
 func (f *fakeTmux) SendKeys(name string, text string) error { return nil }
 func (f *fakeTmux) RenameSession(from, to string) error     { return nil }
+func (f *fakeTmux) SessionPIDs(name string) ([]int, error) { return nil, nil }
 func (f *fakeTmux) AttachCmd(sessionID string) *exec.Cmd {
 	f.attached = append(f.attached, sessionID)
 	return exec.Command("true") // harmless no-op; records the attach request

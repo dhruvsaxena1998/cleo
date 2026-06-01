@@ -39,7 +39,8 @@ type Model struct {
 	// startup instead of waiting for the first previewTickCmd interval.
 	firstStateLoaded bool
 
-	heapAlloc uint64 // updated once per state tick via runtime.ReadMemStats
+	heapAlloc    uint64 // updated once per state tick via runtime.ReadMemStats
+	agentMemAlloc uint64 // combined RSS of all agent process trees (bytes)
 }
 
 func readHeapAlloc() uint64 {
@@ -81,6 +82,7 @@ func (m Model) Init() tea.Cmd {
 		loadStateCmd(m.ctx),
 		tickStateCmd(),
 		previewTickCmd(m.ctx.Config.UI.PanePreview.Interval),
+		agentMemTickCmd(),
 	)
 }
 
