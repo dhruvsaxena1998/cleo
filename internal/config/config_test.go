@@ -35,6 +35,9 @@ func TestLoadDefaultsWritesNewConfigShape(t *testing.T) {
 	if c.Agents["claude"].Label != "cl" {
 		t.Errorf("claude label: %q", c.Agents["claude"].Label)
 	}
+	if c.UI.Editor != "" {
+		t.Errorf("ui.editor = %q, want empty", c.UI.Editor)
+	}
 	if c.UI.PanePreview.Interval != 2000*time.Millisecond {
 		t.Errorf("interval: %v", c.UI.PanePreview.Interval)
 	}
@@ -154,6 +157,7 @@ default_agent = "codex"
 
 [ui]
   theme = "gruvbox-dark"
+  editor = "code --reuse-window"
   sidebar_width = 60
   event_log_lines = 42
   [ui.pane_preview]
@@ -198,6 +202,9 @@ default_agent = "codex"
 	}
 	if c.UI.Theme != "gruvbox-dark" {
 		t.Errorf("ui.theme = %q", c.UI.Theme)
+	}
+	if c.UI.Editor != "code --reuse-window" {
+		t.Errorf("ui.editor = %q", c.UI.Editor)
 	}
 	if c.UI.SidebarWidth != 60 {
 		t.Errorf("ui.sidebar_width = %d", c.UI.SidebarWidth)
@@ -299,6 +306,7 @@ func TestRoundTripPreservesUserOverrides(t *testing.T) {
 	c.Sound.Volume = 0.5
 	c.Sound.Events["session_completed"] = SoundEvent{File: "custom.wav", Enabled: false}
 	c.Agents["claude"] = Agent{Command: "claude --debug", Label: "cl", Color: "#ffffff"}
+	c.UI.Editor = "nvim"
 	c.UI.PanePreview.Enabled = false
 	c.Pruning.KeepDefault = 9
 
@@ -324,6 +332,9 @@ func TestRoundTripPreservesUserOverrides(t *testing.T) {
 	}
 	if got.Agents["claude"].Command != "claude --debug" {
 		t.Errorf("claude command = %q", got.Agents["claude"].Command)
+	}
+	if got.UI.Editor != "nvim" {
+		t.Errorf("ui.editor = %q", got.UI.Editor)
 	}
 	if got.UI.PanePreview.Enabled {
 		t.Error("pane preview should remain disabled")

@@ -25,6 +25,7 @@ func Defaults_() Config {
 		},
 		UI: UI{
 			Theme:         "catppuccin-mocha",
+			Editor:        "",
 			SidebarWidth:  48,
 			EventLogLines: 200,
 			PanePreview: PanePreview{
