@@ -22,36 +22,40 @@ type FinderSubmitted struct {
 // FinderCancelled is sent when the user presses Esc in the finder.
 type FinderCancelled struct{}
 
+// finderRow is one visual line in the results list: either a non-selectable
+// project header or a selectable session row.
+type finderRow struct {
+	isHeader bool
+	project  string // set when isHeader
+	matchIdx int    // index into the current matches slice when !isHeader
+}
+
 // FinderPopup is a center-screen fuzzy finder for attachable sessions.
 type FinderPopup struct {
 	ctx     *cli.Ctx
 	theme   Theme
 	query   string
-	cursor  int // index into visible results
-	items   []state.Session // all attachable sessions
+	cursor  int            // index into the selectable session rows (matches slice)
+	items   []state.Session // all attachable sessions, sorted by project then name
 	sources []string        // parallel to items, for fuzzy matching
 }
 
 // NewFinderPopup builds a finder over all non-finished sessions.
 func NewFinderPopup(ctx *cli.Ctx, theme Theme, sessions []state.Session) FinderPopup {
 	var items []state.Session
-	var sources []string
 	for _, s := range sessions {
 		if s.State.IsFinished() {
 			continue
 		}
 		items = append(items, s)
-		sources = append(sources, s.Name+" "+s.ProjectID+" "+s.Agent)
 	}
-	// stable sort by project then name so identical scores group predictably
 	sort.Slice(items, func(i, j int) bool {
 		if items[i].ProjectID != items[j].ProjectID {
 			return items[i].ProjectID < items[j].ProjectID
 		}
 		return items[i].Name < items[j].Name
 	})
-	// re-order sources to match
-	sources = make([]string, len(items))
+	sources := make([]string, len(items))
 	for i, it := range items {
 		sources[i] = it.Name + " " + it.ProjectID + " " + it.Agent
 	}
@@ -83,10 +87,6 @@ func (p FinderPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			p.clampCursor()
 			return p, nil
-		case tea.KeyRunes:
-			p.query += string(msg.Runes)
-			p.cursor = 0
-			return p, nil
 		case tea.KeyUp:
 			if p.cursor > 0 {
 				p.cursor--
@@ -96,6 +96,11 @@ func (p FinderPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if p.cursor+1 < p.matchCount() {
 				p.cursor++
 			}
+			return p, nil
+		case tea.KeyRunes:
+			// All printable characters (including j/k) go into the query.
+			p.query += string(msg.Runes)
+			p.cursor = 0
 			return p, nil
 		}
 	}
@@ -140,8 +145,30 @@ func (p *FinderPopup) clampCursor() {
 	}
 }
 
+// visibleRows builds the tree of project headers and session rows for rendering.
+// A project header is inserted whenever the project ID changes across consecutive
+// matches. The cursor maps to matchIdx values only (headers are never selectable).
+func (p FinderPopup) visibleRows(matches []int, limit int) []finderRow {
+	var rows []finderRow
+	sessionCount := 0
+	lastProject := ""
+	for matchIdx, itemIdx := range matches {
+		if sessionCount >= limit {
+			break
+		}
+		s := p.items[itemIdx]
+		if s.ProjectID != lastProject {
+			rows = append(rows, finderRow{isHeader: true, project: s.ProjectID})
+			lastProject = s.ProjectID
+		}
+		rows = append(rows, finderRow{isHeader: false, matchIdx: matchIdx})
+		sessionCount++
+	}
+	return rows
+}
+
 func (p FinderPopup) View() string {
-	const popW = 80
+	const popW = 78
 	iw := popW - 2
 	cw := iw - 2
 
@@ -170,12 +197,8 @@ func (p FinderPopup) View() string {
 	blank()
 
 	// query line
-	q := p.query
-	if q == "" {
-		q = "type to filter sessions"
-	}
 	queryLine := lipgloss.NewStyle().Foreground(p.theme.Gold).Bold(true).Render("›") + " " +
-		lipgloss.NewStyle().Foreground(p.theme.Text).Render(q)
+		lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("type to filter sessions")
 	if p.query != "" {
 		queryLine = lipgloss.NewStyle().Foreground(p.theme.Gold).Bold(true).Render("›") + " " +
 			lipgloss.NewStyle().Foreground(p.theme.Text).Bold(true).Render(p.query+"▌")
@@ -183,66 +206,61 @@ func (p FinderPopup) View() string {
 	row(queryLine)
 	blank()
 
-	selectedSt := lipgloss.NewStyle().Background(p.theme.Surf1).Foreground(p.theme.Text).Bold(true)
-	arrowSt := lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true)
+	// styles
+	selectedBg := lipgloss.NewStyle().Background(p.theme.Surf1).Foreground(p.theme.Text).Bold(true)
+	headerSt := lipgloss.NewStyle().Foreground(p.theme.Overlay0)
 	faint := lipgloss.NewStyle().Foreground(p.theme.Overlay0)
 	dimmed := lipgloss.NewStyle().Foreground(p.theme.Subtext0)
-	projectSt := lipgloss.NewStyle().Foreground(p.theme.Text).Bold(true)
 
 	matches := p.matches()
 	if len(matches) == 0 {
 		row(faint.Render("no matching sessions"))
 	} else {
-		for i, idx := range matches {
-			if i >= 14 { // max visible results
-				more := fmt.Sprintf("  … and %d more", len(matches)-i)
-				row(faint.Render(more))
-				break
+		const maxSessions = 12
+		rows := p.visibleRows(matches, maxSessions)
+
+		for _, r := range rows {
+			if r.isHeader {
+				// Grey non-selectable project group header.
+				row(headerSt.Render("  " + r.project))
+				continue
 			}
-			s := p.items[idx]
+
+			s := p.items[matches[r.matchIdx]]
 			cfgAgent := p.ctx.Config.Agents[s.Agent]
 			badge := "[" + cfgAgent.Label + "]"
 			agentLbl := lipgloss.NewStyle().Foreground(lipgloss.Color(cfgAgent.Color)).Bold(true).Render(badge)
 
 			stColor := p.theme.StateColor(string(s.State))
-			stLabel := lipgloss.NewStyle().Foreground(stColor).Bold(true).Render(shortStateLabel(s.State))
-			ageStr := faint.Render(sessionAge(s))
+			stLabel := lipgloss.NewStyle().Foreground(stColor).Render(shortStateLabel(s.State))
+			ageStr := sessionAge(s)
 
-			// Layout:  ▸  project   [agent] name        state  age
-			// Project on the left for clear visual grouping.
-			projW := 16
-			proj := truncateWidth(s.ProjectID, projW)
-			name := truncateWidth(s.Name, 22)
-
-			left := projectSt.Render(padRight(proj, projW)) + "  " +
-				agentLbl + " " + dimmed.Render(name)
-			right := stLabel + "  " + ageStr
-
+			name := truncateWidth(s.Name, 32)
+			left := "    " + agentLbl + " " + dimmed.Render(name)
+			right := stLabel + "  " + faint.Render(ageStr)
 			gap := cw - lipgloss.Width(left) - lipgloss.Width(right)
 			if gap < 1 {
 				gap = 1
 			}
 			inner := left + strings.Repeat(" ", gap) + right
 
-			if i == p.cursor {
-				// Full-width highlight with an accent arrow on the left.
-				prefix := arrowSt.Render("▸") + " "
-				body := inner
-				// Recompute body width after stripping the 2-char prefix the
-				// unselected row would have had ("  ").
-				body = strings.TrimPrefix(body, "  ")
-				body = padRight(truncateWidth(body, cw-2), cw-2)
-				row(selectedSt.Width(cw).Render(prefix + body))
+			if r.matchIdx == p.cursor {
+				// Full-width highlight on the entire selected row.
+				row(selectedBg.Width(cw).Render(inner))
 			} else {
-				row("  " + inner)
+				row(inner)
 			}
+		}
+
+		if len(matches) > maxSessions {
+			row(faint.Render(fmt.Sprintf("  … and %d more — refine your query", len(matches)-maxSessions)))
 		}
 	}
 
-	// fill remaining height
+	// pad to minimum height
 	linesSoFar := strings.Count(b.String(), "\n")
-	minContentLines := 8
-	for linesSoFar < minContentLines+3 {
+	minLines := 11
+	for linesSoFar < minLines+3 {
 		blank()
 		linesSoFar++
 	}
@@ -250,14 +268,16 @@ func (p FinderPopup) View() string {
 
 	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
 	footLeft := faint.Render("esc cancel")
-	footMid := faint.Render("j/k move")
+	footMid := faint.Render("↑/↓ move")
 	footRight := faint.Render("↵ attach")
-	footGap1 := cw - lipgloss.Width(footLeft) - lipgloss.Width(footMid) - lipgloss.Width(footRight)
-	if footGap1 < 2 {
-		footGap1 = 2
+	footTotal := lipgloss.Width(footLeft) + lipgloss.Width(footMid) + lipgloss.Width(footRight)
+	footSpace := cw - footTotal
+	if footSpace < 4 {
+		footSpace = 4
 	}
-	footGap2 := 2
-	footLine := footLeft + strings.Repeat(" ", footGap1/2) + footMid + strings.Repeat(" ", footGap2) + footRight
+	pad1 := footSpace / 2
+	pad2 := footSpace - pad1
+	footLine := footLeft + strings.Repeat(" ", pad1) + footMid + strings.Repeat(" ", pad2) + footRight
 	footPad := cw - lipgloss.Width(footLine)
 	if footPad > 0 {
 		footLine += strings.Repeat(" ", footPad)
