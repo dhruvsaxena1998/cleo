@@ -141,7 +141,7 @@ func (p *FinderPopup) clampCursor() {
 }
 
 func (p FinderPopup) View() string {
-	const popW = 72
+	const popW = 80
 	iw := popW - 2
 	cw := iw - 2
 
@@ -183,16 +183,18 @@ func (p FinderPopup) View() string {
 	row(queryLine)
 	blank()
 
-	selectedSt := lipgloss.NewStyle().Background(p.theme.Surf0).Foreground(p.theme.Text).Bold(true)
+	selectedSt := lipgloss.NewStyle().Background(p.theme.Surf1).Foreground(p.theme.Text).Bold(true)
+	arrowSt := lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true)
 	faint := lipgloss.NewStyle().Foreground(p.theme.Overlay0)
 	dimmed := lipgloss.NewStyle().Foreground(p.theme.Subtext0)
+	projectSt := lipgloss.NewStyle().Foreground(p.theme.Text).Bold(true)
 
 	matches := p.matches()
 	if len(matches) == 0 {
 		row(faint.Render("no matching sessions"))
 	} else {
 		for i, idx := range matches {
-			if i >= 12 { // max visible results to keep popup reasonable
+			if i >= 14 { // max visible results
 				more := fmt.Sprintf("  … and %d more", len(matches)-i)
 				row(faint.Render(more))
 				break
@@ -203,25 +205,44 @@ func (p FinderPopup) View() string {
 			agentLbl := lipgloss.NewStyle().Foreground(lipgloss.Color(cfgAgent.Color)).Bold(true).Render(badge)
 
 			stColor := p.theme.StateColor(string(s.State))
-			stLabel := lipgloss.NewStyle().Foreground(stColor).Render(shortStateLabel(s.State))
-			ageStr := sessionAge(s)
+			stLabel := lipgloss.NewStyle().Foreground(stColor).Bold(true).Render(shortStateLabel(s.State))
+			ageStr := faint.Render(sessionAge(s))
 
-			left := agentLbl + " " + dimmed.Render(truncateWidth(s.Name, 24))
-			right := faint.Render(s.ProjectID) + "  " + stLabel + "  " + faint.Render(ageStr)
-			inner := left + strings.Repeat(" ", cw-lipgloss.Width(left)-lipgloss.Width(right)) + right
+			// Layout:  ▸  project   [agent] name        state  age
+			// Project on the left for clear visual grouping.
+			projW := 16
+			proj := truncateWidth(s.ProjectID, projW)
+			name := truncateWidth(s.Name, 22)
+
+			left := projectSt.Render(padRight(proj, projW)) + "  " +
+				agentLbl + " " + dimmed.Render(name)
+			right := stLabel + "  " + ageStr
+
+			gap := cw - lipgloss.Width(left) - lipgloss.Width(right)
+			if gap < 1 {
+				gap = 1
+			}
+			inner := left + strings.Repeat(" ", gap) + right
 
 			if i == p.cursor {
-				row(selectedSt.Width(cw).Render(inner))
+				// Full-width highlight with an accent arrow on the left.
+				prefix := arrowSt.Render("▸") + " "
+				body := inner
+				// Recompute body width after stripping the 2-char prefix the
+				// unselected row would have had ("  ").
+				body = strings.TrimPrefix(body, "  ")
+				body = padRight(truncateWidth(body, cw-2), cw-2)
+				row(selectedSt.Width(cw).Render(prefix + body))
 			} else {
-				row(inner)
+				row("  " + inner)
 			}
 		}
 	}
 
-	// fill remaining height to reach a minimum pleasant height
+	// fill remaining height
 	linesSoFar := strings.Count(b.String(), "\n")
 	minContentLines := 8
-	for linesSoFar < minContentLines+3 { // +3 for header rows
+	for linesSoFar < minContentLines+3 {
 		blank()
 		linesSoFar++
 	}
@@ -237,7 +258,6 @@ func (p FinderPopup) View() string {
 	}
 	footGap2 := 2
 	footLine := footLeft + strings.Repeat(" ", footGap1/2) + footMid + strings.Repeat(" ", footGap2) + footRight
-	// pad to full width
 	footPad := cw - lipgloss.Width(footLine)
 	if footPad > 0 {
 		footLine += strings.Repeat(" ", footPad)
