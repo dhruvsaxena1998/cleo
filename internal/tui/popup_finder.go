@@ -229,26 +229,34 @@ func (p FinderPopup) View() string {
 			s := p.items[matches[r.matchIdx]]
 			cfgAgent := p.ctx.Config.Agents[s.Agent]
 			badge := "[" + cfgAgent.Label + "]"
-			agentLbl := lipgloss.NewStyle().Foreground(lipgloss.Color(cfgAgent.Color)).Bold(true).Render(badge)
 
-			stColor := p.theme.StateColor(string(s.State))
-			stLabel := lipgloss.NewStyle().Foreground(stColor).Render(shortStateLabel(s.State))
+			st := shortStateLabel(s.State)
 			ageStr := sessionAge(s)
-
 			name := truncateWidth(s.Name, 32)
-			left := "    " + agentLbl + " " + dimmed.Render(name)
-			right := stLabel + "  " + faint.Render(ageStr)
-			gap := cw - lipgloss.Width(left) - lipgloss.Width(right)
-			if gap < 1 {
-				gap = 1
-			}
-			inner := left + strings.Repeat(" ", gap) + right
 
 			if r.matchIdx == p.cursor {
-				// Full-width highlight on the entire selected row.
-				row(selectedBg.Width(cw).Render(inner))
+				// Plain unstyled string inside selectedBg so the background
+				// fills the full row width — ANSI spans from sub-styles break
+				// lipgloss background propagation.
+				plainL := "    " + badge + " " + name
+				plainR := fmt.Sprintf("%-4s", st) + "  " + ageStr
+				gap := cw - len(plainL) - len(plainR)
+				if gap < 1 {
+					gap = 1
+				}
+				plain := plainL + strings.Repeat(" ", gap) + plainR
+				row(selectedBg.Width(cw).Render(plain))
 			} else {
-				row(inner)
+				agentLbl := lipgloss.NewStyle().Foreground(lipgloss.Color(cfgAgent.Color)).Bold(true).Render(badge)
+				stColor := p.theme.StateColor(string(s.State))
+				stLabel := lipgloss.NewStyle().Foreground(stColor).Render(st)
+				left := "    " + agentLbl + " " + dimmed.Render(name)
+				right := stLabel + "  " + faint.Render(ageStr)
+				gap := cw - lipgloss.Width(left) - lipgloss.Width(right)
+				if gap < 1 {
+					gap = 1
+				}
+				row(left + strings.Repeat(" ", gap) + right)
 			}
 		}
 
