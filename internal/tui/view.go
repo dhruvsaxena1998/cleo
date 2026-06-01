@@ -122,9 +122,13 @@ func (m Model) renderFooter(width int) string {
 					m.theme.KeyHint("q", "quit"),
 				}
 			} else {
-				hints = []string{
-					m.theme.KeyHint("↵ ", "attach"),
-					m.theme.KeyHint("v", "view"),
+				hints = []string{m.theme.KeyHint("↵ ", "attach")}
+				// "v" manually captures the pane; redundant when the preview
+				// panel already auto-refreshes on its own ticker.
+				if !m.ctx.Config.UI.PanePreview.Enabled {
+					hints = append(hints, m.theme.KeyHint("v", "view"))
+				}
+				hints = append(hints,
 					m.theme.KeyHint("r", "rename"),
 					m.theme.KeyHint("K", "kill"),
 					m.theme.KeyHint("n", "new sibling"),
@@ -132,7 +136,7 @@ func (m Model) renderFooter(width int) string {
 					m.theme.KeyHint("/", "filter"),
 					m.theme.KeyHint("m", "send"),
 					m.theme.KeyHint("q", "quit"),
-				}
+				)
 			}
 		} else {
 			pid, _ := m.projectAtCursor()
