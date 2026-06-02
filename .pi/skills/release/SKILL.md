@@ -1,6 +1,6 @@
 ---
 name: release
-description: Bump cleo version, update docs, changelog, and landing page, then tag and push a release. Use when user says "release", "new version", "tag", "ship", "bump version", or after merging features for a release.
+description: Bump cleo version, update changelog and version references, then tag and push a release. Use when user says "release", "new version", "tag", "ship", "bump version", or after merging features for a release.
 ---
 
 # Release cleo
@@ -28,8 +28,8 @@ See [CHECKLIST.md](CHECKLIST.md) for the full step-by-step. High-level order:
 
 1. **Version** — bump in `internal/cli/root.go`
 2. **Changelog** — add `[X.Y.Z]` section to `CHANGELOG.md`
-3. **Docs** — update version refs in `README.md`, `html/cleo/index.html`, `html/cleo/docs.html`
-4. **Config/docs surface** — if config schema, CLI surface, keybinds, or defaults changed, update README + docs.html + landing page
+3. **Version refs** — update version references in `README.md` and `html/cleo/index.html`
+4. **Landing-page surface** — if config schema, CLI surface, keybinds, or defaults changed, update the bits mirrored on the landing page (`html/cleo/index.html`). The `docs/` markdown pages are the source of truth and are edited as part of the feature work, so they need no release-time re-sync.
 5. **Commit** — `"chore: bump version to vX.Y.Z"`
 6. **Tag** — `git tag -a vX.Y.Z` with release notes summary
 7. **Push** — tag triggers goreleaser
@@ -42,4 +42,3 @@ See [CHECKLIST.md](CHECKLIST.md) for the full step-by-step. High-level order:
 | `CHANGELOG.md` | New `[X.Y.Z]` section |
 | `README.md` | Status line, config defaults, CLI changes |
 | `html/cleo/index.html` | Version (×3), keybinds, features, install commands |
-| `html/cleo/docs.html` | Version (×n), config schema, command docs |

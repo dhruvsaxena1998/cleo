@@ -50,7 +50,6 @@ Update every occurrence of the old version string:
 |---|---|
 | `README.md` | Status line: `> **Status:** vX.Y.Z` |
 | `html/cleo/index.html` | Nav badge `.nav-version`, hero eyebrow, install section version output |
-| `html/cleo/docs.html` | Nav badge `.nav-version`, install section version output |
 
 Run to find stragglers:
 
@@ -61,19 +60,16 @@ grep -rn "v<old-version>" --include="*.html" --include="*.go" --include="*.md" \
 
 ## 4. Config & CLI surface audit
 
-If any of these changed since the last release, update the corresponding docs:
+The `docs/` markdown pages are the source of truth for the config schema, command, and keybind reference, and are edited as part of the feature work that changed them — they need no release-time re-sync. At release time, audit only the hand-maintained landing page (`html/cleo/index.html`) for drift against those changes:
 
 **Config schema changes** (fields added/removed/renamed, defaults changed):
-- `README.md` — config reference table and example
-- `html/cleo/docs.html` — `[ui]` section, config example, `cmd-table`
+- `html/cleo/index.html` — config example, feature copy (source of truth: `docs/configuration.md`)
 
 **CLI surface changes** (new/renamed/removed commands or flags):
-- `README.md` — quick start and command examples
-- `html/cleo/docs.html` — command reference section
+- `html/cleo/index.html` — install/usage snippets (source of truth: `docs/commands.md`, `docs/quickstart.md`)
 
 **Keybind changes** (new/removed/renamed keybindings):
-- `html/cleo/index.html` — TUI demo footer, features section
-- `html/cleo/docs.html` — keybinding table (if present)
+- `html/cleo/index.html` — TUI demo footer, features section (source of truth: `docs/configuration.md`)
 
 **Landing page** — review `html/cleo/index.html` for:
 - Install instructions (e.g., `cleo init` → `cleo hooks init`)
@@ -84,11 +80,11 @@ If any of these changed since the last release, update the corresponding docs:
 ## 5. Commit
 
 ```bash
-git add CHANGELOG.md README.md html/cleo/docs.html html/cleo/index.html internal/cli/root.go
+git add CHANGELOG.md README.md html/cleo/index.html internal/cli/root.go
 # add any other changed files
 git commit -m "chore: bump version to vX.Y.Z, update docs and changelog
 
-- Version: <old> → <new> in cli, landing page, docs, README
+- Version: <old> → <new> in cli, landing page, README
 - CHANGELOG: add vX.Y.Z section
 - <other changes summarized>"
 git push
