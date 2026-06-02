@@ -145,6 +145,8 @@ The dashboard shows registered projects, their sessions, current state, and a pr
 
 The footer changes based on the selected row, so the safest source of truth while using the app is the action list shown at the bottom of the TUI.
 
+These bindings are configurable — rebind any action via the [`[keybinds]`](#keybinds) table in `config.toml`. The `esc`, `enter`, and `ctrl+c` keys are reserved hatches (cancel, confirm/attach, quit) and cannot be reassigned.
+
 ## Commands
 
 ### `cleo`
@@ -561,6 +563,49 @@ Unknown values fall back to `catppuccin-mocha` and are reported as config warnin
 | --- | --- | --- |
 | `hint_threshold` | `6` | Show a cleanup hint when a project has more than this many finished sessions. |
 | `keep_default` | `5` | Default number of finished sessions to keep per project during `cleo prune`. |
+
+### `[keybinds]`
+
+Rebind main-view actions. Each entry maps an action name to a list of keys:
+
+```toml
+[keybinds]
+  up = ["w"]            # move up with 'w' instead of the defaults
+  down = ["s"]
+  kill = ["x", "ctrl+k"]
+```
+
+Resolution rules:
+
+- **Per-action replace** — listing an action replaces its keys entirely (the defaults for that action no longer apply).
+- **Omitted action** — keeps its default keys.
+- **Empty list** (`up = []`) — reverts that action to its default. There is no disabled state; every action always resolves to at least one key.
+
+Within-popup keys (text-input editing, spawn-field tab cycling, finder query typing) are not configurable.
+
+Action names and their defaults:
+
+| Action | Default | Meaning |
+| --- | --- | --- |
+| `up` | `["up", "k"]` | Move cursor up. |
+| `down` | `["down", "j"]` | Move cursor down. |
+| `attach` | `["enter"]` | Attach to the selected session (reserved). |
+| `expand` | `[" "]` | Expand or collapse the focused project. |
+| `find` | `["/"]` | Open the finder. |
+| `new` | `["n"]` | Start a new session. |
+| `view` | `["v"]` | View a session without attaching. |
+| `send` | `["m"]` | Send text to the selected session. |
+| `editor` | `["ctrl+g", "e"]` | Open the selected project in your editor. |
+| `rename` | `["r"]` | Rename a session. |
+| `kill` | `["K", "ctrl+k"]` | Kill the selected session. |
+| `prune` | `["P"]` | Prune finished sessions for the focused project. |
+| `remove` | `["D"]` | Remove the focused project. |
+| `mute` | `["alt+m"]` | Toggle sound for the running Cleo process. |
+| `help` | `["?"]` | Show the help popup. |
+| `quit` | `["q"]` | Quit the dashboard. |
+| `close` | `["esc"]` | Cancel the current popup/filter (reserved). |
+
+`enter`, `esc`, and `ctrl+c` always perform attach/confirm, cancel, and quit respectively and cannot be reassigned to other actions.
 
 ### Editing the config
 

@@ -40,6 +40,22 @@ func newTestCtx(t *testing.T) *cli.Ctx {
 
 func mkdirAll(p string) error { return os.MkdirAll(p, 0o755) }
 
+// newTestCtxWithConfig seeds a config.toml with the given body before loading,
+// so tests can exercise resolved config (e.g. [keybinds]) through the real path.
+func newTestCtxWithConfig(t *testing.T, body string) *cli.Ctx {
+	t.Helper()
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "config.toml"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, err := cli.NewCtxWithRoot(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Tmux = &fakeTmux{live: map[string]bool{}}
+	return c
+}
+
 func usePortableAgentCommand(c *cli.Ctx, agentName string) {
 	agent := c.Config.Agents[agentName]
 	agent.Command = "sh"
@@ -340,6 +356,35 @@ func TestRenamePopupOpensAndUpdatesSessionName(t *testing.T) {
 
 	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
 	tm.WaitFinished(t)
+}
+
+func TestReboundKeyMovesCursorAndDefaultDoesNot(t *testing.T) {
+	c := newTestCtxWithConfig(t, "[keybinds]\n  up = [\"w\"]\n")
+	for _, name := range []string{"alpha", "beta"} {
+		target := filepath.Join(t.TempDir(), name)
+		if err := mkdirAll(target); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := c.Projects.Add(target); err != nil {
+			t.Fatal(err)
+		}
+	}
+	m := New(c)
+	m.projects, _ = c.Projects.List()
+	m.cursor.projectIdx = 1
+	m.cursor.agentIdx = -1
+
+	// Default 'k' was replaced by the rebind, so it must NOT move the cursor.
+	gotModel, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	if got := gotModel.(Model).cursor.projectIdx; got != 1 {
+		t.Fatalf("after 'k' projectIdx = %d, want 1 (default replaced)", got)
+	}
+
+	// The rebound 'w' now performs the up action.
+	gotModel, _ = m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("w")})
+	if got := gotModel.(Model).cursor.projectIdx; got != 0 {
+		t.Fatalf("after 'w' projectIdx = %d, want 0 (rebound up)", got)
+	}
 }
 
 func TestSidebarRendersProjectsAndSessions(t *testing.T) {

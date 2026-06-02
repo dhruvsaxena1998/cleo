@@ -146,6 +146,7 @@ func validate(c *Config) {
 			c.Agents[name] = agent
 		}
 	}
+	c.Keymap = resolveKeymap(c.Keybinds)
 }
 
 func dir(p string) string {
