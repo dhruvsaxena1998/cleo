@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 )
@@ -91,13 +92,19 @@ func (m Model) renderTopbar(width int) string {
 func (m Model) renderFooter(width int) string {
 	faint := lipgloss.NewStyle().Foreground(m.theme.Overlay0)
 	sep := faint.Render("  ·  ")
+	km := m.ctx.Config.Keymap
+	// hint renders a footer key→label pair, sourcing the key from the resolved
+	// keymap so a rebind is reflected here; the label stays a contextual string.
+	hint := func(b key.Binding, label string) string {
+		return m.theme.KeyHint(firstKeyGlyph(b), label)
+	}
 
 	var hints []string
 	if m.status != "" {
 		hints = []string{
 			lipgloss.NewStyle().Foreground(m.theme.Red).Bold(true).Render(m.status),
-			m.theme.KeyHint("esc", "clear"),
-			m.theme.KeyHint("q", "quit"),
+			hint(km.Esc, "clear"),
+			hint(km.Quit, "quit"),
 		}
 		line := "  " + strings.Join(hints, sep)
 		return lipgloss.NewStyle().Background(m.theme.Base).Width(width).Render(truncateWidth(line, width))
@@ -109,29 +116,29 @@ func (m Model) renderFooter(width int) string {
 			if sess.State.IsFinished() {
 				hints = []string{
 					faint.Render(m.statusOr(fmt.Sprintf("%s is %s", sess.ID, sess.State))),
-					m.theme.KeyHint("ctrl+g", "editor"),
-					m.theme.KeyHint("K", "remove"),
-					m.theme.KeyHint("P", "prune project"),
-					m.theme.KeyHint("n", "new sibling"),
-					m.theme.KeyHint("/", "find"),
-					m.theme.KeyHint("q", "quit"),
+					hint(km.Editor, "editor"),
+					hint(km.Kill, "remove"),
+					hint(km.Prune, "prune project"),
+					hint(km.New, "new sibling"),
+					hint(km.Filter, "find"),
+					hint(km.Quit, "quit"),
 				}
 			} else {
-				hints = []string{m.theme.KeyHint("↵ ", "attach")}
+				hints = []string{hint(km.Enter, "attach")}
 				// "v" manually captures the pane; redundant when the preview
 				// panel already auto-refreshes on its own ticker.
 				if !m.ctx.Config.UI.PanePreview.Enabled {
-					hints = append(hints, m.theme.KeyHint("v", "view"))
+					hints = append(hints, hint(km.View, "view"))
 				}
 				hints = append(hints,
-					m.theme.KeyHint("ctrl+g", "editor"),
-					m.theme.KeyHint("r", "rename"),
-					m.theme.KeyHint("K", "kill"),
-					m.theme.KeyHint("n", "new sibling"),
-					m.theme.KeyHint("space", "collapse"),
-					m.theme.KeyHint("/", "find"),
-					m.theme.KeyHint("m", "send"),
-					m.theme.KeyHint("q", "quit"),
+					hint(km.Editor, "editor"),
+					hint(km.Rename, "rename"),
+					hint(km.Kill, "kill"),
+					hint(km.New, "new sibling"),
+					hint(km.Space, "collapse"),
+					hint(km.Filter, "find"),
+					hint(km.Send, "send"),
+					hint(km.Quit, "quit"),
 				)
 			}
 		} else {
@@ -144,18 +151,20 @@ func (m Model) renderFooter(width int) string {
 				}
 			}
 			hints = []string{
-				m.theme.KeyHint("n", "new session"),
-				m.theme.KeyHint("ctrl+g", "editor"),
-				m.theme.KeyHint("space", "expand"),
-				m.theme.KeyHint("j/k", "move"),
-				m.theme.KeyHint("↵ ", "attach"),
-				m.theme.KeyHint("D", "remove project"),
-				m.theme.KeyHint("/", "find"),
-				m.theme.KeyHint("m", "send"),
-				m.theme.KeyHint("q", "quit"),
+				hint(km.New, "new session"),
+				hint(km.Editor, "editor"),
+				hint(km.Space, "expand"),
+				// "move" spans both navigation actions, so it shows each one's
+				// first key rather than a single binding's.
+				m.theme.KeyHint(firstKeyGlyph(km.Down)+"/"+firstKeyGlyph(km.Up), "move"),
+				hint(km.Enter, "attach"),
+				hint(km.Remove, "remove project"),
+				hint(km.Filter, "find"),
+				hint(km.Send, "send"),
+				hint(km.Quit, "quit"),
 			}
 			if hasFinished {
-				hints = append(hints, m.theme.KeyHint("P", "prune"))
+				hints = append(hints, hint(km.Prune, "prune"))
 			}
 		}
 	}
