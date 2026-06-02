@@ -13,6 +13,11 @@ import (
 )
 
 func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Reserved ctrl+c hatch: always quit, in every mode, regardless of config.
+	// Intercepted before popup forwarding so the user can never be locked out.
+	if msg.Type == tea.KeyCtrlC {
+		return m, tea.Quit
+	}
 	// Explicit Esc hierarchy: popup -> status.
 	// Intercepted at the top level so each layer behaves predictably no
 	// matter which mode forwarded the keypress.
@@ -30,6 +35,11 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		m.popup, cmd = m.popup.Update(msg)
 		return m, cmd
+	}
+	// Reserved enter hatch: in the main view enter always attaches the
+	// selection, even if the attach action was rebound away from enter.
+	if msg.Type == tea.KeyEnter {
+		return m.attachSelectedAgent()
 	}
 	km := m.ctx.Config.Keymap
 	switch {

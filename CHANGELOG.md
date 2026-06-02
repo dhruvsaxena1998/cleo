@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `[keybinds]` validation, conflict precedence, and reserved-key enforcement: unrecognized keys are dropped (other valid keys in the same list survive), a key claimed by two actions resolves to the higher-importance one (first-wins), and `enter`/`esc`/`ctrl+c` stay reserved as always-on attach/cancel/quit hatches that can never be reassigned or locked out.
+- Boot warnings popup: config problems (keybind conflicts, unknown theme, clamped values) now surface in a ✓/✗ popup on launch in addition to `cleo doctor`.
+
 ## [0.1.2] - 2026-05-25
 
 ### Added
