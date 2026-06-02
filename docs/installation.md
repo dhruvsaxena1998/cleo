@@ -7,7 +7,7 @@ How to install, upgrade, and uninstall Cleo. See [Quick Start](quickstart.md) on
 - Go `1.25.5` (only required if building from source; prebuilt releases are available via the curl installer, Homebrew, or the Releases page).
 - `tmux` `3.0+` at runtime.
 - The agent CLIs you want to use, such as `claude`, `codex`, `opencode`, or `pi`.
-- Sound playback uses `afplay` on macOS and the first of `paplay`, `aplay`, or `play` available on Linux. Windows is not supported in v0.1.
+- Sound playback uses `afplay` on macOS and the first of `paplay`, `aplay`, or `play` available on Linux. Windows is not supported.
 
 ## Install
 
@@ -45,7 +45,7 @@ make build
 cleo --version
 ```
 
-This should print the installed version (for example, `v0.1.2`). If `cleo --version` prints anything else, see [Troubleshooting](troubleshooting.md).
+This should print the installed version (for example, `v0.2.0`). If `cleo --version` prints anything else, see [Troubleshooting](troubleshooting.md).
 
 ## Upgrade
 

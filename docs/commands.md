@@ -18,15 +18,15 @@ Installs Cleo hook commands into supported agent config files and extracts bundl
 
 ```bash
 cleo hooks init
-cleo hooks init --yes
-cleo hooks init --force
+cleo hooks init --agents claude,codex
+cleo hooks init --force --agents claude,codex,pi,opencode
 ```
 
 Options:
 
 | Option | Meaning |
 | --- | --- |
-| `--yes`, `-y` | Install all supported hook systems without prompting |
+| `--agents <list>` | Comma-separated agents to install (`claude`, `codex`, `opencode`, `pi`); skips interactive prompts |
 | `--force` | Overwrite conflicting hook entries |
 
 Installed files:
@@ -46,7 +46,14 @@ Checks whether Cleo hooks look correctly installed and whether hook events have 
 
 ```bash
 cleo doctor
+cleo doctor --quiet
 ```
+
+Options:
+
+| Option | Meaning |
+| --- | --- |
+| `--quiet` | Only print failures and non-empty diagnostic sections; exits non-zero when failures are found |
 
 This command checks:
 
@@ -65,9 +72,14 @@ Removes Cleo hook commands from supported agent config files.
 
 ```bash
 cleo hooks cleanup
-cleo hooks cleanup --yes
-cleo uninstall --yes
+cleo hooks cleanup --agents claude,codex
 ```
+
+Options:
+
+| Option | Meaning |
+| --- | --- |
+| `--agents <list>` | Comma-separated agents to clean up (`claude`, `codex`, `opencode`, `pi`); skips interactive prompts |
 
 `cleanup` removes Cleo entries from supported agent hook files. It leaves `~/.codex/config.toml` `[features].hooks` unchanged because other Codex hooks may depend on that flag.
 
@@ -88,9 +100,18 @@ Unregisters a project.
 
 ```bash
 cleo rm myapp
+cleo rm myapp --yes
+cleo rm myapp --force --yes
 ```
 
-Running tmux sessions keep running. This removes the project from Cleo's project registry; it does not delete your project directory.
+Options:
+
+| Option | Meaning |
+| --- | --- |
+| `--force` | Remove the project even if it still has active sessions in Cleo state |
+| `--yes`, `-y` | Skip confirmation |
+
+Running tmux sessions keep running unless `--force` best-effort kills active sessions and removes their Cleo state records. This removes the project from Cleo's project registry; it does not delete your project directory.
 
 ## `cleo run <agent>`
 
@@ -126,9 +147,16 @@ Lists registered projects and known sessions.
 
 ```bash
 cleo ls
+cleo ls --json
 ```
 
-The output includes project ID, agent, session name, state, and full session ID.
+Options:
+
+| Option | Meaning |
+| --- | --- |
+| `--json` | Output project/session rows as JSON |
+
+The table output includes project ID, agent, session name, state, full session ID, and age.
 
 ## `cleo attach <session-id>`
 

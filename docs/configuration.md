@@ -75,7 +75,7 @@ event_log_lines = 200
 [ui.pane_preview]
 enabled = true
 lines = 30
-interval = "1.5s"
+interval = "2s"
 
 [timeouts]
 idle_to_completed_timeout = "10m"
@@ -199,7 +199,7 @@ Hook support is installed by `cleo hooks init` for supported agents. Custom agen
 | --- | --- | --- |
 | `enabled` | `true` | Show tmux pane output previews in the dashboard. |
 | `lines` | `30` | Number of tmux pane lines to capture for preview. |
-| `interval` | `"1.5s"` | How often the preview refreshes. |
+| `interval` | `"2s"` | How often the preview refreshes. |
 
 ### Themes
 
