@@ -31,7 +31,7 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.popup, cmd = m.popup.Update(msg)
 		return m, cmd
 	}
-	km := DefaultKeymap()
+	km := m.ctx.Config.Keymap
 	switch {
 	case key.Matches(msg, km.Quit):
 		return m, tea.Quit

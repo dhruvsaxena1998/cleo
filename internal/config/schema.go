@@ -3,14 +3,16 @@ package config
 import "time"
 
 type Config struct {
-	DefaultAgent string           `toml:"default_agent"`
-	Tmux         Tmux             `toml:"tmux"`
-	Sound        Sound            `toml:"sound"`
-	Agents       map[string]Agent `toml:"agents"`
-	UI           UI               `toml:"ui"`
-	Timeouts     Timeouts         `toml:"timeouts"`
-	Pruning      Pruning          `toml:"pruning"`
-	Warnings     []string         `toml:"-"`
+	DefaultAgent string              `toml:"default_agent"`
+	Tmux         Tmux                `toml:"tmux"`
+	Sound        Sound               `toml:"sound"`
+	Agents       map[string]Agent    `toml:"agents"`
+	UI           UI                  `toml:"ui"`
+	Timeouts     Timeouts            `toml:"timeouts"`
+	Pruning      Pruning             `toml:"pruning"`
+	Keybinds     map[string][]string `toml:"keybinds,omitempty"`
+	Keymap       Keymap              `toml:"-"`
+	Warnings     []string            `toml:"-"`
 }
 
 type Tmux struct {

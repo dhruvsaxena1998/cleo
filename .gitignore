@@ -14,6 +14,7 @@ Thumbs.db
 
 # Go build/test output
 bin/
+/cleo
 *.test
 *.out
 *.prof
