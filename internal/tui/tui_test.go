@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/x/exp/teatest"
 
 	"github.com/dhruvsaxena1998/cleo/internal/cli"
+	"github.com/dhruvsaxena1998/cleo/internal/config"
 	"github.com/dhruvsaxena1998/cleo/internal/projects"
 	"github.com/dhruvsaxena1998/cleo/internal/state"
 	"github.com/dhruvsaxena1998/cleo/internal/tmux"
@@ -619,16 +620,81 @@ func TestFooterHidesViewHintWhenPreviewEnabled(t *testing.T) {
 	}
 }
 
-func TestConfigWarningsShowStartupStatus(t *testing.T) {
-	c := newTestCtx(t)
-	c.Config.Warnings = []string{"sound.volume above 1; clamped to 1"}
+// TestConfigWarningsOpenBootPopup locks in #72's boot popup: when the loaded
+// config produced warnings, New() opens a dedicated warnings popup that frames
+// outcomes with ✓ (active) / ✗ (not active) glyphs and surfaces the theme
+// fallback.
+func TestConfigWarningsOpenBootPopup(t *testing.T) {
+	c := newTestCtxWithConfig(t, "[ui]\n  theme = \"missing\"\n")
+	c.Tmux = &fakeTmux{live: map[string]bool{}}
 	m := New(c)
 
-	if cmd := m.Init(); cmd == nil {
-		t.Fatal("expected init command")
+	if m.mode != ModePopup {
+		t.Fatalf("warnings present should open a popup, mode = %v", m.mode)
 	}
-	if m.status != "config warnings: run cleo doctor" {
-		t.Fatalf("status = %q", m.status)
+	if _, ok := m.popup.(WarningsPopup); !ok {
+		t.Fatalf("expected a WarningsPopup, got %T", m.popup)
+	}
+	view := m.popup.View()
+	if !strings.Contains(view, "✓") || !strings.Contains(view, "✗") {
+		t.Errorf("popup should show ✓ and ✗ glyphs, got:\n%s", view)
+	}
+	if !strings.Contains(view, "missing") || !strings.Contains(view, "catppuccin-mocha") {
+		t.Errorf("popup should surface the theme fallback, got:\n%s", view)
+	}
+}
+
+// TestBootPopupRendersOnLaunch drives the full Bubble Tea loop: a conflicting
+// config opens the warnings popup on launch, and esc dismisses it back to the
+// dashboard (where q quits).
+func TestBootPopupRendersOnLaunch(t *testing.T) {
+	c := newTestCtxWithConfig(t, "[keybinds]\n  down = [\"k\", \"down\"]\n")
+	c.Tmux = &fakeTmux{live: map[string]bool{}}
+	m := New(c)
+	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(120, 40))
+
+	teatest.WaitFor(t, tm.Output(), func(b []byte) bool {
+		return contains(b, "Config notices")
+	}, teatest.WithDuration(3*time.Second))
+
+	tm.Send(tea.KeyMsg{Type: tea.KeyEsc})
+	tm.Send(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
+	tm.WaitFinished(t)
+}
+
+// TestNoWarningsNoBootPopup is the clean-config counterpart: with no warnings,
+// the app boots straight into the normal view with no popup.
+func TestNoWarningsNoBootPopup(t *testing.T) {
+	c := newTestCtx(t)
+	m := New(c)
+	if m.mode != ModeNormal || m.popup != nil {
+		t.Fatalf("clean config should leave the normal view, mode=%v popup=%T", m.mode, m.popup)
+	}
+}
+
+// TestBootPopupEscCloses confirms the boot popup honors the shared esc hatch.
+func TestBootPopupEscCloses(t *testing.T) {
+	c := newTestCtxWithConfig(t, "[ui]\n  theme = \"missing\"\n")
+	c.Tmux = &fakeTmux{live: map[string]bool{}}
+	m := New(c)
+
+	m2 := updateAsModel(m, tea.KeyMsg{Type: tea.KeyEsc})
+	if m2.mode != ModeNormal || m2.popup != nil {
+		t.Fatalf("esc should close the boot popup, mode=%v popup=%T", m2.mode, m2.popup)
+	}
+}
+
+// TestBootPopupEmitsCloseOnQ confirms q/enter also dismiss the popup, matching
+// the other popups' close keys.
+func TestBootPopupEmitsCloseOnQ(t *testing.T) {
+	c := newTestCtx(t)
+	p := NewWarningsPopup(Resolve(c.Config.UI.Theme), []config.Diagnostic{{OK: false, Detail: "x"}})
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
+	if cmd == nil {
+		t.Fatal("q should produce a close command")
+	}
+	if _, ok := cmd().(WarningsClosed); !ok {
+		t.Fatalf("q should emit WarningsClosed, got %T", cmd())
 	}
 }
 
@@ -845,6 +911,70 @@ func TestPaneCapturedMsgSkipsCacheUpdateOnUnchangedContent(t *testing.T) {
 func updateAsModel(m Model, msg tea.Msg) Model {
 	out, _ := m.Update(msg)
 	return out.(Model)
+}
+
+// TestCtrlCAlwaysQuits locks in the reserved ctrl+c hatch: it quits from the
+// main view and from inside a popup, even when a hostile config tried to steal
+// the quit binding. The user can never be locked out of exiting.
+func TestCtrlCAlwaysQuits(t *testing.T) {
+	c := newTestCtxWithConfig(t, "[keybinds]\n  quit = [\"x\"]\n")
+	c.Tmux = &fakeTmux{live: map[string]bool{}}
+	m := New(c)
+
+	_, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyCtrlC})
+	if cmd == nil {
+		t.Fatal("ctrl+c should produce a command in the main view")
+	}
+	if _, ok := cmd().(tea.QuitMsg); !ok {
+		t.Fatal("ctrl+c in the main view should quit")
+	}
+
+	m.mode = ModePopup
+	m.popup = NewHelpPopup(m.theme, "")
+	_, cmd = m.handleKey(tea.KeyMsg{Type: tea.KeyCtrlC})
+	if cmd == nil {
+		t.Fatal("ctrl+c should produce a command from inside a popup")
+	}
+	if _, ok := cmd().(tea.QuitMsg); !ok {
+		t.Fatal("ctrl+c should quit even from inside a popup")
+	}
+}
+
+// TestEnterAlwaysAttachesEvenWhenAttachRebound locks in the reserved enter
+// hatch: even if a config rebinds the attach action away from enter, pressing
+// enter in the main view still attaches the selected live session.
+func TestEnterAlwaysAttachesEvenWhenAttachRebound(t *testing.T) {
+	c := newTestCtxWithConfig(t, "[keybinds]\n  attach = [\"a\"]\n")
+	sid := "cleo-myapp-claude-1"
+	fake := &fakeTmux{live: map[string]bool{sid: true}}
+	c.Tmux = fake
+	target := filepath.Join(t.TempDir(), "myapp")
+	if err := mkdirAll(target); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Projects.Add(target); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.State.Put(state.Session{
+		ID: sid, ProjectID: "myapp", Agent: "claude",
+		Name: "1", State: state.Running, StartedAt: time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	m := New(c)
+	m.projects, _ = c.Projects.List()
+	m.sessions, _ = c.State.List()
+	m.expanded["myapp"] = true
+	m.cursor.projectIdx = 0
+	m.cursor.agentIdx = 0
+
+	_, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("enter should attach the selected live session via the hatch")
+	}
+	if len(fake.attached) != 1 || fake.attached[0] != sid {
+		t.Fatalf("expected attach via enter hatch for %q, got %v", sid, fake.attached)
+	}
 }
 
 // TestEscClosesPopupOnly locks in step 1 of the Esc hierarchy: when a popup

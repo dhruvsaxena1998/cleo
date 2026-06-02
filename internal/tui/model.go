@@ -72,7 +72,8 @@ func New(ctx *cli.Ctx) Model {
 		heapAlloc:      readHeapAlloc(),
 	}
 	if len(ctx.Config.Warnings) > 0 {
-		m.status = "config warnings: run cleo doctor"
+		m.popup = NewWarningsPopup(m.theme, ctx.Config.Diagnostics)
+		m.mode = ModePopup
 	}
 	return m
 }

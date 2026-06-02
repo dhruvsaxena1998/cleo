@@ -103,6 +103,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.mode = ModeNormal
 		m.popup = nil
 		return m, nil
+	case WarningsClosed:
+		m.mode = ModeNormal
+		m.popup = nil
+		return m, nil
 	case paneCapturedMsg:
 		if m.paneCache == nil {
 			m.paneCache = map[string]string{}

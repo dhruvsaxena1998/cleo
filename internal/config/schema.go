@@ -13,6 +13,15 @@ type Config struct {
 	Keybinds     map[string][]string `toml:"keybinds,omitempty"`
 	Keymap       Keymap              `toml:"-"`
 	Warnings     []string            `toml:"-"`
+	Diagnostics  []Diagnostic        `toml:"-"`
+}
+
+// Diagnostic is one boot-time resolution outcome surfaced in the warnings
+// popup. OK entries (✓) describe what ended up active; non-OK entries (✗)
+// describe what the config requested that did not take effect, and why.
+type Diagnostic struct {
+	OK     bool
+	Detail string
 }
 
 type Tmux struct {

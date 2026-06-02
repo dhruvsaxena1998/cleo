@@ -97,47 +97,59 @@ func mergeMaps(c *Config, defaults Config) {
 	}
 }
 
+// adjust records a setting that was changed from what the config requested: it
+// feeds both the doctor warning list and the boot popup's ✗ diagnostics.
+func (c *Config) adjust(detail string) {
+	c.Warnings = append(c.Warnings, detail)
+	c.Diagnostics = append(c.Diagnostics, Diagnostic{OK: false, Detail: detail})
+}
+
 func validate(c *Config) {
 	defaults := Defaults_()
 	c.Warnings = nil
+	c.Diagnostics = nil
 	if c.Sound.Volume < 0 {
-		c.Warnings = append(c.Warnings, "sound.volume below 0; clamped to 0")
+		c.adjust("sound.volume below 0; clamped to 0")
 		c.Sound.Volume = 0
 	}
 	if c.Sound.Volume > 1 {
-		c.Warnings = append(c.Warnings, "sound.volume above 1; clamped to 1")
+		c.adjust("sound.volume above 1; clamped to 1")
 		c.Sound.Volume = 1
 	}
 	if c.UI.PanePreview.Interval < 100*time.Millisecond {
-		c.Warnings = append(c.Warnings, "ui.pane_preview.interval below 100ms; clamped to 100ms")
+		c.adjust("ui.pane_preview.interval below 100ms; clamped to 100ms")
 		c.UI.PanePreview.Interval = 100 * time.Millisecond
 	}
 	if c.UI.PanePreview.Lines < 1 {
-		c.Warnings = append(c.Warnings, "ui.pane_preview.lines below 1; clamped to 1")
+		c.adjust("ui.pane_preview.lines below 1; clamped to 1")
 		c.UI.PanePreview.Lines = 1
 	}
 	if c.UI.EventLogLines < 10 {
-		c.Warnings = append(c.Warnings, "ui.event_log_lines below 10; clamped to 10")
+		c.adjust("ui.event_log_lines below 10; clamped to 10")
 		c.UI.EventLogLines = 10
 	}
 	if c.UI.SidebarWidth < 10 {
-		c.Warnings = append(c.Warnings, "ui.sidebar_width below 10; clamped to 10")
+		c.adjust("ui.sidebar_width below 10; clamped to 10")
 		c.UI.SidebarWidth = 10
 	}
 	if c.UI.SidebarWidth > 200 {
-		c.Warnings = append(c.Warnings, "ui.sidebar_width above 200; clamped to 200")
+		c.adjust("ui.sidebar_width above 200; clamped to 200")
 		c.UI.SidebarWidth = 200
 	}
 	if c.UI.Theme == "" || !validThemes[c.UI.Theme] {
 		c.Warnings = append(c.Warnings, fmt.Sprintf("ui.theme %q is unknown; using %q", c.UI.Theme, defaults.UI.Theme))
+		c.Diagnostics = append(c.Diagnostics,
+			Diagnostic{OK: false, Detail: fmt.Sprintf("ui.theme %q is unknown", c.UI.Theme)},
+			Diagnostic{OK: true, Detail: fmt.Sprintf("ui.theme falls back to %q", defaults.UI.Theme)},
+		)
 		c.UI.Theme = defaults.UI.Theme
 	}
 	if c.Timeouts.IdleToCompletedTimeout < 100*time.Millisecond {
-		c.Warnings = append(c.Warnings, "timeouts.idle_to_completed_timeout below 100ms; clamped to 100ms")
+		c.adjust("timeouts.idle_to_completed_timeout below 100ms; clamped to 100ms")
 		c.Timeouts.IdleToCompletedTimeout = 100 * time.Millisecond
 	}
 	if c.Timeouts.SpawningTimeout < 100*time.Millisecond {
-		c.Warnings = append(c.Warnings, "timeouts.spawning_timeout below 100ms; clamped to 100ms")
+		c.adjust("timeouts.spawning_timeout below 100ms; clamped to 100ms")
 		c.Timeouts.SpawningTimeout = 100 * time.Millisecond
 	}
 	for name, agent := range c.Agents {
@@ -146,7 +158,14 @@ func validate(c *Config) {
 			c.Agents[name] = agent
 		}
 	}
-	c.Keymap = resolveKeymap(c.Keybinds)
+	km, keybindDiags := resolveKeymap(c.Keybinds)
+	c.Keymap = km
+	c.Diagnostics = append(c.Diagnostics, keybindDiags...)
+	for _, d := range keybindDiags {
+		if !d.OK {
+			c.Warnings = append(c.Warnings, d.Detail)
+		}
+	}
 }
 
 func dir(p string) string {

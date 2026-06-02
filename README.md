@@ -580,6 +580,11 @@ Resolution rules:
 - **Per-action replace** — listing an action replaces its keys entirely (the defaults for that action no longer apply).
 - **Omitted action** — keeps its default keys.
 - **Empty list** (`up = []`) — reverts that action to its default. There is no disabled state; every action always resolves to at least one key.
+- **Validation** — each key is checked against a best-effort allowlist (special keys like `up`/`down`/`enter`/`tab`, the `ctrl+`/`alt+` prefixes, and single printable characters). An unrecognized key (e.g. `ctrl-k`, `Enter`, `cmd+k`) is dropped from that action's list with a warning; the other valid keys in the same list survive. If every key you configured for an action is dropped, that action quietly falls back to its built-in default.
+- **Conflict precedence** — when two actions claim the same key, the action **higher in the table below keeps it** (first-wins by importance); the key is dropped from the later action, which keeps its remaining keys. The table order _is_ the precedence ranking.
+- **Reserved keys** — `enter`, `esc`, and `ctrl+c` always perform attach/confirm, cancel, and quit in every mode and cannot be reassigned to another action (a config such as `kill = ["enter"]` is warned and ignored). The hatches work regardless of config, so you can never lock yourself out.
+
+Any of these adjustments are surfaced in a popup the first time you launch `cleo` after editing the config, and are also listed by `cleo doctor`.
 
 Within-popup keys (text-input editing, spawn-field tab cycling, finder query typing) are not configurable.
 
@@ -604,8 +609,6 @@ Action names and their defaults:
 | `help` | `["?"]` | Show the help popup. |
 | `quit` | `["q"]` | Quit the dashboard. |
 | `close` | `["esc"]` | Cancel the current popup/filter (reserved). |
-
-`enter`, `esc`, and `ctrl+c` always perform attach/confirm, cancel, and quit respectively and cannot be reassigned to other actions.
 
 ### Editing the config
 
