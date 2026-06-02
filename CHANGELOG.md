@@ -7,12 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-02
+
 ### Added
+- Configurable main-view keybindings via the `[keybinds]` table, with defaults resolved from config and consumed by the TUI.
 - `[keybinds]` validation, conflict precedence, and reserved-key enforcement: unrecognized keys are dropped (other valid keys in the same list survive), a key claimed by two actions resolves to the higher-importance one (first-wins), and `enter`/`esc`/`ctrl+c` stay reserved as always-on attach/cancel/quit hatches that can never be reassigned or locked out.
 - Boot warnings popup: config problems (keybind conflicts, unknown theme, clamped values) now surface in a ✓/✗ popup on launch in addition to `cleo doctor`.
+- Dashboard editor action: open the selected project with `ctrl+g` or `e`, using `[ui].editor` first and `$EDITOR` as fallback.
+- Center-screen fuzzy finder for projects and sessions, plus total agent memory in the topbar.
 
 ### Changed
 - Help popup (`?`) and footer hints now derive their key labels from the resolved keymap instead of hardcoded strings, so a rebind (e.g. `kill = ["x"]`) is reflected in both. The help popup lists every key bound to an action; the footer shows each action's first key.
+- User docs now live as GitHub-rendered Markdown under `docs/`, with `README.md` slimmed down to a docs hub and landing-page docs links pointed at the Markdown source of truth.
+- Session lifecycle, tmux attach, hook handling, and reconciliation internals were deepened behind clearer seams for more reliable attach, kill, prune, rename, and project-session removal flows.
+
+### Fixed
+- Finder layout and highlighting now use full-width selection rows and up/down-only navigation.
+- Pane preview jitter is reduced with content diffing and a 2s polling interval.
+- Cleo reports missing agent commands before launch and surfaces spawn failures in the TUI footer.
+- Immediately exited tmux sessions are detected sooner, and stale focus entries are pruned during reads to keep `focus.json` bounded.
+- The redundant `v` view hint is hidden when pane preview is already enabled.
+
+### Removed
+- Removed the duplicated static `html/cleo/docs.html` docs page. GitHub-rendered Markdown under `docs/` is now the user-docs source of truth.
 
 ## [0.1.2] - 2026-05-25
 
