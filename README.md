@@ -134,11 +134,13 @@ The dashboard shows registered projects, their sessions, current state, and a pr
 | `ctrl+g` or `e` | Open the selected Project in your editor |
 | `n` | Start a new session |
 | `v` | View a selected session without attaching |
+| `m` | Send text to the selected session |
 | `r` | Rename a session |
-| `K` or `ctrl+k` | Kill or remove the selected session |
+| `K` or `ctrl+k` | Kill the selected session |
 | `/` | Filter projects and sessions |
 | `P` | Prune finished sessions for the focused project |
-| `m` | Toggle sound for the running Cleo process |
+| `D` | Remove the focused project |
+| `alt+m` | Toggle sound for the running Cleo process |
 | `?` | Show help |
 | `esc` | Cancel the current popup/filter mode |
 | `q` | Quit the dashboard |
