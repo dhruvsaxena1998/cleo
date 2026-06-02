@@ -291,7 +291,7 @@ func (m Model) openFinderPopup() (Model, tea.Cmd) {
 
 func (m Model) openHelpPopup() (Model, tea.Cmd) {
 	m.status = ""
-	m.popup = NewHelpPopup(m.theme, m.ctx.Config.Tmux.DetachKey)
+	m.popup = NewHelpPopup(m.theme, m.ctx.Config.Keymap, m.ctx.Config.Tmux.DetachKey)
 	m.mode = ModePopup
 	return m, m.popup.Init()
 }

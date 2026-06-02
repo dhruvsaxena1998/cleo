@@ -12,6 +12,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/charmbracelet/x/exp/teatest"
 
 	"github.com/dhruvsaxena1998/cleo/internal/cli"
@@ -620,6 +621,61 @@ func TestFooterHidesViewHintWhenPreviewEnabled(t *testing.T) {
 	}
 }
 
+// mkSessionModel builds a model parked on a single running session, so footer
+// tests can assert the session-row hint set.
+func mkSessionModel(c *cli.Ctx) Model {
+	m := New(c)
+	m.projects = []projects.Project{{ID: "p"}}
+	m.sessions = []state.Session{{ID: "s1", State: state.Running, ProjectID: "p"}}
+	m.cursor.projectIdx = 0
+	m.cursor.agentIdx = 0
+	m.expanded = map[string]bool{"p": true}
+	m.width = 120
+	m.height = 40
+	return m
+}
+
+// TestFooterReflectsReboundKey is the tracer: footer hints source their key from
+// the resolved keymap, so rebinding kill to "x" shows "x" — not the default "K".
+func TestFooterReflectsReboundKey(t *testing.T) {
+	c := newTestCtxWithConfig(t, "[keybinds]\n  kill = [\"x\"]\n")
+	footer := ansi.Strip(mkSessionModel(c).renderFooter(120))
+	if !strings.Contains(footer, "x kill") {
+		t.Errorf("footer should show rebound kill key 'x', got %q", footer)
+	}
+	if strings.Contains(footer, "K kill") {
+		t.Errorf("footer should not show default 'K' after rebind, got %q", footer)
+	}
+}
+
+// mkProjectModel parks the cursor on a project header (no session selected), so
+// footer tests can assert the project-row hint set.
+func mkProjectModel(c *cli.Ctx) Model {
+	m := New(c)
+	m.projects = []projects.Project{{ID: "p"}}
+	m.cursor.projectIdx = 0
+	m.cursor.agentIdx = -1
+	m.width = 120
+	m.height = 40
+	return m
+}
+
+// TestFooterNavHintShowsBothDirections locks in the honest navigation hint: the
+// project-row "move" hint derives from the up/down actions' first keys, glyphed
+// to "↓/↑" by default and reflecting a rebind of either direction.
+func TestFooterNavHintShowsBothDirections(t *testing.T) {
+	def := ansi.Strip(mkProjectModel(newTestCtx(t)).renderFooter(120))
+	if !strings.Contains(def, "↓/↑ move") {
+		t.Errorf("default move hint should be glyphed '↓/↑', got %q", def)
+	}
+
+	c := newTestCtxWithConfig(t, "[keybinds]\n  up = [\"w\"]\n  down = [\"s\"]\n")
+	reb := ansi.Strip(mkProjectModel(c).renderFooter(120))
+	if !strings.Contains(reb, "s/w move") {
+		t.Errorf("rebound move hint should be 's/w', got %q", reb)
+	}
+}
+
 // TestConfigWarningsOpenBootPopup locks in #72's boot popup: when the loaded
 // config produced warnings, New() opens a dedicated warnings popup that frames
 // outcomes with ✓ (active) / ✗ (not active) glyphs and surfaces the theme
@@ -930,7 +986,7 @@ func TestCtrlCAlwaysQuits(t *testing.T) {
 	}
 
 	m.mode = ModePopup
-	m.popup = NewHelpPopup(m.theme, "")
+	m.popup = NewHelpPopup(m.theme, m.ctx.Config.Keymap, "")
 	_, cmd = m.handleKey(tea.KeyMsg{Type: tea.KeyCtrlC})
 	if cmd == nil {
 		t.Fatal("ctrl+c should produce a command from inside a popup")
@@ -977,12 +1033,58 @@ func TestEnterAlwaysAttachesEvenWhenAttachRebound(t *testing.T) {
 	}
 }
 
+// TestHelpPopupRendersFullKeyList locks in the keymap-derived help popup: each
+// action shows its full prettified key list (e.g. "↑/k", "K/ctrl+k") rather than
+// a hand-maintained single glyph.
+func TestHelpPopupRendersFullKeyList(t *testing.T) {
+	c := newTestCtx(t)
+	view := ansi.Strip(NewHelpPopup(Resolve(c.Config.UI.Theme), c.Config.Keymap, "").View())
+	for _, want := range []string{"↑/k", "↓/j", "K/ctrl+k", "ctrl+g/e"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("help popup should list %q, got:\n%s", want, view)
+		}
+	}
+}
+
+// TestHelpPopupReflectsReboundKey is the help-popup half of the rebind AC:
+// rebinding kill to "x" shows "x" in the popup and drops the default "K".
+func TestHelpPopupReflectsReboundKey(t *testing.T) {
+	c := newTestCtxWithConfig(t, "[keybinds]\n  kill = [\"x\"]\n")
+	view := ansi.Strip(NewHelpPopup(Resolve(c.Config.UI.Theme), c.Config.Keymap, "").View())
+	if !strings.Contains(view, "x") {
+		t.Errorf("help popup should show rebound kill key 'x', got:\n%s", view)
+	}
+	if strings.Contains(view, "K/ctrl+k") {
+		t.Errorf("help popup should drop default kill keys after rebind, got:\n%s", view)
+	}
+}
+
+// TestZeroKeyActionRendersWithoutPanic guards #72's hostile-config edge: when a
+// higher-importance override steals an action's only default key (help = ["q"]
+// strips quit), that action resolves to zero keys. The footer and help popup
+// must render its label with an empty key rather than indexing keys[0] blind.
+func TestZeroKeyActionRendersWithoutPanic(t *testing.T) {
+	c := newTestCtxWithConfig(t, "[keybinds]\n  help = [\"q\"]\n")
+	if got := c.Config.Keymap.Quit.Keys(); len(got) != 0 {
+		t.Fatalf("precondition: quit should resolve to zero keys, got %v", got)
+	}
+
+	footer := ansi.Strip(mkProjectModel(c).renderFooter(400))
+	if !strings.Contains(footer, "quit") {
+		t.Errorf("footer should still label the zero-key quit action, got %q", footer)
+	}
+	help := ansi.Strip(NewHelpPopup(Resolve(c.Config.UI.Theme), c.Config.Keymap, "").View())
+	if !strings.Contains(help, "quit") {
+		t.Errorf("help popup should still label the zero-key quit action, got:\n%s", help)
+	}
+}
+
 // TestEscClosesPopupOnly locks in step 1 of the Esc hierarchy: when a popup
 // is open, Esc closes the popup and clears the status line.
 func TestEscClosesPopupOnly(t *testing.T) {
 	c := newTestCtx(t)
 	m := New(c)
-	m.popup = NewHelpPopup(m.theme, "")
+	m.popup = NewHelpPopup(m.theme, m.ctx.Config.Keymap, "")
 	m.mode = ModePopup
 	m.status = "stale-status"
 

@@ -4,18 +4,22 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/dhruvsaxena1998/cleo/internal/config"
 )
 
 type HelpPopup struct {
 	theme     Theme
+	keymap    config.Keymap
 	detachKey string
 }
 type HelpClosed struct{}
 
-func NewHelpPopup(theme Theme, detachKey string) HelpPopup {
-	return HelpPopup{theme: theme, detachKey: formatTmuxKey(detachKey)}
+func NewHelpPopup(theme Theme, km config.Keymap, detachKey string) HelpPopup {
+	return HelpPopup{theme: theme, keymap: km, detachKey: formatTmuxKey(detachKey)}
 }
 
 // formatTmuxKey converts tmux notation (e.g. "C-b d") to a readable form ("ctrl+b d").
@@ -42,31 +46,36 @@ func (p HelpPopup) View() string {
 	cw := iw - 2
 
 	type row struct{ key, desc string }
+	km := p.keymap
+	// Keys are derived from the resolved keymap (the single source of truth, so
+	// rebinds show here); the descriptions stay tui-side presentation prose,
+	// richer than the config registry's terse labels.
+	act := func(b key.Binding, desc string) row { return row{keysLabel(b), desc} }
 	sections := []struct {
 		title string
 		rows  []row
 	}{
 		{"Navigation", []row{
-			{"↑/k", "up"},
-			{"↓/j", "down"},
-			{"space", "expand / collapse"},
+			act(km.Up, "up"),
+			act(km.Down, "down"),
+			act(km.Space, "expand / collapse"),
 		}},
 		{"Session Actions", []row{
-			{"↵", "attach"},
-			{"ctrl+g", "open Project in editor (e also works)"},
-			{"v", "view pane"},
-			{"m", "send message (single-line, attach for prompts)"},
-			{"n", "new session"},
-			{"r", "rename"},
-			{"K", "kill session"},
-			{"P", "prune finished"},
-			{"D", "remove project"},
+			act(km.Enter, "attach"),
+			act(km.Editor, "open Project in editor"),
+			act(km.View, "view pane"),
+			act(km.Send, "send message (single-line, attach for prompts)"),
+			act(km.New, "new session"),
+			act(km.Rename, "rename"),
+			act(km.Kill, "kill session"),
+			act(km.Prune, "prune finished"),
+			act(km.Remove, "remove project"),
 		}},
 		{"Global", []row{
-			{"/", "find"},
-			{"alt+m", "mute / unmute"},
-			{"?", "help"},
-			{"q", "quit"},
+			act(km.Filter, "find"),
+			act(km.Mute, "mute / unmute"),
+			act(km.Help, "help"),
+			act(km.Quit, "quit"),
 		}},
 		{"tmux (inside a session)", []row{
 			{p.detachKey, "detach — return to cleo"},
