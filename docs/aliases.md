@@ -1,4 +1,4 @@
-# Frictionless Alias
+# Aliases
 
 `cleo` (no args) opens the TUI, where you navigate to a project, then spawn a session. `cleo run <agent>` spawns directly from the command line without the TUI, but still takes several keystrokes.
 

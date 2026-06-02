@@ -1,6 +1,6 @@
 ---
 name: release
-description: Bump cleo version, audit README-backed docs, changelog, and landing page, then tag and push a release. Use when user says "release", "new version", "tag", "ship", "bump version", or after merging features for a release.
+description: Bump cleo version, update changelog, docs markdown status, and landing-page version references, then tag and push a release. Use when user says "release", "new version", "tag", "ship", "bump version", or after merging features for a release.
 ---
 
 # Release cleo
@@ -17,9 +17,11 @@ GitHub Actions (`.github/workflows/release.yml`) runs goreleaser on pushed `v*` 
 ## Current release context
 
 - Work must not happen directly on `main`. If the checkout is on `main`, create a feature branch before editing or committing.
-- `README.md` is the canonical documentation surface linked from the landing page. The latest landing-page changes point docs CTAs at the GitHub README `#documentation` anchor instead of the local `html/cleo/docs.html` page. Verify any troubleshooting link target exists before release.
-- `html/cleo/index.html` is the public landing page. It is static, so release work must manually update version badges, install examples, docs links, terminal-demo copy, feature cards, and representative default footer keys.
-- `html/cleo/docs.html` still exists as a static docs page. Treat it as a stale-prone secondary docs surface: update it when version, command, config, hook, or keybinding docs change, or explicitly note if a release intentionally stops publishing it.
+- GitHub-rendered markdown is the documentation source of truth. See `docs/adr/0003-github-as-docs-source-of-truth.md`.
+- `README.md` is now a slim docs hub with the current status line and deep links to `docs/` pages.
+- User documentation lives in `docs/installation.md`, `docs/quickstart.md`, `docs/commands.md`, `docs/configuration.md`, `docs/hooks.md`, `docs/troubleshooting.md`, and `docs/aliases.md`.
+- `html/cleo/docs.html` has been deleted. Do not recreate it and do not add release-time sync steps for it.
+- `html/cleo/index.html` is the public marketing landing page. It is static, so release work must manually update version badges, install examples, docs links, terminal-demo copy, feature cards, and representative default footer keys.
 - Recent feature work made keybindings configurable and dynamic. Do not copy key lists from memory. Use the code defaults as source of truth:
   - `internal/config/keymap.go` - default actions, key order, conflict precedence, reserved keys
   - `internal/config/defaults.go` and `internal/config/schema.go` - config defaults such as `[ui].editor`
@@ -41,9 +43,9 @@ See [CHECKLIST.md](CHECKLIST.md) for the full step-by-step. High-level order:
 1. **Preflight** - branch off `main` if needed, inspect dirty files, find latest tag, review git logs since that tag
 2. **Version** - bump `internal/cli/root.go`
 3. **Changelog** - add `[X.Y.Z]` section to `CHANGELOG.md`
-4. **Canonical docs** - update `README.md` status, install, commands, config, keybindings, troubleshooting links
-5. **Landing page** - update `html/cleo/index.html` version refs, docs links, install examples, TUI demo, footer, feature copy
-6. **Secondary static docs** - update or consciously retire `html/cleo/docs.html`
+4. **Version refs** - update current release references in `README.md` and `html/cleo/index.html`
+5. **Markdown docs source** - verify relevant `docs/` pages already reflect feature work; do not duplicate-sync a deleted `docs.html`
+6. **Landing page** - update `html/cleo/index.html` install examples, docs links, TUI demo, footer, and feature copy
 7. **Surface audit** - config schema, CLI commands, defaults, hooks, keymap, screenshots/demo copy, and outbound links
 8. **Commit** - `"chore: bump version to vX.Y.Z, update docs and changelog"`
 9. **Tag** - `git tag -a vX.Y.Z` with release notes summary
@@ -55,9 +57,10 @@ See [CHECKLIST.md](CHECKLIST.md) for the full step-by-step. High-level order:
 |---|---|
 | `internal/cli/root.go` | `Version` constant |
 | `CHANGELOG.md` | New `[X.Y.Z]` section based on commits since latest tag |
-| `README.md` | Canonical docs: status line, install/upgrade, commands, hooks, config, `[keybinds]`, troubleshooting |
-| `html/cleo/index.html` | Landing page: version refs, docs links, install commands, terminal demo, default footer keys, features |
-| `html/cleo/docs.html` | Secondary static docs: version refs, install output, command docs, config schema, keybinding table |
+| `README.md` | Status line and docs index links if paths changed |
+| `docs/*.md` | Source-of-truth user docs, edited with feature work; audit for stale commands/config/keybinds |
+| `docs/adr/0003-github-as-docs-source-of-truth.md` | Docs architecture decision, if docs publishing changes |
+| `html/cleo/index.html` | Landing page: version refs, GitHub docs links, install commands, terminal demo, default footer keys, features |
 | `internal/config/defaults.go` | Config defaults and bundled agents |
 | `internal/config/keymap.go` | Default keybindings, validation namespace, reserved hatches |
 | `internal/config/schema.go` | Config fields users can set |

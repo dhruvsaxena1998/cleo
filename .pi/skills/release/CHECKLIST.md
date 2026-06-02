@@ -26,8 +26,8 @@ Review unreleased changes, especially docs and UI-surface changes:
 ```bash
 git log --oneline --decorate "$latest_tag"..HEAD
 git log --oneline --stat "$latest_tag"..HEAD -- \
-  README.md CHANGELOG.md html/cleo/index.html html/cleo/docs.html \
-  internal/cli internal/config internal/tui docs .github scripts
+  README.md CHANGELOG.md docs html/cleo/index.html \
+  internal/cli internal/config internal/tui .github scripts
 ```
 
 Ask the user what version to release next. Print the latest tag and suggest the likely semver bump:
@@ -73,44 +73,57 @@ Move applicable bullets out of `[Unreleased]` into the release section.
 
 ## 3. Version references
 
-Update every occurrence of the old version string:
+Update current-release version strings:
 
 | File | Locations |
 |---|---|
+| `internal/cli/root.go` | `Version` constant without leading `v` |
 | `README.md` | Status line: `> **Status:** vX.Y.Z` |
 | `html/cleo/index.html` | Nav badge `.nav-version`, hero eyebrow, install verify output |
-| `html/cleo/docs.html` | Nav badge `.nav-version`, install verify output, any status copy |
-| `internal/cli/root.go` | `Version` constant without leading `v` |
 
 Run to find stragglers:
 
 ```bash
-rg "v<old-version>|<old-version>" README.md CHANGELOG.md html/cleo internal/cli/root.go
+rg "v<old-version>|<old-version>" README.md CHANGELOG.md docs html/cleo internal/cli/root.go
 ```
 
-Avoid changing historical changelog headings except where release compare links or current status copy require it.
+Avoid changing historical changelog headings and old design docs unless they are active current-release copy. `html/cleo/docs.html` is deleted by ADR 0003 and must not be recreated.
 
-## 4. Canonical docs audit: `README.md`
+## 4. Markdown docs source audit: `docs/`
 
-`README.md` is the canonical docs surface linked by the landing page. Audit it against current code, not memory.
+GitHub-rendered markdown under `docs/` is the source of truth. See `docs/adr/0003-github-as-docs-source-of-truth.md`.
 
-**Config schema and defaults:**
+Release work should not hand-sync a second docs copy. Instead, verify that feature work already updated the relevant source pages:
+
+| Source page | Audit when |
+|---|---|
+| `docs/installation.md` | Install, verify, upgrade, uninstall, release artifact behavior changed |
+| `docs/quickstart.md` | TUI workflow, dashboard keys, first-run flow changed |
+| `docs/commands.md` | CLI command, flag, hook setup, or examples changed |
+| `docs/configuration.md` | Config schema, defaults, agents, themes, keybinds, recipes changed |
+| `docs/hooks.md` | Hook protocol, supported agents, state transitions, managed files changed |
+| `docs/troubleshooting.md` | Error messages, doctor checks, recovery recipes changed |
+| `docs/aliases.md` | Alias behavior changed |
+
+Useful code/source checks:
 
 ```bash
+rg -n "new[A-Z].*Cmd|Use:|Short:|Long:|Flags\(" internal/cli
 rg -n "type Config|type UI|type Tmux|type Sound|type Timeouts|type Pruning|Keybinds" internal/config
 rg -n "Defaults_|Theme|Editor|SidebarWidth|EventLogLines|PanePreview|Agents" internal/config/defaults.go internal/config/schema.go
+rg -n "Protocol|Install|Cleanup|doctor|hooks" internal
 ```
 
-Update README config examples and tables for any additions, removals, renamed fields, or default changes. Recent important fields include `[ui].editor` and `[keybinds]`.
+## 5. Keybinding audit
 
-**Keybindings:**
+Keybindings are configurable and the TUI footer/help derives labels from the resolved keymap. Do not document keybindings from memory.
 
 ```bash
 rg -n "keybindActions|reservedKeys|specialKeys|resolveKeymap" internal/config/keymap.go
 rg -n "KeyHint|Help|footer|keymap|Binding" internal/tui
 ```
 
-Update the TUI key table and `[keybinds]` section. Current concepts to preserve:
+Keep these concepts accurate in `docs/configuration.md`, `docs/quickstart.md`, and the landing-page demo:
 
 - Defaults are configurable through `[keybinds]`.
 - `enter`, `esc`, and `ctrl+c` are reserved hatches.
@@ -118,22 +131,14 @@ Update the TUI key table and `[keybinds]` section. Current concepts to preserve:
 - Conflicts resolve by action order, first-wins.
 - The help popup and footer derive labels from the resolved keymap.
 - Popup-internal editing keys are not configurable.
+- Current gotchas: editor is `ctrl+g` or `e`, send is `m`, mute is `alt+m`, kill is `K` or `ctrl+k`, remove project is `D`.
 
-**CLI and hooks:**
-
-```bash
-rg -n "new[A-Z].*Cmd|Use:|Short:|Long:|Flags\(" internal/cli
-rg -n "Protocol|Install|Cleanup|doctor|hooks" internal
-```
-
-Update command examples, hook files, doctor behavior, install/cleanup text, and troubleshooting.
-
-## 5. Landing page audit: `html/cleo/index.html`
+## 6. Landing page audit: `html/cleo/index.html`
 
 The landing page is static and easy to drift. Review at least:
 
 - Version refs: nav badge, hero eyebrow, install verify output.
-- Docs links: current landing-page links point at the GitHub README `#documentation` anchor; troubleshooting should point at an existing repo path.
+- Docs links: links should point into GitHub markdown docs or the README docs index, not to deleted `docs.html`.
 - Install flow: curl installer, Homebrew, hook setup, supported agents, uninstall commands.
 - Terminal demo: project/session labels, states, footer keys, action names, event names.
 - Feature cards: hooks support, sound behavior, local-first paths, key examples.
@@ -142,21 +147,8 @@ The landing page is static and easy to drift. Review at least:
 Check landing links before release:
 
 ```bash
-rg -n "href=|docs\.html|troubleshooting|#documentation|releases|CHANGELOG" html/cleo/index.html
+rg -n "href=|docs\.html|troubleshooting|#documentation|docs/|releases|CHANGELOG" html/cleo/index.html
 ```
-
-## 6. Secondary static docs audit: `html/cleo/docs.html`
-
-This page still exists but is not the canonical docs link target. If it remains published, update it with the same user-facing truth as the README:
-
-- Version badge and install verify output.
-- Commands and flags.
-- Hook install, cleanup, doctor, and supported-agent files.
-- Config schema, including `[ui].editor` and `[keybinds]`.
-- TUI key table: send is `m`, mute is `alt+m`, editor is `ctrl+g` or `e`, remove project is `D`, kill is `K` or `ctrl+k`.
-- Validation and warning-popup behavior for keybind/config issues.
-
-If the release intentionally retires or stops linking this page, note that in the PR/release notes and avoid leaving stale public links.
 
 ## 7. Global docs and link checks
 
@@ -166,10 +158,10 @@ Search for old commands, old versions, and stale links:
 rg -n "cleo init|cleo hook |ctrl-k|ctrl\+k|alt\+m|ctrl\+g|docs\.html|v<old-version>" \
   README.md CHANGELOG.md docs html/cleo .pi/skills/release
 
-rg -n "docs/troubleshooting\.md|troubleshooting" README.md docs html/cleo
+rg -n "\]\(([^)]*)\)" README.md docs | head
 ```
 
-If a path is linked, make sure the file exists.
+If a path is linked, make sure the file exists. Do not treat historical mentions inside ADRs and old `docs/superpowers/` plans as release blockers unless they are linked as user docs.
 
 ## 8. Build, test, and smoke check
 
@@ -181,16 +173,16 @@ make build
 ./bin/cleo --version
 ```
 
-If HTML changed, open or preview the landing page and docs page enough to catch broken layout or copy mistakes.
+If HTML changed, open or preview the landing page enough to catch broken layout or copy mistakes.
 
 ## 9. Commit
 
 ```bash
-git add CHANGELOG.md README.md html/cleo/docs.html html/cleo/index.html internal/cli/root.go
+git add CHANGELOG.md README.md docs html/cleo/index.html internal/cli/root.go
 # add any other changed files
 git commit -m "chore: bump version to vX.Y.Z, update docs and changelog
 
-- Version: <old> to <new> in cli, landing page, docs, README
+- Version: <old> to <new> in cli, landing page, README
 - CHANGELOG: add vX.Y.Z section
 - Docs: <notable docs/link/config/keybind updates>"
 git push -u origin HEAD
