@@ -82,7 +82,7 @@ func (m Model) renderTreeContent(innerW int) string {
 			if expanded {
 				arrow = "▾"
 			}
-			inner := fmt.Sprintf("%s %s", arrow, p.ID)
+			inner := truncateWidth(fmt.Sprintf("%s %s", arrow, p.ID), innerW)
 			projLine = selectedSt.Width(innerW).Render(inner)
 		} else {
 			name := projectSt.Render(truncateWidth(p.ID, innerW-6))
@@ -115,7 +115,8 @@ func (m Model) renderTreeContent(innerW int) string {
 				Render(bracketed)
 			labelW := len(bracketed)
 
-			overhead := 1 + 1 + labelW + 1 + 4 + 1 + ageW
+			// connector(1) + space(1) + label + space(1) + gap(1) + state(4) + space(1) + age
+			overhead := 1 + 1 + labelW + 1 + 1 + 4 + 1 + ageW
 			nameW := innerW - overhead
 			if nameW < 3 {
 				nameW = 3
