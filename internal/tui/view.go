@@ -18,18 +18,37 @@ func (m Model) View() string {
 }
 
 func renderFrame(m Model) string {
-	lay := decideLayout(m.width, m.height, m.ctx.Config.UI.SidebarWidth)
-	w := lay.Width
-
-	left := m.renderLeftColumn(lay.SidebarW, lay.BodyH)
-
-	// Compact mode renders the sidebar at full width and omits the right column
-	// (metadata grid + events + tmux preview) entirely.
-	body := left
-	if lay.Mode == LayoutFull {
-		right := m.renderRightColumn(lay.MainW, lay.MetaH, lay.EventsH, lay.PreviewH)
-		body = lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+	w := m.width
+	h := m.height
+	if w <= 0 {
+		w = 120
 	}
+	if h <= 0 {
+		h = 40
+	}
+
+	topH := 1
+	footH := 1
+	bodyH := h - topH - footH
+	if bodyH < 8 {
+		bodyH = 8
+	}
+
+	sideW := m.ctx.Config.UI.SidebarWidth
+	if sideW > w-40 {
+		sideW = w - 40
+	}
+	if sideW < 10 {
+		sideW = 10
+	}
+	mainW := w - sideW
+	if mainW < 40 {
+		mainW = 40
+	}
+
+	left := m.renderLeftColumn(sideW, bodyH)
+	right := m.renderRightColumn(mainW, bodyH)
+	body := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 
 	// Stamp the theme's base background on every line so that any transparent
 	// characters (spaces between ANSI-styled spans) show the theme colour
@@ -64,11 +83,8 @@ func (m Model) renderTopbar(width int) string {
 	if space < 1 {
 		space = 1
 	}
-	// Truncate to the inner width (total minus the 1-col padding each side) so a
-	// narrow terminal keeps the topbar on one line instead of wrapping.
-	content := truncateWidth(left+strings.Repeat(" ", space)+right, width-2)
 	return lipgloss.NewStyle().Background(m.theme.Mantle).Foreground(m.theme.Text).Padding(0, 1).
-		Width(width).Render(content)
+		Width(width).Render(left + strings.Repeat(" ", space) + right)
 }
 
 // ── Footer ────────────────────────────────────────────────────────────────────
