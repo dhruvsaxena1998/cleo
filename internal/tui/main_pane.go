@@ -14,17 +14,10 @@ import (
 // ┌ Session metadata ┐  (fixed height — 6-cell meta grid)
 // ├ Events log       ┤  (~28% — compact log strip)
 // └ Terminal preview ┘  (remainder — largest panel)
-func (m Model) renderRightColumn(w, h int) string {
-	const metaH = 6 // border(2) + title(1) + sep(1) + labels(1) + values(1)
-	eventsH := h * 28 / 100
-	if eventsH < 6 {
-		eventsH = 6
-	}
-	previewH := h - metaH - eventsH
-	if previewH < 5 {
-		previewH = 5
-	}
-
+//
+// Panel heights are decided by decideLayout (see layout.go), keeping all
+// dimension math in one pure, testable place.
+func (m Model) renderRightColumn(w, metaH, eventsH, previewH int) string {
 	sess, hasSess := m.selectedSession()
 
 	meta := m.renderMetaPanel(w, metaH, sess, hasSess)
