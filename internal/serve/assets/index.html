@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>cleo</title>
+<style>
+  :root {
+    --bg:        #0e1014;
+    --bg-raised: #14171d;
+    --hair:      #1d212a;
+    --border:    #242832;
+    --text:      #e6e8ec;
+    --text-dim:  #8a8f98;
+    --text-faint:#5a5f66;
+
+    --c-waiting:   #ffb84d;
+    --c-error:     #ff5c5c;
+    --c-running:   #3ecf8e;
+    --c-spawning:  #5b9dff;
+    --c-idle:      #6b7079;
+    --c-completed: #4f7d68;
+    --c-dead:      #3f444c;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    max-width: 430px;            /* phone frame on desktop; full-width on a real phone */
+    margin: 0 auto;
+    min-height: 100vh;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    padding-bottom: 32px;
+  }
+
+  /* ---- header: cleo wordmark + needs-you summary ---- */
+  .topbar {
+    position: sticky; top: 0; z-index: 5;
+    background: rgba(14,16,20,0.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    padding: 13px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .brand { font-weight: 700; font-size: 16px; letter-spacing: .3px; color: var(--text); }
+  .summary { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; }
+  .summary .live { width: 7px; height: 7px; border-radius: 50%; background: var(--c-running); animation: pulse 2s ease-in-out infinite; }
+  .summary.calm  { color: var(--text-dim); }
+  .summary.attn  { color: var(--c-waiting); }
+  .summary.stale { color: var(--text-faint); }
+  .summary.stale .live { background: var(--text-faint); animation: none; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+
+  .container { padding: 14px 14px 0; }
+
+  /* ---- project group ---- */
+  .group { margin-bottom: 22px; }
+  .ghead {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 2px 7px;
+    border-bottom: 1px solid var(--hair);
+    margin-bottom: 2px;
+  }
+  .ghead .pname { font-weight: 700; font-size: 14px; color: var(--text); letter-spacing: .2px; }
+  .ghead .gright { display: inline-flex; align-items: center; gap: 7px; color: var(--text-faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .ghead .attn-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c-waiting); }
+
+  /* ---- session row ---- */
+  .srow { display: flex; align-items: center; gap: 11px; padding: 11px 2px; }
+  .srow + .srow { border-top: 1px solid var(--hair); }
+
+  /* bare agent glyph — no background, brand colour */
+  .agent-ic { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 20px; }
+  .agent-ic svg { width: 18px; height: 18px; display: block; }
+  .ic-opencode { color: var(--text); }            /* currentColor mark */
+  .agent-ic.fallback {
+    width: 18px; height: 18px; border-radius: 4px; background: #3a3f48;
+    font: 700 11px/18px ui-monospace, Menlo, monospace; color: #fff; text-align: center;
+  }
+
+  .srow .name { flex: 1 1 auto; font-weight: 400; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .srow .state { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; }
+  .srow .sdot { width: 8px; height: 8px; border-radius: 50%; }
+  .srow .slabel { font-size: 10px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; }
+  .srow .age { flex: 0 0 auto; min-width: 30px; text-align: right; color: var(--text-faint); font-size: 13px; font-variant-numeric: tabular-nums; }
+
+  .srow.dead .name { color: var(--text-faint); }
+
+  .empty { padding: 48px 16px; text-align: center; color: var(--text-faint); font-size: 14px; }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <span class="brand">cleo</span>
+    <span class="summary" id="summary"><span class="live"></span><span id="summary-text">—</span></span>
+  </div>
+
+  <div class="container" id="root"></div>
+
+<script>
+// Token travels in the URL (from the scanned QR); forward it on every poll.
+const TOKEN = new URLSearchParams(location.search).get("token") || "";
+
+// ---------- per-state presentation (render only; server owns ordering) ----------
+const COLOR = {
+  waiting_for_input: "--c-waiting",
+  error:             "--c-error",
+  running:           "--c-running",
+  spawning:          "--c-spawning",
+  idle:              "--c-idle",
+  completed:         "--c-completed",
+  dead:              "--c-dead",
+};
+const LABEL = { waiting_for_input: "Waiting", error: "Error" };
+const cssVar = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+// ---------- agent icons: real brand SVGs, inlined at server startup ----------
+const ICONS = __AGENT_ICONS__;
+function agentIcon(name) {
+  const svg = ICONS[name];
+  if (!svg) return `<span class="agent-ic fallback" title="${name}">${(name||"?")[0].toUpperCase()}</span>`;
+  return `<span class="agent-ic ic-${name}" title="${name}">${svg}</span>`;
+}
+
+function fmtAge(s) {
+  if (s < 60)    return s + "s";
+  if (s < 3600)  return Math.floor(s/60) + "m";
+  if (s < 86400) return Math.floor(s/3600) + "h";
+  return Math.floor(s/86400) + "d";
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function render(view) {
+  const projects = view.projects || [];
+  if (projects.length === 0) {
+    document.getElementById("root").innerHTML = `<div class="empty">No sessions yet.</div>`;
+  } else {
+    document.getElementById("root").innerHTML = projects.map(proj => {
+      const rows = (proj.sessions || []).map(s => {
+        const col = cssVar(COLOR[s.state] || "--c-idle");
+        const stateEl = s.attn
+          ? `<span class="state"><span class="sdot" style="background:${col}"></span><span class="slabel" style="color:${col}">${esc(LABEL[s.state] || s.state)}</span></span>`
+          : `<span class="state"><span class="sdot" style="background:${col}"></span></span>`;
+        return `<div class="srow ${esc(s.state)}">
+          ${agentIcon(s.agent)}
+          <span class="name">${esc(s.name)}</span>
+          ${stateEl}
+          <span class="age">${fmtAge(s.age_seconds)}</span>
+        </div>`;
+      }).join("");
+      return `<div class="group">
+        <div class="ghead">
+          <span class="pname">${esc(proj.project)}</span>
+          <span class="gright">${proj.needs_attention ? '<span class="attn-dot"></span>' : ''}${(proj.sessions || []).length}</span>
+        </div>
+        ${rows}
+      </div>`;
+    }).join("");
+  }
+
+  const need = view.need_count || 0;
+  const sum = document.getElementById("summary");
+  sum.className = "summary " + (need ? "attn" : "calm");
+  document.getElementById("summary-text").textContent = need ? `${need} need you` : "all calm";
+}
+
+function showStale() {
+  const sum = document.getElementById("summary");
+  sum.className = "summary stale";
+  document.getElementById("summary-text").textContent = "reconnecting…";
+}
+
+async function poll() {
+  try {
+    const res = await fetch(`/api/sessions?token=${encodeURIComponent(TOKEN)}`, { cache: "no-store" });
+    if (!res.ok) { showStale(); return; }
+    render(await res.json());
+  } catch (e) {
+    showStale();
+  }
+}
+
+poll();
+setInterval(poll, 2000);
+</script>
+</body>
+</html>
