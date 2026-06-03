@@ -60,6 +60,54 @@ func TestPrepareAttachOnMissingTmuxMarksSessionDead(t *testing.T) {
 	}
 }
 
+// A tmux query *error* (e.g. tmux not on PATH when attaching over SSH) is NOT
+// proof the session died. PrepareAttach must surface the error and leave the
+// record intact — never mark a possibly-live session dead, since dead is a hard
+// terminal state and the mistake is irreversible.
+func TestPrepareAttachOnTmuxErrorDoesNotMarkDead(t *testing.T) {
+	h := newTestHarness(t)
+	pid := h.addProject(t, "myapp")
+	sid := h.seedSession(t, pid, state.Running, "live-but-unreachable")
+	h.Tmux.hasSessionErr = errors.New(`exec: "tmux": executable file not found in $PATH`)
+
+	_, err := h.Lifecycle.PrepareAttach(sid)
+	if err == nil {
+		t.Fatal("expected an error when tmux liveness cannot be determined")
+	}
+	// Crucially, the session must NOT have been marked dead.
+	stored, gerr := h.State.Get(sid)
+	if gerr != nil {
+		t.Fatal(gerr)
+	}
+	if stored.State != state.Running {
+		t.Fatalf("session state = %s, want %s (a tmux error must not mark a session dead)", stored.State, state.Running)
+	}
+}
+
+// Attach wraps PrepareAttach, so the same guarantee holds end-to-end: a tmux
+// error yields an error and no attach command, with state untouched.
+func TestAttachOnTmuxErrorReturnsErrorWithoutMarkingDead(t *testing.T) {
+	h := newTestHarness(t)
+	pid := h.addProject(t, "myapp")
+	sid := h.seedSession(t, pid, state.Running, "live-but-unreachable")
+	h.Tmux.hasSessionErr = errors.New(`exec: "tmux": executable file not found in $PATH`)
+
+	plan, err := h.Lifecycle.Attach(sid)
+	if err == nil {
+		t.Fatal("expected an error when tmux liveness cannot be determined")
+	}
+	if plan.Cmd != nil {
+		t.Fatal("a tmux error must not yield an attach command")
+	}
+	stored, gerr := h.State.Get(sid)
+	if gerr != nil {
+		t.Fatal(gerr)
+	}
+	if stored.State != state.Running {
+		t.Fatalf("session state = %s, want %s (a tmux error must not mark a session dead)", stored.State, state.Running)
+	}
+}
+
 func TestPrepareAttachOnCompletedButLiveSessionRevives(t *testing.T) {
 	h := newTestHarness(t)
 	pid := h.addProject(t, "myapp")

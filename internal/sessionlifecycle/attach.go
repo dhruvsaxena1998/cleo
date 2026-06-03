@@ -48,9 +48,17 @@ func (l *Lifecycle) PrepareAttach(sessionID string) (PrepareAttachResult, error)
 		}, nil
 	}
 
-	// Check tmux liveness — if the tmux session is gone, mark it dead.
+	// Check tmux liveness. A query *error* (e.g. tmux not on PATH when attaching
+	// over SSH, or an unreachable socket) is NOT proof the session died — only a
+	// definitive "no such session" is. Marking dead here is irreversible (dead is
+	// a hard terminal state the reconciler never revives), so on an error we
+	// surface it and leave the record untouched rather than killing a live session.
 	live, err := l.tmux.HasSession(sessionID)
-	if err != nil || !live {
+	if err != nil {
+		return PrepareAttachResult{Session: sess},
+			fmt.Errorf("cannot determine whether %s is alive (is tmux installed and on PATH?): %w", sessionID, err)
+	}
+	if !live {
 		updated, applyErr := l.state.ApplySynthetic(sessionID, state.EvDead, "")
 		if applyErr != nil {
 			return PrepareAttachResult{}, applyErr

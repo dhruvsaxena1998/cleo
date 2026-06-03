@@ -434,6 +434,7 @@ type fakeTmux struct {
 	onNewSession            func(tmux.NewSessionOpts) error
 	verifySession           bool
 	hasSession              bool
+	hasSessionErr           error           // if set, HasSession returns this error (e.g. tmux not on PATH)
 	live                    map[string]bool // per-session liveness; if set takes priority over hasSession
 	focusHooksInstalledWith string
 	detachKeyBound          string
@@ -456,6 +457,9 @@ func (f *fakeTmux) NewSession(o tmux.NewSessionOpts) error {
 }
 
 func (f *fakeTmux) HasSession(name string) (bool, error) {
+	if f.hasSessionErr != nil {
+		return false, f.hasSessionErr
+	}
 	if f.live != nil {
 		return f.live[name], nil
 	}
