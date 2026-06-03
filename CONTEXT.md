@@ -33,3 +33,11 @@ _Avoid_: hook result, hook action (when you mean the decision — the outcome is
 **Agent protocol**:
 One supported agent integration, behind the single `hooks.Protocol` interface; `hooks.Protocols()` is the registry. It is the source of truth for everything cleo must know about an agent: the hook events it fires, the config files it owns (`Locations()`), how to install / clean up / diagnose those files, how to normalize a raw hook event, and its display identity. `init`, `cleanup`, and `doctor` iterate the registry rather than switching on agent name, so adding an agent means implementing `Protocol` and adding one line to `Protocols()` — not editing every CLI command. The seam stays deep by keeping verbs thin and returns rich: `Install` reports any manual-approval follow-up (`InstallReport`), `Diagnose` returns per-agent health `Check`s, and heterogeneous extras (Codex's feature flag and approval step, the JSON-hook vs. file-template split) live inside implementations as data, never as new interface methods. The concrete structs (`ClaudeProtocol`, `CodexProtocol`, …) are the adapters; the interface is the seam.
 _Avoid_: agent driver, hook plugin, agent adapter (when you mean the seam — the concrete struct is the adapter, "Agent protocol" is the interface)
+
+**Dashboard**:
+The interactive local TUI opened by `cleo` with no arguments — the single place to watch every Project and Session, see each one's live state, and act on them (attach, send, rename, kill, prune). Local and interactive by definition.
+_Avoid_: web dashboard, remote view (those name the read-only web page — a different thing)
+
+**Remote view**:
+The read-only web page served by the opt-in `cleo serve` command and reached over the local network by scanning a QR code. Lists every Session with its Project, agent, name, state, and age so you can tell from a phone which Session needs you. It is read-only — it never attaches to a Session or sends it input — and exists to surface Session state where the Dashboard cannot follow (a phone screen). Distinct from the Dashboard, which is the interactive local TUI.
+_Avoid_: web dashboard, mobile dashboard, remote control (it is read-only, not a control surface)
