@@ -27,8 +27,7 @@ type editorFinishedMsg struct{ err error }
 func (m Model) openSelectedProjectInEditor() (Model, tea.Cmd) {
 	project, ok := m.selectedProjectForEditor()
 	if !ok {
-		m.status = "select a Project first"
-		return m, nil
+		return m, m.setStatus("select a Project first")
 	}
 	plan, err := editoropen.Plan(editoropen.Config{
 		UIEditor:    m.ctx.Config.UI.Editor,
@@ -36,15 +35,16 @@ func (m Model) openSelectedProjectInEditor() (Model, tea.Cmd) {
 		ProjectPath: project.Path,
 	})
 	if err != nil {
+		var statusMsg string
 		switch {
 		case errors.Is(err, editoropen.ErrNoEditor):
-			m.status = "no editor configured; set ui.editor or EDITOR"
+			statusMsg = "no editor configured; set ui.editor or EDITOR"
 		case errors.Is(err, editoropen.ErrUnsupported):
-			m.status = fmt.Sprintf("unsupported editor %q; set ui.editor to a supported editor", firstWordForStatus(m.ctx.Config.UI.Editor, os.Getenv("EDITOR")))
+			statusMsg = fmt.Sprintf("unsupported editor %q; set ui.editor to a supported editor", firstWordForStatus(m.ctx.Config.UI.Editor, os.Getenv("EDITOR")))
 		default:
-			m.status = fmt.Sprintf("open editor failed: %v", err)
+			statusMsg = fmt.Sprintf("open editor failed: %v", err)
 		}
-		return m, nil
+		return m, m.setStatus(statusMsg)
 	}
 
 	cmd := plan.Command()
@@ -61,12 +61,9 @@ func (m Model) openSelectedProjectInEditor() (Model, tea.Cmd) {
 		m.editorLauncher = processEditorLauncher{}
 	}
 	if err := m.editorLauncher.StartDetached(cmd); err != nil {
-		m.status = fmt.Sprintf("open editor failed: %v", err)
-		return m, nil
+		return m, m.setStatus(fmt.Sprintf("open editor failed: %v", err))
 	}
-	m.status = fmt.Sprintf("opening Project %s in editor", project.ID)
-	m.statusTimerID++
-	return m, statusExpiryCmd(m.statusTimerID)
+	return m, m.setStatus(fmt.Sprintf("opening Project %s in editor", project.ID))
 }
 
 func (m Model) selectedProjectForEditor() (projects.Project, bool) {

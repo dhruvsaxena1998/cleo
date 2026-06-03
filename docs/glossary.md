@@ -670,7 +670,7 @@ Triggered by `m` on a live session. Text input to send keystrokes to the session
 
 **First-load capture**: the very first `stateLoadedMsg` triggers an immediate `autoCaptureCmd` so the preview renders within ~tmux-ls latency instead of waiting for the first preview tick (up to 1.5s of "loading…").
 
-**Status expiry**: status messages auto-clear after 3 seconds via `statusExpiryCmd`. Each status message gets a monotonic `statusTimerID`; only the most recent timer's expiry is honored.
+**Status expiry**: every explicit status message is set through the central `setStatus` helper, which auto-clears it after `ui.status_timeout_seconds` (default 3s, fractional, clamped to 0.5–10) via `statusExpiryCmd`. Each message gets a monotonic `statusTimerID`; only the most recent timer's expiry is honored, so an older timer never clears a newer message. Pressing `esc` clears immediately.
 
 **Auto-expand on first load**: projects with sessions are auto-expanded when first discovered.
 

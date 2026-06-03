@@ -87,6 +87,17 @@ func (m Model) Init() tea.Cmd {
 	)
 }
 
+// setStatus is the single path for showing an explicit status message. It sets
+// the message, advances the timer id so any older expiry tick can no longer
+// clear this newer message, and returns the expiry command built from the
+// configured status timeout. Every explicit status assignment must go through
+// here so auto-expiry behaves identically across all Dashboard actions.
+func (m *Model) setStatus(msg string) tea.Cmd {
+	m.status = msg
+	m.statusTimerID++
+	return statusExpiryCmd(m.statusTimerID, m.ctx.Config.UI.StatusTimeout())
+}
+
 func (m *Model) clearStatus() {
 	if m.status == "" {
 		return

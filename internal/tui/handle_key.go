@@ -208,8 +208,7 @@ func (m Model) viewSelectedAgent() (Model, tea.Cmd) {
 		return m, nil
 	}
 	if sess.State.IsFinished() {
-		m.status = fmt.Sprintf("%s is %s; terminal is no longer attached", sess.ID, sess.State)
-		return m, nil
+		return m, m.setStatus(fmt.Sprintf("%s is %s; terminal is no longer attached", sess.ID, sess.State))
 	}
 	m.selected = sess.ID
 	return m, capturePaneCmd(m.ctx, sess.ID, m.ctx.Config.UI.PanePreview.Lines)
@@ -220,17 +219,14 @@ func (m Model) attachToSession(sessionID string) (Model, tea.Cmd) {
 
 	plan, err := lifecycle.Attach(sessionID)
 	if err != nil {
-		m.status = fmt.Sprintf("attach failed: %v", err)
-		return m, nil
+		return m, m.setStatus(fmt.Sprintf("attach failed: %v", err))
 	}
 
 	switch plan.Action {
 	case sessionlifecycle.AttachBlocked:
-		m.status = fmt.Sprintf("%s is %s; press K to remove it", sessionID, plan.Session.State)
-		return m, nil
+		return m, m.setStatus(fmt.Sprintf("%s is %s; press K to remove it", sessionID, plan.Session.State))
 	case sessionlifecycle.AttachMarkedDead:
-		m.status = fmt.Sprintf("%s is no longer running; marked dead", sessionID)
-		return m, loadStateCmd(m.ctx)
+		return m, tea.Batch(m.setStatus(fmt.Sprintf("%s is no longer running; marked dead", sessionID)), loadStateCmd(m.ctx))
 	}
 
 	// AttachReady or AttachRevived — proceed with attaching. Done clears focus
@@ -272,8 +268,7 @@ func (m Model) openRenamePopup() (Model, tea.Cmd) {
 	if sess.State.IsFinished() {
 		// Replace status with the finished-session warning rather than clearing
 		// first; otherwise a reader sees status= "" then immediately reassigned.
-		m.status = fmt.Sprintf("%s is %s; finished sessions cannot be renamed", sess.ID, sess.State)
-		return m, nil
+		return m, m.setStatus(fmt.Sprintf("%s is %s; finished sessions cannot be renamed", sess.ID, sess.State))
 	}
 	// Clear stale status only on the success path (popup actually opens).
 	m.status = ""
@@ -299,17 +294,14 @@ func (m Model) openHelpPopup() (Model, tea.Cmd) {
 func (m Model) openSendPopup() (Model, tea.Cmd) {
 	sess, ok := m.sessionAtCursor()
 	if !ok {
-		m.status = "select a session with j/k first"
-		return m, nil
+		return m, m.setStatus("select a session with j/k first")
 	}
 	if sess.State.IsFinished() {
-		m.status = fmt.Sprintf("%s is %s; cannot send to finished session", sess.ID, sess.State)
-		return m, nil
+		return m, m.setStatus(fmt.Sprintf("%s is %s; cannot send to finished session", sess.ID, sess.State))
 	}
 	live, err := m.ctx.Tmux.HasSession(sess.ID)
 	if err != nil || !live {
-		m.status = fmt.Sprintf("%s is no longer running", sess.ID)
-		return m, nil
+		return m, m.setStatus(fmt.Sprintf("%s is no longer running", sess.ID))
 	}
 	m.status = ""
 	m.popup = NewSendPopup(sess.ID, m.theme)
@@ -321,12 +313,9 @@ func (m Model) performSend(msg SendSubmitted) (Model, tea.Cmd) {
 	m.mode = ModeNormal
 	m.popup = nil
 	if err := m.ctx.Tmux.SendKeys(msg.SessionID, msg.Text); err != nil {
-		m.status = fmt.Sprintf("send failed: %v", err)
-		return m, nil
+		return m, m.setStatus(fmt.Sprintf("send failed: %v", err))
 	}
-	m.status = fmt.Sprintf("sent to %s", msg.SessionID)
-	m.statusTimerID++
-	return m, statusExpiryCmd(m.statusTimerID)
+	return m, m.setStatus(fmt.Sprintf("sent to %s", msg.SessionID))
 }
 
 func (m Model) toggleMute() (Model, tea.Cmd) {
@@ -353,10 +342,10 @@ func (m Model) performSpawn(s SpawnSubmitted) (Model, tea.Cmd) {
 		AutoRegisterProject: s.ProjectID == "",
 	})
 	if err != nil {
-		m.status = fmt.Sprintf("spawn failed: %v", err)
+		statusCmd := m.setStatus(fmt.Sprintf("spawn failed: %v", err))
 		m.mode = ModeNormal
 		m.popup = nil
-		return m, loadStateCmd(m.ctx)
+		return m, tea.Batch(statusCmd, loadStateCmd(m.ctx))
 	}
 	m.mode = ModeNormal
 	m.popup = nil
@@ -366,14 +355,15 @@ func (m Model) performSpawn(s SpawnSubmitted) (Model, tea.Cmd) {
 func (m Model) performKill(target string) (Model, tea.Cmd) {
 	lifecycle := m.ctx.NewLifecycle()
 	result, err := lifecycle.Kill(target)
+	var statusCmd tea.Cmd
 	if err != nil {
-		m.status = fmt.Sprintf("kill failed: %v", err)
+		statusCmd = m.setStatus(fmt.Sprintf("kill failed: %v", err))
 	} else if result.Warning != nil {
-		m.status = fmt.Sprintf("kill %s: tmux warning: %v", target, result.Warning)
+		statusCmd = m.setStatus(fmt.Sprintf("kill %s: tmux warning: %v", target, result.Warning))
 	}
 	m.mode = ModeNormal
 	m.popup = nil
-	return m, loadStateCmd(m.ctx)
+	return m, tea.Batch(statusCmd, loadStateCmd(m.ctx))
 }
 
 func (m Model) confirmPrune() (Model, tea.Cmd) {
@@ -388,8 +378,7 @@ func (m Model) confirmPrune() (Model, tea.Cmd) {
 		}
 	}
 	if count == 0 {
-		m.status = "no finished sessions to prune"
-		return m, nil
+		return m, m.setStatus("no finished sessions to prune")
 	}
 	m.status = ""
 	prompt := fmt.Sprintf("prune all %d finished session(s) in %q?", count, pid)
@@ -404,16 +393,17 @@ func (m Model) performPrune(projectID string) (Model, tea.Cmd) {
 		ProjectID: projectID,
 		Keep:      0,
 	})
+	var statusCmd tea.Cmd
 	if err != nil {
-		m.status = fmt.Sprintf("prune failed: %v", err)
+		statusCmd = m.setStatus(fmt.Sprintf("prune failed: %v", err))
 	} else if len(result.Warnings) > 0 {
-		m.status = fmt.Sprintf("prune: %d session(s) removed, %d warning(s)", len(result.Pruned), len(result.Warnings))
+		statusCmd = m.setStatus(fmt.Sprintf("prune: %d session(s) removed, %d warning(s)", len(result.Pruned), len(result.Warnings)))
 	} else {
-		m.status = fmt.Sprintf("pruned %d session(s)", len(result.Pruned))
+		statusCmd = m.setStatus(fmt.Sprintf("pruned %d session(s)", len(result.Pruned)))
 	}
 	m.mode = ModeNormal
 	m.popup = nil
-	return m, loadStateCmd(m.ctx)
+	return m, tea.Batch(statusCmd, loadStateCmd(m.ctx))
 }
 
 func (m Model) confirmRemoveProject() (Model, tea.Cmd) {
@@ -450,24 +440,26 @@ func (m Model) performRemoveProject(pid string) (Model, tea.Cmd) {
 		ProjectID: pid,
 		Force:     true,
 	})
+	var statusCmd tea.Cmd
 	if err != nil {
-		m.status = fmt.Sprintf("remove failed: %v", err)
+		statusCmd = m.setStatus(fmt.Sprintf("remove failed: %v", err))
 	} else if len(result.Warnings) > 0 {
-		m.status = fmt.Sprintf("removed %d session(s) with %d warning(s)", len(result.RemovedSessionIDs), len(result.Warnings))
+		statusCmd = m.setStatus(fmt.Sprintf("removed %d session(s) with %d warning(s)", len(result.RemovedSessionIDs), len(result.Warnings)))
 	}
 	_ = m.ctx.Projects.Remove(pid)
 	m.mode = ModeNormal
 	m.popup = nil
-	return m, loadStateCmd(m.ctx)
+	return m, tea.Batch(statusCmd, loadStateCmd(m.ctx))
 }
 
 func (m Model) performRename(msg RenameSubmitted) (Model, tea.Cmd) {
 	lifecycle := m.ctx.NewLifecycle()
 	_, err := lifecycle.Rename(msg.SessionID, msg.NewName)
+	var statusCmd tea.Cmd
 	if err != nil {
-		m.status = fmt.Sprintf("rename failed: %v", err)
+		statusCmd = m.setStatus(fmt.Sprintf("rename failed: %v", err))
 	}
 	m.mode = ModeNormal
 	m.popup = nil
-	return m, loadStateCmd(m.ctx)
+	return m, tea.Batch(statusCmd, loadStateCmd(m.ctx))
 }

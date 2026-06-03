@@ -24,10 +24,11 @@ func Defaults_() Config {
 			"pi":       {Command: "pi", Label: "pi", Color: "#7C3AED"},
 		},
 		UI: UI{
-			Theme:         "catppuccin-mocha",
-			Editor:        "",
-			SidebarWidth:  48,
-			EventLogLines: 200,
+			Theme:                "catppuccin-mocha",
+			Editor:               "",
+			SidebarWidth:         48,
+			EventLogLines:        200,
+			StatusTimeoutSeconds: 3,
 			PanePreview: PanePreview{
 				Enabled:  true,
 				Lines:    30,
