@@ -158,6 +158,30 @@ Options:
 
 The table output includes project ID, agent, session name, state, full session ID, and age.
 
+## `cleo serve`
+
+Starts an **opt-in, read-only** remote view of your sessions on your LAN, and prints a QR code to scan from a phone on the same network. It lists every session and surfaces which ones need your attention — it never attaches to or sends input to a session.
+
+```bash
+cleo serve
+cleo serve --port 8080
+```
+
+Options:
+
+| Option | Meaning |
+| --- | --- |
+| `--port <n>` | Port to bind on all network interfaces (default `7777`) |
+
+How it works:
+
+- The server runs in the **foreground** for the life of the command — there is no background service or daemon. Press `Ctrl-C` to stop it.
+- Access is gated by a **per-run token** carried in the URL (and the QR). The token changes every time you run `cleo serve`; stopping the server revokes access.
+- The view binds all interfaces, so anyone on your network with the URL can **view** (not control) your sessions. It deliberately exposes only each session's agent, name, state, and age — never session IDs or message content.
+- It reuses the `cleo ls` data path, so the remote view reflects the same session states as the dashboard.
+
+See [ADR 0004](adr/0004-opt-in-read-only-remote-view.md) for the design and the security boundary.
+
 ## `cleo attach <session-id>`
 
 Attaches to an existing tmux session.
