@@ -71,6 +71,7 @@ theme = "catppuccin-mocha"
 editor = ""
 sidebar_width = 48
 event_log_lines = 200
+status_timeout_seconds = 3.0
 
 [ui.pane_preview]
 enabled = true
@@ -191,6 +192,7 @@ Hook support is installed by `cleo hooks init` for supported agents. Custom agen
 | `editor` | `""` | Optional editor command for Dashboard `ctrl+g`; falls back to `$EDITOR` when empty. |
 | `event_log_lines` | `200` | Number of recent event log rows available in the UI. |
 | `sidebar_width` | `48` | Sidebar width in character columns (10–200). |
+| `status_timeout_seconds` | `3.0` | Seconds a Dashboard status bar message stays visible before it auto-expires. Fractional values allowed; clamped to 0.5–10. |
 | `theme` | `"catppuccin-mocha"` | Color theme used by the TUI. See list below. |
 
 ### `[ui.pane_preview]`
@@ -392,6 +394,18 @@ interval = "0.75s"
 ```
 
 Increasing `ui.pane_preview.interval` reduces tmux pane capture traffic; decreasing it makes the preview feel snappier at the cost of a few more `capture-pane` calls per second.
+
+### Status messages that linger longer (or clear faster)
+
+Dashboard status bar messages — confirmations, errors, and blocked-action hints — auto-expire after `ui.status_timeout_seconds`. Increase it if you read slowly or use accessibility tooling; decrease it to bring the normal footer hints back sooner:
+
+```toml
+[ui]
+status_timeout_seconds = 6      # keep messages up longer
+# status_timeout_seconds = 0.5  # minimum; snappier footer
+```
+
+Values are in seconds (fractional allowed) and clamped to the 0.5–10 range; out-of-range values are clamped with a config warning. Pressing `esc` always clears a status message immediately, regardless of the timeout.
 
 ### Tighter pruning and timeouts
 

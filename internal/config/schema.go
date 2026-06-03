@@ -46,11 +46,19 @@ type Agent struct {
 }
 
 type UI struct {
-	Theme         string      `toml:"theme"`
-	Editor        string      `toml:"editor"`
-	SidebarWidth  int         `toml:"sidebar_width"`
-	EventLogLines int         `toml:"event_log_lines"`
-	PanePreview   PanePreview `toml:"pane_preview"`
+	Theme                string      `toml:"theme"`
+	Editor               string      `toml:"editor"`
+	SidebarWidth         int         `toml:"sidebar_width"`
+	EventLogLines        int         `toml:"event_log_lines"`
+	StatusTimeoutSeconds float64     `toml:"status_timeout_seconds"`
+	PanePreview          PanePreview `toml:"pane_preview"`
+}
+
+// StatusTimeout returns the Dashboard status message timeout as a duration.
+// The setting is stored in seconds (fractional allowed) so users do not need
+// Go duration syntax; this is the one place that knows the unit.
+func (u UI) StatusTimeout() time.Duration {
+	return time.Duration(u.StatusTimeoutSeconds * float64(time.Second))
 }
 
 type PanePreview struct {

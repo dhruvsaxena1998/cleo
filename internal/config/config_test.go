@@ -41,6 +41,9 @@ func TestLoadDefaultsWritesNewConfigShape(t *testing.T) {
 	if c.UI.PanePreview.Interval != 2000*time.Millisecond {
 		t.Errorf("interval: %v", c.UI.PanePreview.Interval)
 	}
+	if c.UI.StatusTimeoutSeconds != 3 {
+		t.Errorf("status_timeout_seconds = %v, want 3", c.UI.StatusTimeoutSeconds)
+	}
 	if c.Timeouts.IdleToCompletedTimeout != 10*time.Minute {
 		t.Errorf("idle timeout: %v", c.Timeouts.IdleToCompletedTimeout)
 	}
@@ -292,6 +295,50 @@ func TestValidationClampsAndWarns(t *testing.T) {
 	}
 	if len(c.Warnings) < 6 {
 		t.Fatalf("warnings = %v, want validation warnings", c.Warnings)
+	}
+}
+
+func TestStatusTimeoutSecondsReadAndClamp(t *testing.T) {
+	cases := []struct {
+		name     string
+		value    string
+		wantSecs float64
+		wantWarn bool
+	}{
+		{"fractional accepted", "0.5", 0.5, false},
+		{"plain accepted", "7", 7, false},
+		{"below min clamps", "0.1", 0.5, true},
+		{"above max clamps", "25", 10, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "config.toml")
+			content := "[ui]\n  status_timeout_seconds = " + tc.value + "\n"
+			if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			c, err := Load(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if c.UI.StatusTimeoutSeconds != tc.wantSecs {
+				t.Errorf("status_timeout_seconds = %v, want %v", c.UI.StatusTimeoutSeconds, tc.wantSecs)
+			}
+			want := time.Duration(tc.wantSecs * float64(time.Second))
+			if c.UI.StatusTimeout() != want {
+				t.Errorf("StatusTimeout() = %v, want %v", c.UI.StatusTimeout(), want)
+			}
+			gotWarn := false
+			for _, w := range c.Warnings {
+				if strings.Contains(w, "status_timeout_seconds") {
+					gotWarn = true
+				}
+			}
+			if gotWarn != tc.wantWarn {
+				t.Errorf("status_timeout_seconds warning = %v, want %v (warnings: %v)", gotWarn, tc.wantWarn, c.Warnings)
+			}
+		})
 	}
 }
 

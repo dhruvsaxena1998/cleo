@@ -232,8 +232,10 @@ func TestOpenEditorKeyReportsMissingAndUnsupportedEditors(t *testing.T) {
 
 	gotModel, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")})
 	got := gotModel.(Model)
-	if cmd != nil {
-		t.Fatal("missing editor should not return a command")
+	// Every explicit status message auto-expires now, so even config-error
+	// messages schedule an expiry command (PRD #86).
+	if cmd == nil {
+		t.Fatal("missing editor status should schedule expiry")
 	}
 	if !strings.Contains(got.status, "no editor configured") {
 		t.Fatalf("missing editor status = %q", got.status)
@@ -242,8 +244,8 @@ func TestOpenEditorKeyReportsMissingAndUnsupportedEditors(t *testing.T) {
 	got.ctx.Config.UI.Editor = "mystery-editor"
 	gotModel, cmd = got.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")})
 	got = gotModel.(Model)
-	if cmd != nil {
-		t.Fatal("unsupported editor should not return a command")
+	if cmd == nil {
+		t.Fatal("unsupported editor status should schedule expiry")
 	}
 	if !strings.Contains(got.status, "unsupported editor") {
 		t.Fatalf("unsupported editor status = %q", got.status)
@@ -268,8 +270,10 @@ func TestOpenEditorKeyReportsDetachedLaunchFailure(t *testing.T) {
 
 	gotModel, cmd := m.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")})
 	got := gotModel.(Model)
-	if cmd != nil {
-		t.Fatal("failed launch should not schedule status expiry")
+	// The launch failed (status reflects it) but the error message itself now
+	// auto-expires like every other status message (PRD #86).
+	if cmd == nil {
+		t.Fatal("failed launch status should schedule expiry")
 	}
 	if !strings.Contains(got.status, "open editor failed: boom") {
 		t.Fatalf("status = %q", got.status)
@@ -428,6 +432,7 @@ func TestEnterOnDeadSessionDoesNotAttach(t *testing.T) {
 		t.Fatal(err)
 	}
 	c.Tmux = &fakeTmux{live: map[string]bool{}}
+	c.Config.UI.StatusTimeoutSeconds = 0.02
 	target := filepath.Join(t.TempDir(), "myapp")
 	if err := mkdirAll(target); err != nil {
 		t.Fatal(err)
@@ -448,11 +453,14 @@ func TestEnterOnDeadSessionDoesNotAttach(t *testing.T) {
 	m.cursor.agentIdx = 0
 
 	got, cmd := m.attachSelectedAgent()
-	if cmd != nil {
-		t.Fatal("dead session should not produce an attach command")
-	}
 	if !strings.Contains(got.status, "press K") {
 		t.Fatalf("expected remove hint status, got %q", got.status)
+	}
+	// Blocked attach takes the status branch instead of attaching: the only
+	// command it returns is the status expiry (PRD #86), never an attach exec.
+	msgs := runCmdAndCollect(t, cmd, 2*time.Second)
+	if !containsType(msgs, statusExpiredMsg{}) {
+		t.Fatalf("blocked attach should schedule a status expiry, got msgs=%v", msgs)
 	}
 }
 
@@ -1145,6 +1153,92 @@ func TestStaleQuickMessageStatusExpiryDoesNotClearNewerStatus(t *testing.T) {
 	got := updated.(Model)
 	if got.status != "sent to s1" {
 		t.Fatalf("stale expiry cleared newer status, got %q", got.status)
+	}
+}
+
+// TestExplicitStatusActionsAutoExpire drives one representative status-producing
+// action from each category and asserts the returned command actually carries a
+// status expiry (a statusExpiredMsg), then that firing that expiry clears the
+// message. This is the regression guard for PRD #86: a raw `m.status = ...` that
+// bypasses the central setStatus helper schedules no expiry, so its command
+// yields no statusExpiredMsg and the relevant case fails.
+func TestExplicitStatusActionsAutoExpire(t *testing.T) {
+	cases := []struct {
+		name    string
+		wantMsg string // substring expected in the status line
+		act     func(t *testing.T, c *cli.Ctx) (Model, tea.Cmd)
+	}{
+		{
+			name:    "success confirmation (send)",
+			wantMsg: "sent to s1",
+			act: func(t *testing.T, c *cli.Ctx) (Model, tea.Cmd) {
+				return New(c).performSend(SendSubmitted{SessionID: "s1", Text: "hi"})
+			},
+		},
+		{
+			name:    "error (spawn failure)",
+			wantMsg: "spawn failed",
+			act: func(t *testing.T, c *cli.Ctx) (Model, tea.Cmd) {
+				target := filepath.Join(t.TempDir(), "myapp")
+				if err := mkdirAll(target); err != nil {
+					t.Fatal(err)
+				}
+				registered, err := c.Projects.Add(target)
+				if err != nil {
+					t.Fatal(err)
+				}
+				agent := c.Config.Agents["codex"]
+				agent.Command = "zzcleo-not-in-path"
+				c.Config.Agents["codex"] = agent
+				m := New(c)
+				m.projects, _ = c.Projects.List()
+				return m.performSpawn(SpawnSubmitted{ProjectID: registered.ID, Path: target, Agent: "codex", Name: "x"})
+			},
+		},
+		{
+			name:    "blocked action (send with no selection)",
+			wantMsg: "select a session with j/k first",
+			act: func(t *testing.T, c *cli.Ctx) (Model, tea.Cmd) {
+				return New(c).openSendPopup()
+			},
+		},
+		{
+			name:    "async completion (editor finished error)",
+			wantMsg: "editor failed: boom",
+			act: func(t *testing.T, c *cli.Ctx) (Model, tea.Cmd) {
+				updated, cmd := New(c).Update(editorFinishedMsg{err: errors.New("boom")})
+				return updated.(Model), cmd
+			},
+		},
+		{
+			name:    "lifecycle warning (kill failure)",
+			wantMsg: "kill failed",
+			act: func(t *testing.T, c *cli.Ctx) (Model, tea.Cmd) {
+				return New(c).performKill("ghost")
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newTestCtx(t)
+			// Shrink the timeout so the expiry tick fires fast under test;
+			// set directly to bypass the load-time clamp.
+			c.Config.UI.StatusTimeoutSeconds = 0.02
+
+			got, cmd := tc.act(t, c)
+			if !strings.Contains(got.status, tc.wantMsg) {
+				t.Fatalf("status = %q, want substring %q", got.status, tc.wantMsg)
+			}
+			msgs := runCmdAndCollect(t, cmd, 2*time.Second)
+			if !containsType(msgs, statusExpiredMsg{}) {
+				t.Fatalf("action scheduled no status expiry; status set without setStatus? msgs=%v", msgs)
+			}
+
+			updated, _ := got.Update(statusExpiredMsg{id: got.statusTimerID})
+			if cleared := updated.(Model); cleared.status != "" {
+				t.Fatalf("expiry should clear status, got %q", cleared.status)
+			}
+		})
 	}
 }
 

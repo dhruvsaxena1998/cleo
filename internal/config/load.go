@@ -136,6 +136,14 @@ func validate(c *Config) {
 		c.adjust("ui.sidebar_width above 200; clamped to 200")
 		c.UI.SidebarWidth = 200
 	}
+	if c.UI.StatusTimeoutSeconds < 0.5 {
+		c.adjust("ui.status_timeout_seconds below 0.5s; clamped to 0.5s")
+		c.UI.StatusTimeoutSeconds = 0.5
+	}
+	if c.UI.StatusTimeoutSeconds > 10 {
+		c.adjust("ui.status_timeout_seconds above 10s; clamped to 10s")
+		c.UI.StatusTimeoutSeconds = 10
+	}
 	if c.UI.Theme == "" || !validThemes[c.UI.Theme] {
 		c.Warnings = append(c.Warnings, fmt.Sprintf("ui.theme %q is unknown; using %q", c.UI.Theme, defaults.UI.Theme))
 		c.Diagnostics = append(c.Diagnostics,

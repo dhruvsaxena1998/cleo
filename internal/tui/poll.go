@@ -45,8 +45,8 @@ func tickStateCmd() tea.Cmd {
 	return tea.Tick(750*time.Millisecond, func(time.Time) tea.Msg { return tickStateMsg{} })
 }
 
-func statusExpiryCmd(id int) tea.Cmd {
-	return tea.Tick(3*time.Second, func(time.Time) tea.Msg { return statusExpiredMsg{id: id} })
+func statusExpiryCmd(id int, d time.Duration) tea.Cmd {
+	return tea.Tick(d, func(time.Time) tea.Msg { return statusExpiredMsg{id: id} })
 }
 
 // previewTickMsg fires on a fixed interval and drives all pane-preview
