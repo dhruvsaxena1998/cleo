@@ -25,14 +25,16 @@ var agentNames = []string{"claude", "codex", "opencode", "pi"}
 // attaches to or mutates a Session; it only projects the live session list.
 type Server struct {
 	token    string
-	snapshot func() []state.Session
+	snapshot func() ([]state.Session, error)
 	now      func() time.Time
 	page     []byte
 }
 
 // NewServer builds the server. snapshot returns the live session list (the CLI
-// wires it to reconcile + state.List); token gates every request.
-func NewServer(token string, snapshot func() []state.Session) (*Server, error) {
+// wires it to reconcile + state.List); token gates every request. A snapshot
+// error surfaces as 503 so the page falls back to its "reconnecting…" state
+// rather than rendering a misleading empty/all-calm board.
+func NewServer(token string, snapshot func() ([]state.Session, error)) (*Server, error) {
 	page, err := buildPage()
 	if err != nil {
 		return nil, err
@@ -67,7 +69,14 @@ func (s *Server) gate(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
-	view := Project(s.snapshot(), s.now())
+	sessions, err := s.snapshot()
+	if err != nil {
+		// No authoritative read — let the page show "reconnecting…" instead of
+		// a falsely calm empty board.
+		http.Error(w, "snapshot unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	view := Project(sessions, s.now())
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	_ = json.NewEncoder(w).Encode(view)

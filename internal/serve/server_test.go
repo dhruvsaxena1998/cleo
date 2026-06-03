@@ -2,6 +2,7 @@ package serve
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,7 +14,7 @@ import (
 
 func testServer(t *testing.T, token string, sessions []state.Session) http.Handler {
 	t.Helper()
-	srv, err := NewServer(token, func() []state.Session { return sessions })
+	srv, err := NewServer(token, func() ([]state.Session, error) { return sessions, nil })
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
 	}
@@ -68,6 +69,26 @@ func TestIndexServesPageWithInlinedIconsWhenAuthorized(t *testing.T) {
 	}
 	if !strings.Contains(body, "cleo") {
 		t.Error("expected cleo wordmark in the page")
+	}
+}
+
+func TestSessionsEndpointReturns503WhenSnapshotFails(t *testing.T) {
+	srv, err := NewServer("sekret", func() ([]state.Session, error) {
+		return nil, errors.New("state unreadable")
+	})
+	if err != nil {
+		t.Fatalf("NewServer: %v", err)
+	}
+	h := srv.Handler()
+
+	req := httptest.NewRequest("GET", "/api/sessions?token=sekret", nil)
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+
+	// A failed authoritative read must surface as 503 so the page shows
+	// "reconnecting…" rather than a misleading empty/all-calm board.
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Errorf("status = %d, want 503", rr.Code)
 	}
 }
 

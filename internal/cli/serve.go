@@ -38,13 +38,16 @@ func newServeCmd(getCtx func() *Ctx) *cobra.Command {
 
 			// The remote view reuses the `cleo ls` data path: reconcile against
 			// tmux, then read durable state. No new tmux calls beyond reconcile.
-			snapshot := func() []state.Session {
+			// Reconcile is best-effort freshening — a tmux hiccup must not blank
+			// the board while durable state is still readable — but a failed
+			// state read is surfaced so the page shows "reconnecting…" rather
+			// than a misleading empty board.
+			snapshot := func() ([]state.Session, error) {
 				_ = reconcile.RunOpts(c.State, c.Tmux, reconcile.Options{
 					IdleTimeout:     c.Config.Timeouts.IdleToCompletedTimeout,
 					SpawningTimeout: c.Config.Timeouts.SpawningTimeout,
 				})
-				sessions, _ := c.State.List()
-				return sessions
+				return c.State.List()
 			}
 
 			srv, err := serve.NewServer(token, snapshot)
@@ -75,9 +78,14 @@ func newServeCmd(getCtx func() *Ctx) *cobra.Command {
 			ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 			defer stop()
 
+			// Bound every phase of a connection: the view is exposed on all
+			// interfaces (0.0.0.0), so a slow or hostile LAN peer must not be
+			// able to tie up connections/goroutines indefinitely.
 			httpSrv := &http.Server{
 				Handler:           srv.Handler(),
 				ReadHeaderTimeout: 5 * time.Second,
+				WriteTimeout:      10 * time.Second,
+				IdleTimeout:       120 * time.Second,
 			}
 			go func() {
 				<-ctx.Done()

@@ -123,11 +123,12 @@ const cssVar = (v) => getComputedStyle(document.documentElement).getPropertyValu
 const ICONS = __AGENT_ICONS__;
 function agentIcon(name) {
   const svg = ICONS[name];
-  if (!svg) return `<span class="agent-ic fallback" title="${name}">${(name||"?")[0].toUpperCase()}</span>`;
-  return `<span class="agent-ic ic-${name}" title="${name}">${svg}</span>`;
+  if (!svg) return `<span class="agent-ic fallback" title="${esc(name)}">${esc((name||"?")[0].toUpperCase())}</span>`;
+  return `<span class="agent-ic ic-${esc(name)}" title="${esc(name)}">${svg}</span>`;
 }
 
 function fmtAge(s) {
+  s = Math.max(0, Math.floor(Number(s) || 0)); // guard NaN/null/negative
   if (s < 60)    return s + "s";
   if (s < 3600)  return Math.floor(s/60) + "m";
   if (s < 86400) return Math.floor(s/3600) + "h";
