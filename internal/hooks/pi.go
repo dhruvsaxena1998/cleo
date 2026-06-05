@@ -79,7 +79,9 @@ func (PiProtocol) Normalize(event string, payload []byte) (NormalizedEvent, bool
 	case "tool_result":
 		return NormalizedEvent{StateEvent: state.EvPostToolUse, ToolName: p.ToolName}, true
 	case "agent_end":
-		return NormalizedEvent{StateEvent: state.EvStop, SoundEvent: "session_idle"}, true
+		// Pi fires agent_end after every turn (not just when genuinely idle),
+		// so suppress the sound to avoid false "done" notifications mid-task.
+		return NormalizedEvent{StateEvent: state.EvStop}, true
 	case "session_shutdown":
 		return NormalizedEvent{StateEvent: state.EvSessionEnd, SoundEvent: "session_completed"}, true
 	}

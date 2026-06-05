@@ -45,7 +45,7 @@ func TestPiProtocol_Normalize(t *testing.T) {
 		{
 			event:   "agent_end",
 			payload: `{"cwd":"/proj"}`,
-			want:    NormalizedEvent{StateEvent: state.EvStop, SoundEvent: "session_idle"},
+			want:    NormalizedEvent{StateEvent: state.EvStop},
 			wantOk:  true,
 		},
 		{
