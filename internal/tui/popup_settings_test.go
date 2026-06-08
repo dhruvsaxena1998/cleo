@@ -224,6 +224,90 @@ func TestSettingsViewHasConsistentWidth(t *testing.T) {
 	}
 }
 
+// --- Model-level wiring: live preview + save must update m.theme and re-sync
+// the terminal background (the OSC 11 command), which is what makes a theme
+// change take effect without a restart. ---
+
+func TestModelLiveThemeChangeAppliesAndSyncsBackground(t *testing.T) {
+	ctx := newTestCtx(t) // default theme catppuccin-mocha
+	m := New(ctx)
+
+	cfg := ctx.Config
+	cfg.UI.Theme = "synthwave"
+	updated, cmd := m.Update(SettingsChanged{Config: cfg})
+	mm := updated.(Model)
+
+	if mm.theme.Name != "synthwave" {
+		t.Fatalf("live theme = %q, want synthwave", mm.theme.Name)
+	}
+	if mm.ctx.Config.UI.Theme != "synthwave" {
+		t.Fatalf("ctx config theme = %q, want synthwave", mm.ctx.Config.UI.Theme)
+	}
+	if cmd == nil {
+		t.Fatal("a terminal-background sync command is required so the theme applies without a restart")
+	}
+}
+
+func TestModelLiveNonThemeChangeSkipsBackgroundSync(t *testing.T) {
+	ctx := newTestCtx(t)
+	m := New(ctx)
+
+	cfg := ctx.Config
+	cfg.Sound.Volume = 0.3 // theme unchanged
+	_, cmd := m.Update(SettingsChanged{Config: cfg})
+	if cmd != nil {
+		t.Fatal("no background sync expected when the theme is unchanged")
+	}
+}
+
+func TestModelSaveAppliesPersistsAndSyncsTheme(t *testing.T) {
+	ctx := newTestCtx(t)
+	m := New(ctx)
+
+	cfg := ctx.Config
+	cfg.UI.Theme = "void"
+	updated, cmd := m.Update(SettingsSaved{Config: cfg})
+	mm := updated.(Model)
+
+	if mm.theme.Name != "void" {
+		t.Fatalf("theme after save = %q, want void", mm.theme.Name)
+	}
+	if cmd == nil {
+		t.Fatal("save that changes the theme must return a command (status + background sync)")
+	}
+	reloaded, err := config.Load(ctx.Paths.ConfigFile())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.UI.Theme != "void" {
+		t.Fatalf("persisted theme = %q, want void", reloaded.UI.Theme)
+	}
+}
+
+func TestModelEscRevertsThemePreview(t *testing.T) {
+	ctx := newTestCtx(t)
+	m := New(ctx)
+
+	// Open settings (snapshots the backup), preview a new theme, then esc.
+	opened, _ := m.openSettingsPopup()
+	cfg := opened.ctx.Config
+	cfg.UI.Theme = "synthwave"
+	previewed, _ := opened.Update(SettingsChanged{Config: cfg})
+	pm := previewed.(Model)
+	if pm.theme.Name != "synthwave" {
+		t.Fatalf("preview theme = %q, want synthwave", pm.theme.Name)
+	}
+
+	reverted, _ := pm.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	rm := reverted.(Model)
+	if rm.theme.Name != "catppuccin-mocha" {
+		t.Fatalf("theme after esc = %q, want revert to catppuccin-mocha", rm.theme.Name)
+	}
+	if rm.popup != nil {
+		t.Fatal("esc should close the settings popup")
+	}
+}
+
 func TestSettingsEnterSaves(t *testing.T) {
 	cfg := config.Defaults_()
 	p := newTestSettings(cfg)

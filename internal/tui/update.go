@@ -101,10 +101,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case SettingsChanged:
 		// Live preview only — apply to the in-memory config (and re-resolve the
-		// theme) so the dashboard recolors/resizes; nothing is written yet.
+		// theme) so the dashboard recolors/resizes; nothing is written yet. The
+		// returned command re-syncs the terminal background when the theme moved.
 		m.ctx.Config = msg.Config
-		m.theme = Resolve(msg.Config.UI.Theme)
-		return m, nil
+		cmd := m.applyTheme(msg.Config.UI.Theme)
+		return m, cmd
 	case SettingsSaved:
 		return m.performSettingsSave(msg)
 	case HelpClosed:

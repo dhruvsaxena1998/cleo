@@ -25,14 +25,15 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.mode == ModePopup && m.popup != nil {
 			// The settings popup previews edits live against ctx.Config; esc is
 			// cancel, so restore the pre-open snapshot (and theme) before closing.
+			var cmd tea.Cmd
 			if _, ok := m.popup.(SettingsPopup); ok {
 				m.ctx.Config = m.settingsBackup
-				m.theme = Resolve(m.settingsBackup.UI.Theme)
+				cmd = m.applyTheme(m.settingsBackup.UI.Theme)
 			}
 			m.popup = nil
 			m.mode = ModeNormal
 			m.status = ""
-			return m, nil
+			return m, cmd
 		}
 		m.status = ""
 		return m, nil
@@ -350,13 +351,15 @@ func (m Model) performSettingsSave(msg SettingsSaved) (Model, tea.Cmd) {
 		return m, m.setStatus(fmt.Sprintf("settings save failed: %v", err))
 	}
 	m.ctx.Config = cfg
-	m.theme = Resolve(cfg.UI.Theme)
+	themeCmd := m.applyTheme(cfg.UI.Theme)
 	m.mode = ModeNormal
 	m.popup = nil
+	status := "settings saved"
 	if n := len(cfg.Warnings); n > 0 {
-		return m, m.setStatus(fmt.Sprintf("settings saved (%d value(s) adjusted)", n))
+		status = fmt.Sprintf("settings saved (%d value(s) adjusted)", n)
 	}
-	return m, m.setStatus("settings saved")
+	statusCmd := m.setStatus(status)
+	return m, tea.Batch(statusCmd, themeCmd)
 }
 
 func (m Model) toggleMute() (Model, tea.Cmd) {

@@ -111,3 +111,18 @@ func (m *Model) clearStatus() {
 	m.status = ""
 	m.statusTimerID++
 }
+
+// applyTheme switches the live theme and returns a command to re-sync the
+// terminal background (OSC 11) when the base colour actually changes. The
+// background is set once at startup (Run); without this, a runtime theme change
+// recolours the lipgloss-rendered cells but leaves the terminal background on
+// the old theme until the program is restarted. Returns nil when the base is
+// unchanged so non-theme edits don't write escape sequences on every keystroke.
+func (m *Model) applyTheme(name string) tea.Cmd {
+	prev := m.theme.Base
+	m.theme = Resolve(name)
+	if m.theme.Base == prev {
+		return nil
+	}
+	return setBackgroundCmd(m.theme.Base)
+}
