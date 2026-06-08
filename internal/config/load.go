@@ -16,6 +16,33 @@ var validThemes = map[string]bool{
 	"synthwave":        true,
 }
 
+// Clamp bounds enforced by validate. Exported so the in-app settings editor can
+// constrain its steppers to the same limits the validator enforces, keeping the
+// two from drifting apart.
+const (
+	MinSoundVolume = 0.0
+	MaxSoundVolume = 1.0
+
+	MinPanePreviewInterval = 100 * time.Millisecond
+	MinPanePreviewLines    = 1
+
+	MinEventLogLines = 10
+
+	MinSidebarWidth = 10
+	MaxSidebarWidth = 200
+
+	MinStatusTimeoutSeconds = 0.5
+	MaxStatusTimeoutSeconds = 10.0
+
+	MinTimeout = 100 * time.Millisecond
+)
+
+// Normalize clamps out-of-range values and recomputes the derived Keymap,
+// Warnings, and Diagnostics — the same pass Load runs after decoding. Callers
+// that mutate a Config in memory (the in-app settings editor) run this before
+// Save so persisted values match what the next Load would have produced.
+func Normalize(c *Config) { validate(c) }
+
 // Load reads from path; if not present, writes defaults and returns them.
 func Load(path string) (Config, error) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -108,41 +135,41 @@ func validate(c *Config) {
 	defaults := Defaults_()
 	c.Warnings = nil
 	c.Diagnostics = nil
-	if c.Sound.Volume < 0 {
+	if c.Sound.Volume < MinSoundVolume {
 		c.adjust("sound.volume below 0; clamped to 0")
-		c.Sound.Volume = 0
+		c.Sound.Volume = MinSoundVolume
 	}
-	if c.Sound.Volume > 1 {
+	if c.Sound.Volume > MaxSoundVolume {
 		c.adjust("sound.volume above 1; clamped to 1")
-		c.Sound.Volume = 1
+		c.Sound.Volume = MaxSoundVolume
 	}
-	if c.UI.PanePreview.Interval < 100*time.Millisecond {
+	if c.UI.PanePreview.Interval < MinPanePreviewInterval {
 		c.adjust("ui.pane_preview.interval below 100ms; clamped to 100ms")
-		c.UI.PanePreview.Interval = 100 * time.Millisecond
+		c.UI.PanePreview.Interval = MinPanePreviewInterval
 	}
-	if c.UI.PanePreview.Lines < 1 {
+	if c.UI.PanePreview.Lines < MinPanePreviewLines {
 		c.adjust("ui.pane_preview.lines below 1; clamped to 1")
-		c.UI.PanePreview.Lines = 1
+		c.UI.PanePreview.Lines = MinPanePreviewLines
 	}
-	if c.UI.EventLogLines < 10 {
+	if c.UI.EventLogLines < MinEventLogLines {
 		c.adjust("ui.event_log_lines below 10; clamped to 10")
-		c.UI.EventLogLines = 10
+		c.UI.EventLogLines = MinEventLogLines
 	}
-	if c.UI.SidebarWidth < 10 {
+	if c.UI.SidebarWidth < MinSidebarWidth {
 		c.adjust("ui.sidebar_width below 10; clamped to 10")
-		c.UI.SidebarWidth = 10
+		c.UI.SidebarWidth = MinSidebarWidth
 	}
-	if c.UI.SidebarWidth > 200 {
+	if c.UI.SidebarWidth > MaxSidebarWidth {
 		c.adjust("ui.sidebar_width above 200; clamped to 200")
-		c.UI.SidebarWidth = 200
+		c.UI.SidebarWidth = MaxSidebarWidth
 	}
-	if c.UI.StatusTimeoutSeconds < 0.5 {
+	if c.UI.StatusTimeoutSeconds < MinStatusTimeoutSeconds {
 		c.adjust("ui.status_timeout_seconds below 0.5s; clamped to 0.5s")
-		c.UI.StatusTimeoutSeconds = 0.5
+		c.UI.StatusTimeoutSeconds = MinStatusTimeoutSeconds
 	}
-	if c.UI.StatusTimeoutSeconds > 10 {
+	if c.UI.StatusTimeoutSeconds > MaxStatusTimeoutSeconds {
 		c.adjust("ui.status_timeout_seconds above 10s; clamped to 10s")
-		c.UI.StatusTimeoutSeconds = 10
+		c.UI.StatusTimeoutSeconds = MaxStatusTimeoutSeconds
 	}
 	if c.UI.Theme == "" || !validThemes[c.UI.Theme] {
 		c.Warnings = append(c.Warnings, fmt.Sprintf("ui.theme %q is unknown; using %q", c.UI.Theme, defaults.UI.Theme))
@@ -152,13 +179,13 @@ func validate(c *Config) {
 		)
 		c.UI.Theme = defaults.UI.Theme
 	}
-	if c.Timeouts.IdleToCompletedTimeout < 100*time.Millisecond {
+	if c.Timeouts.IdleToCompletedTimeout < MinTimeout {
 		c.adjust("timeouts.idle_to_completed_timeout below 100ms; clamped to 100ms")
-		c.Timeouts.IdleToCompletedTimeout = 100 * time.Millisecond
+		c.Timeouts.IdleToCompletedTimeout = MinTimeout
 	}
-	if c.Timeouts.SpawningTimeout < 100*time.Millisecond {
+	if c.Timeouts.SpawningTimeout < MinTimeout {
 		c.adjust("timeouts.spawning_timeout below 100ms; clamped to 100ms")
-		c.Timeouts.SpawningTimeout = 100 * time.Millisecond
+		c.Timeouts.SpawningTimeout = MinTimeout
 	}
 	for name, agent := range c.Agents {
 		if agent.Command == "" {

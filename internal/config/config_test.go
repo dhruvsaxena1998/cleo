@@ -390,3 +390,25 @@ func TestRoundTripPreservesUserOverrides(t *testing.T) {
 		t.Errorf("keep default = %d", got.Pruning.KeepDefault)
 	}
 }
+
+func TestNormalizeClampsInMemory(t *testing.T) {
+	c := Defaults_()
+	c.UI.SidebarWidth = 9999
+	c.Sound.Volume = 5
+	c.UI.StatusTimeoutSeconds = 0
+
+	Normalize(&c)
+
+	if c.UI.SidebarWidth != MaxSidebarWidth {
+		t.Errorf("sidebar width = %d, want clamp to %d", c.UI.SidebarWidth, MaxSidebarWidth)
+	}
+	if c.Sound.Volume != MaxSoundVolume {
+		t.Errorf("volume = %v, want clamp to %v", c.Sound.Volume, MaxSoundVolume)
+	}
+	if c.UI.StatusTimeoutSeconds != MinStatusTimeoutSeconds {
+		t.Errorf("status timeout = %v, want clamp to %v", c.UI.StatusTimeoutSeconds, MinStatusTimeoutSeconds)
+	}
+	if len(c.Warnings) == 0 {
+		t.Error("Normalize should record warnings for clamped values")
+	}
+}

@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/dhruvsaxena1998/cleo/internal/cli"
+	"github.com/dhruvsaxena1998/cleo/internal/config"
 	"github.com/dhruvsaxena1998/cleo/internal/projects"
 	"github.com/dhruvsaxena1998/cleo/internal/state"
 )
@@ -28,6 +29,11 @@ type Model struct {
 	editorLauncher editorLauncher
 	width, height  int
 	err            error
+
+	// settingsBackup is the config snapshot taken when the settings popup
+	// opens. Edits preview live against ctx.Config; cancelling (esc) restores
+	// this snapshot. See openSettingsPopup and the Esc handler in handleKey.
+	settingsBackup config.Config
 
 	// paneCaptureInFlight is true between dispatching a capturePaneCmd and
 	// receiving the corresponding paneCapturedMsg. The selection-driven
@@ -104,4 +110,19 @@ func (m *Model) clearStatus() {
 	}
 	m.status = ""
 	m.statusTimerID++
+}
+
+// applyTheme switches the live theme and returns a command to re-sync the
+// terminal background (OSC 11) when the base colour actually changes. The
+// background is set once at startup (Run); without this, a runtime theme change
+// recolours the lipgloss-rendered cells but leaves the terminal background on
+// the old theme until the program is restarted. Returns nil when the base is
+// unchanged so non-theme edits don't write escape sequences on every keystroke.
+func (m *Model) applyTheme(name string) tea.Cmd {
+	prev := m.theme.Base
+	m.theme = Resolve(name)
+	if m.theme.Base == prev {
+		return nil
+	}
+	return setBackgroundCmd(m.theme.Base)
 }

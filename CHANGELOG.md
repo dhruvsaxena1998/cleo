@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- In-app settings editor: press `,` in the dashboard to edit a curated set of settings without leaving the TUI — `default_agent`, `editor`, `theme`, `sidebar_width`, pane-preview toggle/lines/interval, `status_timeout_seconds`, `event_log_lines`, the `[timeouts]` and `[pruning]` values, sound enabled/volume, and a per-event on/off toggle for each `[sound.events.<event>]`. Changes preview live — the theme recolors and the sidebar resizes as you scroll — and are written to `config.toml` on `enter` (re-clamped to valid ranges) or discarded on `esc`. The list scrolls to fit short terminals. The `[tmux]`, `[agents]`, and `[keybinds]` tables (and per-event sound *files*) remain file-only. Rebindable via the new `settings` keybind action.
+
 ## [0.2.0] - 2026-06-02
 
 ### Added

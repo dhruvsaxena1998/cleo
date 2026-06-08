@@ -74,6 +74,7 @@ func (p HelpPopup) View() string {
 		{"Global", []row{
 			act(km.Filter, "find"),
 			act(km.Mute, "mute / unmute"),
+			act(km.Settings, "settings"),
 			act(km.Help, "help"),
 			act(km.Quit, "quit"),
 		}},

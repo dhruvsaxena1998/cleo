@@ -1,6 +1,10 @@
 package tui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"sort"
+
+	"github.com/charmbracelet/lipgloss"
+)
 
 // Theme holds all semantic colors for the TUI. Add a new built-in theme by:
 // 1. Declaring a new var block below
@@ -157,4 +161,15 @@ func Resolve(name string) Theme {
 		return t
 	}
 	return catppuccinMocha
+}
+
+// ThemeNames returns the registry's theme names in sorted order. It is the
+// source the in-app settings editor cycles through when picking a theme.
+func ThemeNames() []string {
+	names := make([]string, 0, len(registry))
+	for name := range registry {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
