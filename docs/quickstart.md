@@ -59,6 +59,7 @@ The dashboard shows registered projects, their sessions, current state, and a pr
 | `P` | Prune finished sessions for the focused project |
 | `D` | Remove the focused project |
 | `alt+m` | Toggle sound for the running Cleo process |
+| `,` | Open the in-app settings editor |
 | `?` | Show help |
 | `esc` | Cancel the current popup/filter mode |
 | `q` | Quit the dashboard |

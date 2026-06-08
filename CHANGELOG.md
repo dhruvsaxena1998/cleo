@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-06-08
+
 ### Added
 - In-app settings editor: press `,` in the dashboard to edit a curated set of settings without leaving the TUI — `default_agent`, `editor`, `theme`, `sidebar_width`, pane-preview toggle/lines/interval, `status_timeout_seconds`, `event_log_lines`, the `[timeouts]` and `[pruning]` values, sound enabled/volume, and a per-event on/off toggle for each `[sound.events.<event>]`. Changes preview live — the theme recolors and the sidebar resizes as you scroll — and are written to `config.toml` on `enter` (re-clamped to valid ranges) or discarded on `esc`. The list scrolls to fit short terminals. The `[tmux]`, `[agents]`, and `[keybinds]` tables (and per-event sound *files*) remain file-only. Rebindable via the new `settings` keybind action.
+- Auto-expiring dashboard status messages: status text set via hooks now fades after `status_timeout_seconds` (default 30s) and clears automatically, so stale "thinking" or "waiting" labels don't persist indefinitely.
+
+### Fixed
+- Suppressed the `session_idle` sound when the Pi agent ends its session, avoiding an unnecessary audible notification on normal shutdown.
 
 ## [0.2.0] - 2026-06-02
 
