@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-06-08
+
+### Added
+- Mouse support: full mouse interaction for the dashboard's projects and sessions tree. Left-clicking a session row selects it; left-clicking it again attaches to it. Left-clicking a project header selects it and toggles its expand/collapse state. Scrolling the mouse wheel moves the tree list selection up or down.
+- Configurable mouse cell motion toggle via `[ui.mouse]`. Setting `enabled = false` disables terminal mouse-tracking mode entirely, restoring native click-and-drag text selection and copying.
+
+### Changed
+- Refactored the dashboard fuzzy finder input field to use a standard textinput component. This enables spacebar, cursor traversal, word-jumping, backspace/delete, home/end, and text pasting out of the box.
+- Updated company branding to a new orange cat logo and brand palette (`#FD691D`), including updated light/dark landing-page colors and amber warning badges.
+
+
 ## [0.2.1] - 2026-06-08
 
 ### Added

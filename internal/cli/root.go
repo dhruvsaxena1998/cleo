@@ -9,7 +9,7 @@ import (
 
 // Version is the user-facing version string. Release builds override this
 // via -ldflags "-X github.com/dhruvsaxena1998/cleo/internal/cli.Version=...".
-var Version = "0.2.1"
+var Version = "0.2.2"
 
 func NewRootCmd(tuiRun func(*Ctx) error) *cobra.Command {
 	root := &cobra.Command{
