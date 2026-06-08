@@ -3,6 +3,7 @@ package tui
 import (
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -11,8 +12,10 @@ import (
 	"github.com/dhruvsaxena1998/cleo/internal/config"
 )
 
+// newTestSettings uses a tall terminal so the whole field list renders without
+// scrolling; scroll behavior is exercised separately with a small height.
 func newTestSettings(cfg config.Config) SettingsPopup {
-	return NewSettingsPopup(cfg, Resolve(cfg.UI.Theme), []string{"claude", "codex"})
+	return NewSettingsPopup(cfg, Resolve(cfg.UI.Theme), []string{"claude", "codex"}, 100)
 }
 
 func fieldIndexSec(p SettingsPopup, section, label string) int {
@@ -141,6 +144,74 @@ func TestSettingsEditorFieldTyping(t *testing.T) {
 	}
 	if p.draft.UI.Editor != "vim" {
 		t.Fatalf("editor = %q, want %q", p.draft.UI.Editor, "vim")
+	}
+}
+
+func TestSettingsTimeoutSteps(t *testing.T) {
+	cfg := config.Defaults_() // SpawningTimeout = 30s, step 5s
+	p := newTestSettings(cfg)
+	p.cursor = fieldIndexSec(p, "Timeouts", "spawning")
+
+	_, msg := step(p, settingsKey("right"))
+	changed := msg.(SettingsChanged)
+	if changed.Config.Timeouts.SpawningTimeout != 35*time.Second {
+		t.Fatalf("spawning timeout = %v, want 35s", changed.Config.Timeouts.SpawningTimeout)
+	}
+}
+
+func TestSettingsPruningSteps(t *testing.T) {
+	cfg := config.Defaults_() // HintThreshold = 6, step 1
+	p := newTestSettings(cfg)
+	p.cursor = fieldIndexSec(p, "Pruning", "hint threshold")
+
+	_, msg := step(p, settingsKey("right"))
+	changed := msg.(SettingsChanged)
+	if changed.Config.Pruning.HintThreshold != 7 {
+		t.Fatalf("hint threshold = %d, want 7", changed.Config.Pruning.HintThreshold)
+	}
+}
+
+func TestSettingsSoundEventTogglesWithoutMutatingOriginal(t *testing.T) {
+	cfg := config.Defaults_() // session_start enabled = true
+	original := cfg.Sound.Events // shared reference also held by the revert snapshot
+	const ev = "session_start"
+
+	p := newTestSettings(cfg)
+	p.cursor = fieldIndexSec(p, "Sound Events", ev)
+
+	_, msg := step(p, settingsKey(" "))
+	changed := msg.(SettingsChanged)
+	if changed.Config.Sound.Events[ev].Enabled {
+		t.Fatalf("draft event %q should toggle off", ev)
+	}
+	// The popup must edit a clone, leaving the caller's map (and thus the
+	// parent's revert snapshot) untouched so esc-cancel restores it.
+	if !original[ev].Enabled {
+		t.Fatalf("original events map was mutated; revert would be broken")
+	}
+}
+
+func TestSettingsScrollKeepsCursorVisibleAndPinsFooter(t *testing.T) {
+	// A short terminal forces the body to scroll.
+	p := NewSettingsPopup(config.Defaults_(), Resolve("catppuccin-mocha"), []string{"claude"}, 22)
+
+	// Drive the cursor to the last field.
+	for p.cursor < len(p.fields)-1 {
+		m, _ := p.Update(settingsKey("down"))
+		p = m.(SettingsPopup)
+	}
+
+	lines := strings.Split(p.View(), "\n")
+	if len(lines) > 22 {
+		t.Fatalf("popup height %d exceeds terminal height 22", len(lines))
+	}
+	out := ansi.Strip(p.View())
+	if last := p.fields[len(p.fields)-1].label; !strings.Contains(out, last) {
+		t.Fatalf("last field %q should stay visible after scrolling", last)
+	}
+	// Footer stays pinned just above the bottom border.
+	if footer := ansi.Strip(lines[len(lines)-2]); !strings.Contains(footer, "save") {
+		t.Fatalf("footer should be pinned, got %q", footer)
 	}
 }
 

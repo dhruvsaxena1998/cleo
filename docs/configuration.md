@@ -288,11 +288,13 @@ Press `,` in the dashboard to open the settings editor. It covers the settings y
 - **Appearance** — `theme`, `sidebar_width`
 - **Pane Preview** — `enabled`, `lines`, `interval`
 - **UX** — `status_timeout_seconds`, `event_log_lines`
-- **Sound** — `enabled`, `volume`
+- **Timeouts** — `idle_to_completed_timeout`, `spawning_timeout`
+- **Pruning** — `hint_threshold`, `keep_default`
+- **Sound** — `enabled`, `volume`, plus a per-event on/off toggle for each `[sound.events.<event>]`
 
-Navigate fields with `↑`/`↓` (or `Tab`), change the focused field with `←`/`→` (toggle a switch, cycle an option, step a number); on the `editor` field just type. Changes preview live — the theme recolors and the sidebar resizes as you scroll. Press `enter` to write them to `config.toml`, or `esc` to discard everything and revert. Out-of-range values are clamped on save, exactly as they would be on load.
+Navigate fields with `↑`/`↓` (or `Tab`), change the focused field with `←`/`→` (toggle a switch, cycle an option, step a number); on the `editor` field just type. The list scrolls when it doesn't fit the terminal, keeping the cursor in view. Changes preview live — the theme recolors and the sidebar resizes as you scroll. Press `enter` to write them to `config.toml`, or `esc` to discard everything and revert. Out-of-range values are clamped on save, exactly as they would be on load.
 
-Everything else (the `[agents]`, `[keybinds]`, and `[sound.events]` tables, `[tmux]`, `[timeouts]`, `[pruning]`) is still edited in the file.
+The `[tmux]`, `[agents]`, and `[keybinds]` tables are still edited in the file. Per-event sound **files** (`[sound.events.<event>].file`) are also file-only — the panel toggles each event on or off but does not change which sound it plays.
 
 ### Editing the file
 

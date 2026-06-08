@@ -307,7 +307,7 @@ func (m Model) openSettingsPopup() (Model, tea.Cmd) {
 	for name := range m.ctx.Config.Agents {
 		agents = append(agents, name)
 	}
-	m.popup = NewSettingsPopup(m.ctx.Config, m.theme, agents)
+	m.popup = NewSettingsPopup(m.ctx.Config, m.theme, agents, m.height)
 	m.mode = ModePopup
 	return m, m.popup.Init()
 }

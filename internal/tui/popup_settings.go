@@ -19,12 +19,17 @@ import (
 // recolors/resizes behind the popup; nothing is written to disk until the user
 // confirms (SettingsSaved on enter). Cancelling (esc) is handled by the parent,
 // which restores the pre-open config — see Model.handleKey.
+//
+// The field list can outgrow short terminals, so the body scrolls: maxHeight is
+// the terminal height, and View renders a window of rows that keeps the cursor
+// visible while pinning the title and footer.
 type SettingsPopup struct {
 	draft       config.Config
 	theme       Theme
 	fields      []settingField
 	cursor      int
 	editorInput textinput.Model
+	maxHeight   int
 }
 
 // SettingsChanged carries the live draft after every edit; the parent mirrors it
@@ -56,7 +61,18 @@ type settingField struct {
 	step    func(c config.Config, dir int) config.Config
 }
 
-func NewSettingsPopup(cfg config.Config, theme Theme, agentNames []string) SettingsPopup {
+// soundEventOrder lists the known sound events in lifecycle order so the editor
+// presents them predictably; any extra events in the config are appended sorted.
+var soundEventOrder = []string{
+	"session_start", "needs_input", "session_idle", "session_completed", "session_error",
+}
+
+func NewSettingsPopup(cfg config.Config, theme Theme, agentNames []string, maxHeight int) SettingsPopup {
+	// Own a private copy of the events map: it is shared by reference with the
+	// parent's config (and thus the revert snapshot), so per-event toggles must
+	// not mutate it in place or esc-cancel would not restore the originals.
+	cfg.Sound.Events = cloneSoundEvents(cfg.Sound.Events)
+
 	ti := textinput.New()
 	ti.Placeholder = "$EDITOR / $VISUAL"
 	ti.Prompt = ""
@@ -95,6 +111,18 @@ func NewSettingsPopup(cfg config.Config, theme Theme, agentNames []string) Setti
 		intField("UX", "event log lines", config.MinEventLogLines, 0, 10,
 			func(c config.Config) int { return c.UI.EventLogLines },
 			func(c *config.Config, v int) { c.UI.EventLogLines = v }),
+		durationField("Timeouts", "idle→completed", time.Minute, time.Minute,
+			func(c config.Config) time.Duration { return c.Timeouts.IdleToCompletedTimeout },
+			func(c *config.Config, v time.Duration) { c.Timeouts.IdleToCompletedTimeout = v }),
+		durationField("Timeouts", "spawning", time.Second, 5*time.Second,
+			func(c config.Config) time.Duration { return c.Timeouts.SpawningTimeout },
+			func(c *config.Config, v time.Duration) { c.Timeouts.SpawningTimeout = v }),
+		intField("Pruning", "hint threshold", 0, 0, 1,
+			func(c config.Config) int { return c.Pruning.HintThreshold },
+			func(c *config.Config, v int) { c.Pruning.HintThreshold = v }),
+		intField("Pruning", "keep default", 0, 0, 1,
+			func(c config.Config) int { return c.Pruning.KeepDefault },
+			func(c *config.Config, v int) { c.Pruning.KeepDefault = v }),
 		boolField("Sound", "enabled",
 			func(c config.Config) bool { return c.Sound.Enabled },
 			func(c *config.Config, v bool) { c.Sound.Enabled = v }),
@@ -103,12 +131,55 @@ func NewSettingsPopup(cfg config.Config, theme Theme, agentNames []string) Setti
 			func(c *config.Config, v float64) { c.Sound.Volume = v }),
 	}
 
+	// One toggle per configured sound event. The global Sound.enabled switch
+	// gates all of these at play time; these control each event individually.
+	for _, name := range orderedSoundEvents(cfg.Sound.Events) {
+		nm := name
+		fields = append(fields, boolField("Sound Events", nm,
+			func(c config.Config) bool { return c.Sound.Events[nm].Enabled },
+			func(c *config.Config, v bool) {
+				e := c.Sound.Events[nm]
+				e.Enabled = v
+				c.Sound.Events[nm] = e
+			}))
+	}
+
 	return SettingsPopup{
 		draft:       cfg,
 		theme:       theme,
 		fields:      fields,
 		editorInput: ti,
+		maxHeight:   maxHeight,
 	}
+}
+
+func cloneSoundEvents(in map[string]config.SoundEvent) map[string]config.SoundEvent {
+	out := make(map[string]config.SoundEvent, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
+
+// orderedSoundEvents returns the event keys in lifecycle order (soundEventOrder
+// first), with any extra keys appended alphabetically for a stable display.
+func orderedSoundEvents(events map[string]config.SoundEvent) []string {
+	out := make([]string, 0, len(events))
+	seen := map[string]bool{}
+	for _, k := range soundEventOrder {
+		if _, ok := events[k]; ok {
+			out = append(out, k)
+			seen[k] = true
+		}
+	}
+	var extra []string
+	for k := range events {
+		if !seen[k] {
+			extra = append(extra, k)
+		}
+	}
+	sort.Strings(extra)
+	return append(out, extra...)
 }
 
 // --- field builders ---
@@ -268,6 +339,10 @@ func (p SettingsPopup) editField(dir int) (tea.Model, tea.Cmd) {
 }
 
 func (p SettingsPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if ws, ok := msg.(tea.WindowSizeMsg); ok {
+		p.maxHeight = ws.Height
+		return p, nil
+	}
 	keyMsg, ok := msg.(tea.KeyMsg)
 	if !ok {
 		return p, nil
@@ -325,21 +400,100 @@ func (p SettingsPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return p, nil
 }
 
+const settingsPopupWidth = 60
+
+// settingsChromeRows counts the non-body lines: top border, title, divider
+// (above) and divider, footer, bottom border (below).
+const settingsChromeRows = 6
+
+// bodyBudget is how many body rows fit given the terminal height, leaving a row
+// of margin top and bottom. A non-positive height means height is unknown, so
+// no limit is applied.
+func (p SettingsPopup) bodyBudget() int {
+	if p.maxHeight <= 0 {
+		return len(p.fields)*2 + 16 // effectively unlimited
+	}
+	b := p.maxHeight - settingsChromeRows - 2
+	if b < 6 {
+		b = 6
+	}
+	return b
+}
+
+func (p SettingsPopup) fieldRow(i int, f settingField, labelW int) string {
+	active := i == p.cursor
+	cursorGlyph := "  "
+	labelSt := lipgloss.NewStyle().Foreground(p.theme.Subtext0)
+	if active {
+		cursorGlyph = lipgloss.NewStyle().Foreground(p.theme.Gold).Bold(true).Render("› ")
+		labelSt = lipgloss.NewStyle().Foreground(p.theme.Text).Bold(true)
+	}
+
+	var valStr string
+	switch {
+	case f.kind == fieldString && active:
+		valStr = p.editorInput.View()
+	case f.kind == fieldString:
+		if v := f.display(p.draft); v != "" {
+			valStr = lipgloss.NewStyle().Foreground(p.theme.Text).Bold(true).Render(v)
+		} else {
+			valStr = lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("$EDITOR / $VISUAL")
+		}
+	default:
+		valStr = lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render("‹ " + f.display(p.draft) + " ›")
+	}
+
+	return cursorGlyph + labelSt.Render(padRight(f.label, labelW)) + valStr
+}
+
 func (p SettingsPopup) View() string {
-	const popW = 60
 	bdr := popupBorderStyle(p.theme)
-	iw := popW - 2
+	iw := settingsPopupWidth - 2
 	cw := iw - 2
 	const labelW = 22
-
-	var b strings.Builder
 	hbar := strings.Repeat("─", iw)
 
+	// Build the body as inner-content rows (section spacers, headers, fields)
+	// and remember which row the cursor sits on so the scroll window can keep
+	// it on screen.
+	var rows []string
+	cursorRow := 0
+	lastSection := ""
+	for i, f := range p.fields {
+		if f.section != lastSection {
+			rows = append(rows, "")
+			rows = append(rows, lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render(f.section))
+			lastSection = f.section
+		}
+		if i == p.cursor {
+			cursorRow = len(rows)
+		}
+		rows = append(rows, p.fieldRow(i, f, labelW))
+	}
+
+	budget := p.bodyBudget()
+	start := 0
+	if len(rows) > budget {
+		if cursorRow >= budget {
+			start = cursorRow - budget + 1
+		}
+		if start+budget > len(rows) {
+			start = len(rows) - budget
+		}
+		if start < 0 {
+			start = 0
+		}
+	}
+	end := start + budget
+	if end > len(rows) {
+		end = len(rows)
+	}
+	visible := rows[start:end]
+	scrollable := start > 0 || end < len(rows)
+
+	var b strings.Builder
 	writeRow := func(s string) {
 		b.WriteString(bdr.Render("│") + " " + padRight(truncateWidth(s, cw), cw) + " " + bdr.Render("│") + "\n")
-	}
-	writeBlank := func() {
-		b.WriteString(bdr.Render("│") + " " + strings.Repeat(" ", cw) + " " + bdr.Render("│") + "\n")
 	}
 
 	b.WriteString(bdr.Render("┌"+hbar+"┐") + "\n")
@@ -352,46 +506,18 @@ func (p SettingsPopup) View() string {
 	b.WriteString(bdr.Render("│") + " " + titleLeft + strings.Repeat(" ", gap) + titleRight + " " + bdr.Render("│") + "\n")
 	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
 
-	lastSection := ""
-	for i, f := range p.fields {
-		if f.section != lastSection {
-			writeBlank()
-			writeRow(lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render(f.section))
-			lastSection = f.section
-		}
-
-		active := i == p.cursor
-		cursorGlyph := "  "
-		labelSt := lipgloss.NewStyle().Foreground(p.theme.Subtext0)
-		if active {
-			cursorGlyph = lipgloss.NewStyle().Foreground(p.theme.Gold).Bold(true).Render("› ")
-			labelSt = lipgloss.NewStyle().Foreground(p.theme.Text).Bold(true)
-		}
-
-		var valStr string
-		switch {
-		case f.kind == fieldString && active:
-			valStr = p.editorInput.View()
-		case f.kind == fieldString:
-			v := f.display(p.draft)
-			if v == "" {
-				valStr = lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("$EDITOR / $VISUAL")
-			} else {
-				valStr = lipgloss.NewStyle().Foreground(p.theme.Text).Bold(true).Render(v)
-			}
-		default:
-			valStr = lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render("‹ " + f.display(p.draft) + " ›")
-		}
-
-		writeRow(cursorGlyph + labelSt.Render(padRight(f.label, labelW)) + valStr)
+	for _, r := range visible {
+		writeRow(r)
 	}
 
-	writeBlank()
 	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
 	foot := p.theme.KeyHint("↑/↓", "move") + "  " +
 		p.theme.KeyHint("←/→", "change") + "  " +
 		p.theme.KeyHint("enter", "save") + "  " +
 		p.theme.KeyHint("esc", "cancel")
+	if scrollable {
+		foot += "  " + lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("• ↕ more")
+	}
 	writeRow(foot)
 	b.WriteString(bdr.Render("└" + hbar + "┘"))
 
