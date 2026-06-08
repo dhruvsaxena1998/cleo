@@ -34,8 +34,8 @@ type finderRow struct {
 type FinderPopup struct {
 	ctx     *cli.Ctx
 	theme   Theme
-	query   string
-	cursor  int            // index into the selectable session rows (matches slice)
+	input   textinput.Model // query field; owns the cursor and standard editing keys
+	cursor  int             // index into the selectable session rows (matches slice)
 	items   []state.Session // all attachable sessions, sorted by project then name
 	sources []string        // parallel to items, for fuzzy matching
 }
@@ -59,9 +59,21 @@ func NewFinderPopup(ctx *cli.Ctx, theme Theme, sessions []state.Session) FinderP
 	for i, it := range items {
 		sources[i] = it.Name + " " + it.ProjectID + " " + it.Agent
 	}
+
+	ti := textinput.New()
+	ti.Placeholder = "type to filter sessions"
+	ti.Prompt = "" // the "›" chevron is rendered by View, not the input
+	ti.Focus()
+	// Popup content is 74 cols (cw in View); cap below that so the styled view
+	// never needs truncating and the cursor stays visible while typing.
+	ti.Width = 70
+	ti.PlaceholderStyle = lipgloss.NewStyle().Foreground(theme.Overlay0)
+	ti.TextStyle = lipgloss.NewStyle().Foreground(theme.Text).Bold(true)
+
 	return FinderPopup{
 		ctx:     ctx,
 		theme:   theme,
+		input:   ti,
 		items:   items,
 		sources: sources,
 	}
@@ -72,8 +84,7 @@ func (p FinderPopup) Init() tea.Cmd {
 }
 
 func (p FinderPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	if msg, ok := msg.(tea.KeyMsg); ok {
 		switch msg.Type {
 		case tea.KeyEsc, tea.KeyCtrlC:
 			return p, func() tea.Msg { return FinderCancelled{} }
@@ -81,11 +92,6 @@ func (p FinderPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if sel, ok := p.selected(); ok {
 				return p, func() tea.Msg { return FinderSubmitted{SessionID: sel.ID} }
 			}
-		case tea.KeyBackspace:
-			if len(p.query) > 0 {
-				p.query = p.query[:len(p.query)-1]
-			}
-			p.clampCursor()
 			return p, nil
 		case tea.KeyUp:
 			if p.cursor > 0 {
@@ -97,14 +103,21 @@ func (p FinderPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				p.cursor++
 			}
 			return p, nil
-		case tea.KeyRunes:
-			// All printable characters (including j/k) go into the query.
-			p.query += string(msg.Runes)
-			p.cursor = 0
-			return p, nil
 		}
 	}
-	return p, nil
+
+	// Everything else — printable runes (including space and j/k), backspace,
+	// and the standard readline editing/navigation keys (ctrl+u, ctrl+w,
+	// alt+←/→, home/end, …) — is handled by the text input. Reset the result
+	// cursor to the top whenever the query text changes.
+	before := p.input.Value()
+	var cmd tea.Cmd
+	p.input, cmd = p.input.Update(msg)
+	if p.input.Value() != before {
+		p.cursor = 0
+	}
+	p.clampCursor()
+	return p, cmd
 }
 
 func (p FinderPopup) selected() (state.Session, bool) {
@@ -120,14 +133,15 @@ func (p FinderPopup) matchCount() int {
 }
 
 func (p FinderPopup) matches() []int {
-	if p.query == "" {
+	query := p.input.Value()
+	if query == "" {
 		out := make([]int, len(p.items))
 		for i := range p.items {
 			out[i] = i
 		}
 		return out
 	}
-	results := fuzzy.Find(p.query, p.sources)
+	results := fuzzy.Find(query, p.sources)
 	out := make([]int, len(results))
 	for i, r := range results {
 		out[i] = r.Index
@@ -196,14 +210,9 @@ func (p FinderPopup) View() string {
 
 	blank()
 
-	// query line
-	queryLine := lipgloss.NewStyle().Foreground(p.theme.Gold).Bold(true).Render("›") + " " +
-		lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("type to filter sessions")
-	if p.query != "" {
-		queryLine = lipgloss.NewStyle().Foreground(p.theme.Gold).Bold(true).Render("›") + " " +
-			lipgloss.NewStyle().Foreground(p.theme.Text).Bold(true).Render(p.query+"▌")
-	}
-	row(queryLine)
+	// query line — the text input owns the cursor and placeholder
+	chevron := lipgloss.NewStyle().Foreground(p.theme.Gold).Bold(true).Render("›")
+	row(chevron + " " + p.input.View())
 	blank()
 
 	// styles

@@ -44,6 +44,9 @@ func TestLoadDefaultsWritesNewConfigShape(t *testing.T) {
 	if c.UI.StatusTimeoutSeconds != 3 {
 		t.Errorf("status_timeout_seconds = %v, want 3", c.UI.StatusTimeoutSeconds)
 	}
+	if !c.UI.Mouse.Enabled {
+		t.Error("ui.mouse.enabled should default to true")
+	}
 	if c.Timeouts.IdleToCompletedTimeout != 10*time.Minute {
 		t.Errorf("idle timeout: %v", c.Timeouts.IdleToCompletedTimeout)
 	}
@@ -67,6 +70,7 @@ func TestLoadDefaultsWritesNewConfigShape(t *testing.T) {
 		"[tmux]",
 		"[sound.events.session_completed]",
 		"[ui.pane_preview]",
+		"[ui.mouse]",
 		"[timeouts]",
 		"[pruning]",
 	} {
@@ -167,6 +171,8 @@ default_agent = "codex"
     enabled = false
     lines = 7
     interval = "2s"
+  [ui.mouse]
+    enabled = false
 
 [timeouts]
   idle_to_completed_timeout = "3s"
@@ -223,6 +229,9 @@ default_agent = "codex"
 	}
 	if c.UI.PanePreview.Interval != 2*time.Second {
 		t.Errorf("ui.pane_preview.interval = %v", c.UI.PanePreview.Interval)
+	}
+	if c.UI.Mouse.Enabled {
+		t.Error("ui.mouse.enabled = true, want false (explicit override of default-on)")
 	}
 	if c.Timeouts.IdleToCompletedTimeout != 3*time.Second {
 		t.Errorf("timeouts.idle_to_completed_timeout = %v", c.Timeouts.IdleToCompletedTimeout)

@@ -10,6 +10,7 @@ require (
 	github.com/charmbracelet/x/ansi v0.11.6
 	github.com/charmbracelet/x/exp/teatest v0.0.0-20260503005035-c113ba3d2310
 	github.com/gofrs/flock v0.13.0
+	github.com/lrstanley/bubblezone v1.0.0
 	github.com/sahilm/fuzzy v0.1.2
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/sys v0.38.0

@@ -52,6 +52,14 @@ type UI struct {
 	EventLogLines        int         `toml:"event_log_lines"`
 	StatusTimeoutSeconds float64     `toml:"status_timeout_seconds"`
 	PanePreview          PanePreview `toml:"pane_preview"`
+	Mouse                Mouse       `toml:"mouse"`
+}
+
+// Mouse controls terminal mouse reporting. When disabled, the TUI never puts
+// the terminal into mouse-tracking mode, so native click-drag text selection
+// (and copy) keeps working. Default on. See [Mouse.Enabled].
+type Mouse struct {
+	Enabled bool `toml:"enabled"`
 }
 
 // StatusTimeout returns the Dashboard status message timeout as a duration.

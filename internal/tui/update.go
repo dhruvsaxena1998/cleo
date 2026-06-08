@@ -56,6 +56,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.KeyMsg:
 		return m.handleKey(msg)
+	case tea.MouseMsg:
+		return m.handleMouse(msg)
 	case SpawnSubmitted:
 		return m.performSpawn(msg)
 	case SpawnCancelled:

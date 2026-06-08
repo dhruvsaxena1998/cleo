@@ -6,9 +6,17 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	zone "github.com/lrstanley/bubblezone"
+
 	"github.com/dhruvsaxena1998/cleo/internal/projects"
 	"github.com/dhruvsaxena1998/cleo/internal/state"
 )
+
+// Zone id helpers for clickable tree rows. handleMouse reverses these to map a
+// click back to a cursor position. Marking whole rows (not inner spans) keeps
+// substring assertions in tests valid even on un-scanned output.
+func projZoneID(pi int) string     { return fmt.Sprintf("tree-proj-%d", pi) }
+func sessZoneID(pi, ai int) string { return fmt.Sprintf("tree-sess-%d-%d", pi, ai) }
 
 // renderLeftColumn renders the full-height projects / sessions tree.
 func (m Model) renderLeftColumn(w, h int) string {
@@ -89,7 +97,7 @@ func (m Model) renderTreeContent(innerW int) string {
 			countStr := lipgloss.NewStyle().Foreground(countColor).Render(fmt.Sprintf("%d", len(ss)))
 			projLine = caret + " " + padRight(name, innerW-4) + countStr
 		}
-		b.WriteString(projLine + "\n")
+		b.WriteString(zone.Mark(projZoneID(pi), projLine) + "\n")
 
 		if !expanded {
 			continue
@@ -141,7 +149,7 @@ func (m Model) renderTreeContent(innerW int) string {
 				right := stLabel + " " + faint.Render(ageStr)
 				row = left + strings.Repeat(" ", gap) + right
 			}
-			b.WriteString(row + "\n")
+			b.WriteString(zone.Mark(sessZoneID(pi, ai), row) + "\n")
 		}
 	}
 

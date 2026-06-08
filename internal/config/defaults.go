@@ -34,6 +34,7 @@ func Defaults_() Config {
 				Lines:    30,
 				Interval: 2000 * time.Millisecond,
 			},
+			Mouse: Mouse{Enabled: true},
 		},
 		Timeouts: Timeouts{
 			IdleToCompletedTimeout: 10 * time.Minute,
