@@ -161,6 +161,7 @@ func (m Model) renderFooter(width int) string {
 				hint(km.Remove, "remove project"),
 				hint(km.Filter, "find"),
 				hint(km.Send, "send"),
+				hint(km.Settings, "settings"),
 				hint(km.Quit, "quit"),
 			}
 			if hasFinished {

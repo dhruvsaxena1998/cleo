@@ -215,7 +215,7 @@ Hook support is installed by `cleo hooks init` for supported agents. Custom agen
 | `void` | High-contrast minimal monochrome. | ![void](../screenshots/theme-void.png) |
 | `synthwave` | Vivid magenta/cyan neon dark theme. | ![synthwave](../screenshots/theme-synthwave.png) |
 
-Unknown values fall back to `catppuccin-mocha` and are reported as config warnings. To preview a theme without committing to it, edit `theme` and restart `cleo`.
+Unknown values fall back to `catppuccin-mocha` and are reported as config warnings. To preview a theme without committing to it, open the in-app settings editor (`,`) and cycle the **theme** field with `←`/`→` — the dashboard recolors live; press `esc` to discard or `enter` to save (see [Editing the config](#editing-the-config)).
 
 ## `[timeouts]`
 
@@ -273,11 +273,28 @@ Action names and their defaults:
 | `prune` | `["P"]` | Prune finished sessions for the focused project. |
 | `remove` | `["D"]` | Remove the focused project. |
 | `mute` | `["alt+m"]` | Toggle sound for the running Cleo process. |
+| `settings` | `[","]` | Open the in-app settings editor. |
 | `help` | `["?"]` | Show the help popup. |
 | `quit` | `["q"]` | Quit the dashboard. |
 | `close` | `["esc"]` | Cancel the current popup/filter (reserved). |
 
 ## Editing the config
+
+### In-app settings editor
+
+Press `,` in the dashboard to open the settings editor. It covers the settings you tweak most often without leaving the TUI:
+
+- **General** — `default_agent`, `editor`
+- **Appearance** — `theme`, `sidebar_width`
+- **Pane Preview** — `enabled`, `lines`, `interval`
+- **UX** — `status_timeout_seconds`, `event_log_lines`
+- **Sound** — `enabled`, `volume`
+
+Navigate fields with `↑`/`↓` (or `Tab`), change the focused field with `←`/`→` (toggle a switch, cycle an option, step a number); on the `editor` field just type. Changes preview live — the theme recolors and the sidebar resizes as you scroll. Press `enter` to write them to `config.toml`, or `esc` to discard everything and revert. Out-of-range values are clamped on save, exactly as they would be on load.
+
+Everything else (the `[agents]`, `[keybinds]`, and `[sound.events]` tables, `[tmux]`, `[timeouts]`, `[pruning]`) is still edited in the file.
+
+### Editing the file
 
 Cleo reads the config on startup. After editing `config.toml`, quit the dashboard (`q`) and relaunch `cleo` to pick up changes. Hook handlers also re-read the config on each invocation, so sound and event toggles take effect on the next hook event without restarting anything.
 

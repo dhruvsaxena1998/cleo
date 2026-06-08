@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/dhruvsaxena1998/cleo/internal/cli"
+	"github.com/dhruvsaxena1998/cleo/internal/config"
 	"github.com/dhruvsaxena1998/cleo/internal/projects"
 	"github.com/dhruvsaxena1998/cleo/internal/state"
 )
@@ -28,6 +29,11 @@ type Model struct {
 	editorLauncher editorLauncher
 	width, height  int
 	err            error
+
+	// settingsBackup is the config snapshot taken when the settings popup
+	// opens. Edits preview live against ctx.Config; cancelling (esc) restores
+	// this snapshot. See openSettingsPopup and the Esc handler in handleKey.
+	settingsBackup config.Config
 
 	// paneCaptureInFlight is true between dispatching a capturePaneCmd and
 	// receiving the corresponding paneCapturedMsg. The selection-driven

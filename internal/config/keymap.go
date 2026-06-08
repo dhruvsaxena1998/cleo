@@ -11,7 +11,7 @@ import (
 // Keymap holds the resolved main-view key bindings. It is computed once during
 // Load() from the [keybinds] table and consumed read-only by the TUI.
 type Keymap struct {
-	Up, Down, Enter, New, View, Kill, Prune, Rename, Remove, Editor, Filter, Send, Mute, Help, Quit, Esc, Space key.Binding
+	Up, Down, Enter, New, View, Kill, Prune, Rename, Remove, Editor, Filter, Send, Mute, Settings, Help, Quit, Esc, Space key.Binding
 }
 
 // keybindAction describes a single rebindable action. The slice order is the
@@ -39,6 +39,7 @@ var keybindActions = []keybindAction{
 	{"prune", []string{"P"}, "prune finished", func(m *Keymap) *key.Binding { return &m.Prune }},
 	{"remove", []string{"D"}, "remove project", func(m *Keymap) *key.Binding { return &m.Remove }},
 	{"mute", []string{"alt+m"}, "mute", func(m *Keymap) *key.Binding { return &m.Mute }},
+	{"settings", []string{","}, "settings", func(m *Keymap) *key.Binding { return &m.Settings }},
 	{"help", []string{"?"}, "help", func(m *Keymap) *key.Binding { return &m.Help }},
 	{"quit", []string{"q"}, "quit", func(m *Keymap) *key.Binding { return &m.Quit }},
 	{"close", []string{"esc"}, "close", func(m *Keymap) *key.Binding { return &m.Esc }},

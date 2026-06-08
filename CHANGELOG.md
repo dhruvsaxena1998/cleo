@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- In-app settings editor: press `,` in the dashboard to edit a curated set of scalar settings (`default_agent`, `editor`, `theme`, `sidebar_width`, pane-preview toggle/lines/interval, `status_timeout_seconds`, `event_log_lines`, sound enabled/volume) without leaving the TUI. Changes preview live — the theme recolors and the sidebar resizes as you scroll — and are written to `config.toml` on `enter` (re-clamped to valid ranges) or discarded on `esc`. The `[agents]`, `[keybinds]`, and `[sound.events]` tables remain file-only. Rebindable via the new `settings` keybind action.
+
 ## [0.2.0] - 2026-06-02
 
 ### Added
