@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	zone "github.com/lrstanley/bubblezone"
 )
 
 func (m Model) View() string {
@@ -14,7 +15,10 @@ func (m Model) View() string {
 	if m.mode == ModePopup && m.popup != nil {
 		out = m.renderOverlay(out, m.popup.View())
 	}
-	return out
+	// Scan strips the invisible bubblezone markers emitted by renderTreeContent
+	// and records each clickable row's screen bounds for hit-testing in
+	// handleMouse. No-op on text that contains no markers.
+	return zone.Scan(out)
 }
 
 func renderFrame(m Model) string {

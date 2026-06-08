@@ -21,7 +21,14 @@ func Run(c *cli.Ctx) error {
 	// OSC 111 resets the background to the terminal default on exit.
 	defer fmt.Fprint(os.Stdout, "\x1b]111\x07")
 
-	_, err := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion()).Run()
+	opts := []tea.ProgramOption{tea.WithAltScreen()}
+	if c.Config.UI.Mouse.Enabled {
+		// Mouse reporting disables the terminal's native click-drag text
+		// selection, so it's gated behind config (default on). Without it, no
+		// MouseMsg ever reaches Update and handleMouse stays dormant.
+		opts = append(opts, tea.WithMouseCellMotion())
+	}
+	_, err := tea.NewProgram(m, opts...).Run()
 	return err
 }
 

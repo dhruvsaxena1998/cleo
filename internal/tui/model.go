@@ -5,6 +5,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/help"
 	tea "github.com/charmbracelet/bubbletea"
+	zone "github.com/lrstanley/bubblezone"
 
 	"github.com/dhruvsaxena1998/cleo/internal/cli"
 	"github.com/dhruvsaxena1998/cleo/internal/config"
@@ -68,6 +69,10 @@ type cursor struct {
 }
 
 func New(ctx *cli.Ctx) Model {
+	// Initialise the global bubblezone manager so View() can mark/scan clickable
+	// regions. Done here (not in Run) so tests that construct a Model directly
+	// also get a live manager; re-creating per-Model is cheap.
+	zone.NewGlobal()
 	m := Model{
 		ctx:            ctx,
 		theme:          Resolve(ctx.Config.UI.Theme),
