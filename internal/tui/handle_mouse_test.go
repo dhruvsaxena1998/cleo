@@ -11,6 +11,24 @@ import (
 	"testing"
 )
 
+// waitForZone polls until the zone manager's background worker has recorded the
+// given zone. zone.Scan (called by View) buffers zone bounds to a goroutine, so
+// an immediate Get may miss them — this races under load (e.g. CI running the
+// full suite). Production is unaffected: clicks arrive many frames after a scan.
+func waitForZone(t *testing.T, id string) *zone.ZoneInfo {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		if z := zone.Get(id); !z.IsZero() {
+			return z
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("zone %q was not registered by View within timeout", id)
+		}
+		time.Sleep(time.Millisecond)
+	}
+}
+
 // treeFixture builds a model with one expanded project holding two running
 // sessions, so the sidebar renders header + two session rows.
 func treeFixture(t *testing.T) Model {
@@ -57,10 +75,7 @@ func TestMouseClickSelectsSessionRow(t *testing.T) {
 
 	_ = m.View() // marks rows and records their screen bounds
 
-	z := zone.Get(sessZoneID(0, 1))
-	if z.IsZero() {
-		t.Fatal("session row zone was not registered by View")
-	}
+	z := waitForZone(t, sessZoneID(0, 1))
 	click := tea.MouseMsg{X: z.StartX, Y: z.StartY, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft}
 	got, _ := m.handleMouse(click)
 	if got.cursor.projectIdx != 0 || got.cursor.agentIdx != 1 {
@@ -75,10 +90,7 @@ func TestMouseClickTogglesProjectExpansion(t *testing.T) {
 	m.cursor.agentIdx = -1
 	_ = m.View()
 
-	z := zone.Get(projZoneID(0))
-	if z.IsZero() {
-		t.Fatal("project header zone was not registered by View")
-	}
+	z := waitForZone(t, projZoneID(0))
 	click := tea.MouseMsg{X: z.StartX, Y: z.StartY, Action: tea.MouseActionPress, Button: tea.MouseButtonLeft}
 	got, _ := m.handleMouse(click)
 	if got.expanded["myapp"] {
