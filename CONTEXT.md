@@ -14,6 +14,14 @@ _Avoid_: workspace, repo
 A running agent instance in tmux, tied to one project and one agent type. Has a state machine (spawning → running → idle → completed/error/dead).
 _Avoid_: task, job, run
 
+**Session ID**:
+The fully-qualified, unique identity of a Session: `cleo-<project>-<agent>-<name>` (e.g. `cleo-pickup-api-claude-lucid-yonath`). Serves as both the state-store key and the tmux session name. This is the string every session command (`attach`, `kill`, `rm`, `rename`, `events`) currently requires as its `<session-id>` argument.
+_Avoid_: session name (the ID is the identity; the name is only the trailing slug)
+
+**Session name**:
+The human-facing slug at the tail of a Session ID — a Docker-style `adjective-noun` (e.g. `lucid-yonath`) or a `--name`-supplied custom slug. Deduplicated only within its (project, agent) scope, so a bare name is not guaranteed unique across all Sessions.
+_Avoid_: session ID, label, handle
+
 **Session lifecycle**:
 The creation, attachment, revival, termination, pruning, and renaming flow for a Session. Coordinates durable state, tmux, focus tracking, and events. Removing a Project removes Session records and event logs for that Project's Sessions. Does not include Worktree behaviour until that feature is actively planned.
 _Avoid_: session service, runner

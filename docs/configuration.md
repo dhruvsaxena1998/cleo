@@ -78,6 +78,9 @@ enabled = true
 lines = 30
 interval = "2s"
 
+[ui.mouse]
+enabled = true
+
 [timeouts]
 idle_to_completed_timeout = "10m"
 spawning_timeout = "30s"
@@ -203,6 +206,12 @@ Hook support is installed by `cleo hooks init` for supported agents. Custom agen
 | `lines` | `30` | Number of tmux pane lines to capture for preview. |
 | `interval` | `"2s"` | How often the preview refreshes. |
 
+### `[ui.mouse]`
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `enabled` | `true` | Gated terminal mouse-tracking mode (scrolling, clicking). When disabled, native click-and-drag text selection and copying keep working. |
+
 ### Themes
 
 `theme` accepts one of:
@@ -294,7 +303,7 @@ Press `,` in the dashboard to open the settings editor. It covers the settings y
 
 Navigate fields with `↑`/`↓` (or `Tab`), change the focused field with `←`/`→` (toggle a switch, cycle an option, step a number); on the `editor` field just type. The list scrolls when it doesn't fit the terminal, keeping the cursor in view. Changes preview live — the theme recolors and the sidebar resizes as you scroll. Press `enter` to write them to `config.toml`, or `esc` to discard everything and revert. Out-of-range values are clamped on save, exactly as they would be on load.
 
-The `[tmux]`, `[agents]`, and `[keybinds]` tables are still edited in the file. Per-event sound **files** (`[sound.events.<event>].file`) are also file-only — the panel toggles each event on or off but does not change which sound it plays.
+The `[tmux]`, `[agents]`, `[ui.mouse]`, and `[keybinds]` tables are still edited in the file. Per-event sound **files** (`[sound.events.<event>].file`) are also file-only — the panel toggles each event on or off but does not change which sound it plays.
 
 ### Editing the file
 

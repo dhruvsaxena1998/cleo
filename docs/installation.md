@@ -45,7 +45,7 @@ make build
 cleo --version
 ```
 
-This should print the installed version (for example, `v0.2.1`). If `cleo --version` prints anything else, see [Troubleshooting](troubleshooting.md).
+This should print the installed version (for example, `v0.2.2`). If `cleo --version` prints anything else, see [Troubleshooting](troubleshooting.md).
 
 ## Upgrade
 

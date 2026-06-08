@@ -39,7 +39,7 @@ Run:
 cleo
 ```
 
-The dashboard shows registered projects, their sessions, current state, and a preview/event pane. It reconciles state with tmux so sessions whose tmux processes disappeared can be marked `dead`.
+The dashboard shows registered projects, their sessions, current state, and a preview/event pane. It reconciles state with tmux so sessions whose tmux processes disappeared can be marked `dead`. It also supports mouse interaction (clicking rows to select, clicking an already-selected row to attach, clicking headers to toggle project collapse, and wheel scrolling).
 
 ### Keys
 
