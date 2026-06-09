@@ -107,95 +107,71 @@ func (p SpawnPopup) Init() tea.Cmd { return textinput.Blink }
 
 func (p SpawnPopup) View() string {
 	const popW = 64
-	bdr := popupBorderStyle(p.theme)
-	iw := popW - 2
-	cw := iw - 2
+	cw := popW - 4
 
-	var b strings.Builder
-
-	hbar := strings.Repeat("─", iw)
-	b.WriteString(bdr.Render("┌"+hbar+"┐") + "\n")
-	titleLeft := lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render("New Session")
-	titleRight := lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("spawn tmux-backed agent")
-	gap := cw - lipgloss.Width(titleLeft) - lipgloss.Width(titleRight)
-	if gap < 0 {
-		gap = 0
-	}
-	b.WriteString(bdr.Render("│") + " " + titleLeft + strings.Repeat(" ", gap) + titleRight + " " + bdr.Render("│") + "\n")
-	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
-
-	blank := func() {
-		b.WriteString(bdr.Render("│") + " " + strings.Repeat(" ", cw) + " " + bdr.Render("│") + "\n")
-	}
-	row := func(s string) {
-		b.WriteString(bdr.Render("│") + " " + padRight(truncateWidth(s, cw), cw) + " " + bdr.Render("│") + "\n")
-	}
+	gold := lipgloss.NewStyle().Foreground(p.theme.Gold).Bold(true).Render("›")
+	overlay := lipgloss.NewStyle().Foreground(p.theme.Overlay0)
 
 	// ── 1. Path ────────────────────────────────────────────────────────────
-	blank()
-	pathLabel := lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("1. path")
-	row(pathLabel)
-	row("   " + lipgloss.NewStyle().Foreground(p.theme.Gold).Bold(true).Render("›") + " " + p.pathInput.View())
-	if p.pathError != "" {
-		errSt := lipgloss.NewStyle().Foreground(p.theme.Red).Bold(true)
-		row("   " + errSt.Render(p.pathError))
+	pathRows := []string{
+		"",
+		overlay.Render("1. path"),
+		"   " + gold + " " + p.pathInput.View(),
 	}
-	blank()
-	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
+	if p.pathError != "" {
+		pathRows = append(pathRows, "   "+lipgloss.NewStyle().Foreground(p.theme.Red).Bold(true).Render(p.pathError))
+	}
+	pathRows = append(pathRows, "")
 
 	// ── 2. Label ────────────────────────────────────────────────────────────
-	blank()
-	row(lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("2. label ") +
-		lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("(optional)"))
-	row("   " + lipgloss.NewStyle().Foreground(p.theme.Gold).Bold(true).Render("›") + " " + p.nameInput.View())
-	blank()
-	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
+	labelRows := []string{
+		"",
+		overlay.Render("2. label ") + overlay.Render("(optional)"),
+		"   " + gold + " " + p.nameInput.View(),
+		"",
+	}
 
 	// ── 3. AI Agent ─────────────────────────────────────────────────────────
-	blank()
-	row(lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("3. ai-agent"))
+	agentRows := []string{"", overlay.Render("3. ai-agent")}
 	selectedSt := lipgloss.NewStyle().Background(p.theme.Surf0).Foreground(p.theme.Text).Bold(true)
 	dimSt := lipgloss.NewStyle().Foreground(p.theme.Subtext0)
 	for i, a := range p.agents {
-		active := i == p.cursor && p.focusIndex == 2
-		var line string
-		if active {
-			line = selectedSt.Width(cw).Render(fmt.Sprintf("  ● %s", a))
+		if i == p.cursor && p.focusIndex == 2 {
+			agentRows = append(agentRows, selectedSt.Width(cw).Render(fmt.Sprintf("  ● %s", a)))
 		} else {
-			line = dimSt.Render(fmt.Sprintf("  ○ %s", a))
+			agentRows = append(agentRows, dimSt.Render(fmt.Sprintf("  ○ %s", a)))
 		}
-		row(line)
 	}
-	blank()
-	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
+	agentRows = append(agentRows, "")
 
 	// ── Preview ─────────────────────────────────────────────────────────────
-	blank()
-	resolvedID := p.resolveProjectID()
-	if resolvedID == "" {
-		row(lipgloss.NewStyle().Foreground(p.theme.Mauve).Bold(true).Render("will register project, then create session"))
-	} else {
-		if p.cursor < len(p.agents) {
-			a := p.agents[p.cursor]
-			name := strings.TrimSpace(p.nameInput.Value())
-			if name == "" {
-				name = "1"
-			}
-			sessID := fmt.Sprintf("cleo-%s-%s-%s", resolvedID, a, name)
-			row(lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("will create  ") +
-				lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render(truncateWidth(sessID, cw-14)))
-			row(lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render(fmt.Sprintf("$ tmux new-session -d -s %s %s", sessID, a)))
+	previewRows := []string{""}
+	if resolvedID := p.resolveProjectID(); resolvedID == "" {
+		previewRows = append(previewRows, lipgloss.NewStyle().Foreground(p.theme.Mauve).Bold(true).Render("will register project, then create session"))
+	} else if p.cursor < len(p.agents) {
+		a := p.agents[p.cursor]
+		name := strings.TrimSpace(p.nameInput.Value())
+		if name == "" {
+			name = "1"
 		}
+		sessID := fmt.Sprintf("cleo-%s-%s-%s", resolvedID, a, name)
+		previewRows = append(previewRows,
+			overlay.Render("will create  ")+lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render(truncateWidth(sessID, cw-14)),
+			overlay.Render(fmt.Sprintf("$ tmux new-session -d -s %s %s", sessID, a)),
+		)
 	}
-	blank()
-	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
+	previewRows = append(previewRows, "")
 
 	foot := p.theme.KeyHint("tab", "next field") + "  " + p.theme.KeyHint("→", "complete path") + "  " + p.theme.KeyHint("j/k", "move agents") + "  " +
 		p.theme.KeyHint("enter", "spawn") + "  " + p.theme.KeyHint("esc", "cancel")
-	row(foot)
-	b.WriteString(bdr.Render("└" + hbar + "┘"))
 
-	return b.String()
+	return drawFrame(frameSpec{
+		Width:    popW,
+		Title:    lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render("New Session"),
+		Hint:     lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("spawn tmux-backed agent"),
+		Border:   popupBorderStyle(p.theme),
+		Sections: [][]string{pathRows, labelRows, agentRows, previewRows, {foot}},
+	})
 }
 
 // pathSuggestions returns a list of directory completions for the current path input.

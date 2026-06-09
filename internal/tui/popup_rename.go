@@ -32,37 +32,24 @@ func (p RenamePopup) Init() tea.Cmd { return textinput.Blink }
 
 func (p RenamePopup) View() string {
 	const popW = 48
-	bdr := popupBorderStyle(p.theme)
-	iw := popW - 2
-	cw := iw - 2
+	cw := popW - 4
 
-	hbar := strings.Repeat("─", iw)
-	var b strings.Builder
-
-	b.WriteString(bdr.Render("┌"+hbar+"┐") + "\n")
 	title := lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render("Rename Session")
+	// The session id sits to the right of the title; truncate it to whatever
+	// inner width the title leaves so the title row never overflows.
 	sid := lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render(truncateWidth(p.sessionID, cw-lipgloss.Width(title)-1))
-	gap := cw - lipgloss.Width(title) - lipgloss.Width(sid)
-	if gap < 0 {
-		gap = 0
-	}
-	b.WriteString(bdr.Render("│") + " " + title + strings.Repeat(" ", gap) + sid + " " + bdr.Render("│") + "\n")
-	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
+	inputRow := "  " + lipgloss.NewStyle().Foreground(p.theme.Gold).Bold(true).Render("›") + " " + p.input.View()
 
-	row := func(s string) {
-		b.WriteString(bdr.Render("│") + " " + padRight(truncateWidth(s, cw), cw) + " " + bdr.Render("│") + "\n")
-	}
-	blank := func() { row("") }
-
-	blank()
-	row(lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("new name"))
-	row("  " + lipgloss.NewStyle().Foreground(p.theme.Gold).Bold(true).Render("›") + " " + p.input.View())
-	blank()
-	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
-	row(p.theme.KeyHint("enter", "confirm") + "  " + p.theme.KeyHint("esc", "cancel"))
-	b.WriteString(bdr.Render("└" + hbar + "┘"))
-
-	return b.String()
+	return drawFrame(frameSpec{
+		Width:  popW,
+		Title:  title,
+		Hint:   sid,
+		Border: popupBorderStyle(p.theme),
+		Sections: [][]string{
+			{"", lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("new name"), inputRow, ""},
+			{p.theme.KeyHint("enter", "confirm") + "  " + p.theme.KeyHint("esc", "cancel")},
+		},
+	})
 }
 
 func (p RenamePopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

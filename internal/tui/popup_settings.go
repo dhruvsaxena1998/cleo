@@ -4,7 +4,6 @@ import (
 	"math"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -447,11 +446,7 @@ func (p SettingsPopup) fieldRow(i int, f settingField, labelW int) string {
 }
 
 func (p SettingsPopup) View() string {
-	bdr := popupBorderStyle(p.theme)
-	iw := settingsPopupWidth - 2
-	cw := iw - 2
 	const labelW = 22
-	hbar := strings.Repeat("─", iw)
 
 	// Build the body as inner-content rows (section spacers, headers, fields)
 	// and remember which row the cursor sits on so the scroll window can keep
@@ -471,6 +466,9 @@ func (p SettingsPopup) View() string {
 		rows = append(rows, p.fieldRow(i, f, labelW))
 	}
 
+	// Scroll window: the popup keeps the cursor visible and only hands the frame
+	// the rows that fit. The frame never owns a scroll model — it renders exactly
+	// the slice it is given.
 	budget := p.bodyBudget()
 	start := 0
 	if len(rows) > budget {
@@ -491,26 +489,6 @@ func (p SettingsPopup) View() string {
 	visible := rows[start:end]
 	scrollable := start > 0 || end < len(rows)
 
-	var b strings.Builder
-	writeRow := func(s string) {
-		b.WriteString(bdr.Render("│") + " " + padRight(truncateWidth(s, cw), cw) + " " + bdr.Render("│") + "\n")
-	}
-
-	b.WriteString(bdr.Render("┌"+hbar+"┐") + "\n")
-	titleLeft := lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render("Settings")
-	titleRight := lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("live preview · saved on enter")
-	gap := cw - lipgloss.Width(titleLeft) - lipgloss.Width(titleRight)
-	if gap < 0 {
-		gap = 0
-	}
-	b.WriteString(bdr.Render("│") + " " + titleLeft + strings.Repeat(" ", gap) + titleRight + " " + bdr.Render("│") + "\n")
-	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
-
-	for _, r := range visible {
-		writeRow(r)
-	}
-
-	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
 	foot := p.theme.KeyHint("↑/↓", "move") + "  " +
 		p.theme.KeyHint("←/→", "change") + "  " +
 		p.theme.KeyHint("enter", "save") + "  " +
@@ -518,8 +496,12 @@ func (p SettingsPopup) View() string {
 	if scrollable {
 		foot += "  " + lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("• ↕ more")
 	}
-	writeRow(foot)
-	b.WriteString(bdr.Render("└" + hbar + "┘"))
 
-	return b.String()
+	return drawFrame(frameSpec{
+		Width:    settingsPopupWidth,
+		Title:    lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render("Settings"),
+		Hint:     lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("live preview · saved on enter"),
+		Border:   popupBorderStyle(p.theme),
+		Sections: [][]string{visible, {foot}},
+	})
 }
