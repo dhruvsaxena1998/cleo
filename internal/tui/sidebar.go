@@ -129,9 +129,10 @@ func (m Model) renderTreeContent(innerW int) string {
 			label := cfgAgent.Label
 
 			// Left fixed cells before the name: gutter(1) connector(1) space(1)
-			// glyph(1) space(1) label space(1); right cells: shortSt(4) space(1) age.
+			// glyph(1) withIcon-gap(2) label space(1); right cells: shortSt(4)
+			// space(1) age.
 			rightW := lipgloss.Width(shortSt) + 1 + lipgloss.Width(ageStr)
-			nameW := innerW - (6 + lipgloss.Width(label)) - rightW - 1
+			nameW := innerW - (7 + lipgloss.Width(label)) - rightW - 1
 			if nameW < 3 {
 				nameW = 3
 			}

@@ -8,6 +8,10 @@ package tui
 // resolved once into Theme.Icons. Code never hard-codes a glyph; it reads it
 // from the resolved set so a single config flip restyles the whole UI.
 //
+// Glyphs are stored as literal runes; the trailing comment on each line names
+// the glyph (e.g. fa-folder-o) since Private-Use codepoints render blank in
+// most editors.
+//
 // A field may be "" to mean "this set has no icon here"; withIcon drops the icon
 // (and its trailing space) entirely in that case, so the unicode/ascii sets stay
 // clean instead of rendering filler.
@@ -45,23 +49,23 @@ type IconSet struct {
 	Project  string
 }
 
-// Nerd Font glyphs, written as explicit codepoints so the source is unambiguous
-// and editor-safe. Every codepoint is in the BMP Private Use Area and is drawn
-// at a single cell, so lipgloss.Width agrees with the terminal and column
-// alignment holds. They are drawn from the stable FontAwesome / Powerline ranges
-// (U+E0xx, U+F0xx–U+F2xx) present in every Nerd Font build.
+// Nerd Font glyphs. Codepoints are in the BMP Private Use Area (drawn at a
+// single cell, so lipgloss.Width agrees with the terminal) from the stable
+// FontAwesome / Powerline ranges. The state circles and folders use the
+// outline (…-o) variants rather than the filled ones, so the markers read as
+// light and uncramped next to text instead of heavy ink-blobs.
 var nerdIcons = IconSet{
 	Name:      "nerd",
-	Running:   "", // fa-circle (filled)
-	Waiting:   "", // fa-question-circle — waiting for input
-	Idle:      "", // fa-circle-o (hollow)
-	Spawning:  "", // fa-spinner
-	Completed: "", // fa-check-circle
-	Error:     "", // fa-times-circle
+	Running:   "", // fa-circle (filled) — small dot for the topbar "live" pill
+	Waiting:   "", // fa-question-circle — needs input, kept prominent
+	Idle:      "", // fa-circle-o (outline)
+	Spawning:  "", // fa-spinner (static; running/spawning animate via spinner())
+	Completed: "", // fa-check-circle-o (outline)
+	Error:     "", // fa-times-circle-o (outline)
 	Dead:      "", // fa-minus-circle
 
-	FolderClosed: "", // fa-folder
-	FolderOpen:   "", // fa-folder-open
+	FolderClosed: "", // fa-folder-o (outline)
+	FolderOpen:   "", // fa-folder-open-o (outline)
 
 	Logo:     "", // fa-rocket
 	Branch:   "", // powerline git branch
@@ -73,25 +77,25 @@ var nerdIcons = IconSet{
 	Events:   "", // fa-bolt
 	Tool:     "", // fa-wrench
 	Search:   "", // fa-search
-	Project:  "", // fa-folder
+	Project:  "", // fa-folder-o (matches the outline tree folders)
 }
 
 // Unicode glyphs — the pre-overhaul look. Portable symbols only; chrome icons
 // are left empty so a non-Nerd-Font terminal renders clean text, not filler.
 var unicodeIcons = IconSet{
 	Name:      "unicode",
-	Running:   "●",
-	Waiting:   "◑",
-	Idle:      "○",
-	Spawning:  "◌",
-	Completed: "✓",
-	Error:     "✗",
-	Dead:      "·",
+	Running:   "●", // ● black circle
+	Waiting:   "◑", // ◑ circle right half black
+	Idle:      "○", // ○ white circle
+	Spawning:  "◌", // ◌ dotted circle
+	Completed: "✓", // ✓ check mark
+	Error:     "✗", // ✗ ballot x
+	Dead:      "·", // · middle dot
 
-	FolderClosed: "▸",
-	FolderOpen:   "▾",
+	FolderClosed: "▸", // ▸ small right-pointing triangle
+	FolderOpen:   "▾", // ▾ small down-pointing triangle
 
-	SoundOn: "♪",
+	SoundOn: "♪", // ♪ eighth note
 }
 
 // ASCII glyphs — last resort for terminals that mangle everything above 0x7f.
@@ -144,15 +148,20 @@ func (ic IconSet) spinner() []string {
 	if ic.Name == "ascii" {
 		return []string{"|", "/", "-", "\\"}
 	}
-	return []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	return []string{
+		"⠋", "⠙", "⠹", "⠸", "⠼",
+		"⠴", "⠦", "⠧", "⠇", "⠏",
+	}
 }
 
-// withIcon prefixes text with icon and a single space, but only when icon is
-// non-empty — so a set that omits a glyph renders just the text with no
-// leading gap.
+// withIcon prefixes text with icon and two spaces of breathing room, but only
+// when icon is non-empty — so a set that omits a glyph renders just the text
+// with no leading gap. Two spaces (not one) keep the marker from reading as
+// cramped against the text, and leave a full space even on terminals that draw
+// a Nerd Font glyph slightly wider than one cell.
 func withIcon(icon, text string) string {
 	if icon == "" {
 		return text
 	}
-	return icon + " " + text
+	return icon + "  " + text
 }
