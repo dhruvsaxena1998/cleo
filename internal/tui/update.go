@@ -68,10 +68,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case editorFinishedMsg:
+		// ExecProcess disabled mouse tracking for the editor; re-arm it on resume.
+		resume := m.resumeMouseCmd()
 		if msg.err != nil {
-			return m, m.setStatus("editor failed: " + msg.err.Error())
+			return m, tea.Batch(m.setStatus("editor failed: "+msg.err.Error()), resume)
 		}
-		return m, nil
+		return m, resume
+	case attachExitedMsg:
+		// ExecProcess disabled mouse tracking for the tmux attach; re-arm on resume.
+		return m, m.resumeMouseCmd()
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	case tea.MouseMsg:

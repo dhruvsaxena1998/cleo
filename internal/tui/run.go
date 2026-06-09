@@ -32,6 +32,23 @@ func Run(c *cli.Ctx) error {
 	return err
 }
 
+// resumeMouseCmd re-arms mouse tracking after an ExecProcess interlude (a tmux
+// attach or a terminal editor). When Bubble Tea releases the terminal for the
+// child process it disables mouse reporting, but — unlike the alt screen,
+// bracketed paste and focus reporting — RestoreTerminal never turns mouse back
+// on when it resumes (bubbletea v1.3.10). Mouse was only ever enabled as a
+// one-shot startup option, so without this the first attach/edit leaves the
+// dashboard mouse-dead until restart. EnableMouseCellMotion re-emits both the
+// cell-motion and SGR enable sequences, matching the startup WithMouseCellMotion.
+// Gated on the same config flag so we never enable mouse for a user who opted
+// out; returns nil (a no-op command) in that case.
+func (m Model) resumeMouseCmd() tea.Cmd {
+	if !m.ctx.Config.UI.Mouse.Enabled {
+		return nil
+	}
+	return tea.EnableMouseCellMotion
+}
+
 // syncTerminalBackground emits OSC 11 to set the terminal's background colour.
 // Called at startup and again whenever the theme changes at runtime (via
 // setBackgroundCmd) so the area outside TUI content tracks the active theme
