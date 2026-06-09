@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Client struct{ socket string }
@@ -133,18 +134,46 @@ func (c *Client) CapturePane(name string, lines int) (string, error) {
 	return string(out), err
 }
 
-// SendKeys sends text followed by Enter to a tmux session. Each line of text
-// is sent as a literal argument, followed by an Enter keystroke. The final
-// Enter triggers the agent to process the message.
-func (c *Client) SendKeys(name string, text string) error {
-	args := []string{"send-keys", "-t", name}
-	lines := strings.Split(text, "\n")
-	for _, line := range lines {
-		args = append(args, line, "Enter")
+// sendKeysSettle is the pause between delivering a line's literal text and the
+// Enter that submits it. Glued into one send-keys, the carriage return arrives
+// in the same pane read as the text, which a paste-aware client (Claude Code)
+// treats as a literal newline rather than a submit — the message then sits
+// unsent in the input box until the user attaches and presses Enter. The gap
+// makes the Enter land in its own read as a discrete keystroke. 40ms is
+// imperceptible for a manual send and holds even while the client is rendering.
+const sendKeysSettle = 40 * time.Millisecond
+
+// sendKeysCmds builds the ordered tmux argument lists that deliver text to a
+// pane — one entry per command, run in sequence. Text is sent with -l so a line
+// that matches a tmux key name ("C-c", "Enter", "Space") is typed verbatim
+// instead of executed as that key. Each line's submit is its own Enter command,
+// never glued onto the text in a single send-keys (see sendKeysSettle). Pure,
+// mirroring capturePaneArgs/attachArgs, so the sequencing is testable without a
+// live server.
+func sendKeysCmds(name, text string) [][]string {
+	var cmds [][]string
+	for _, line := range strings.Split(text, "\n") {
+		if line != "" {
+			cmds = append(cmds, []string{"send-keys", "-t", name, "-l", line})
+		}
+		cmds = append(cmds, []string{"send-keys", "-t", name, "Enter"})
 	}
-	out, err := c.cmd(args...).CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("tmux send-keys: %w (%s)", err, strings.TrimSpace(string(out)))
+	return cmds
+}
+
+// SendKeys sends text followed by Enter to a tmux session. Each line's literal
+// text and its submitting Enter go as separate commands with a settle pause
+// between them so the Enter is seen as a discrete keystroke, not a pasted
+// newline.
+func (c *Client) SendKeys(name string, text string) error {
+	for i, args := range sendKeysCmds(name, text) {
+		if i > 0 {
+			time.Sleep(sendKeysSettle)
+		}
+		out, err := c.cmd(args...).CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("tmux send-keys: %w (%s)", err, strings.TrimSpace(string(out)))
+		}
 	}
 	return nil
 }
