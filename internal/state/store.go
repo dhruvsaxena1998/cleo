@@ -26,6 +26,10 @@ func NewStore(path, lockPath string) *Store {
 	return &Store{path: path, lockPath: lockPath}
 }
 
+// Put inserts or overwrites a session record wholesale under the lock. Use it
+// for inserting a brand-new session; to mutate an existing record use Update
+// (or Apply/ApplySynthetic for state transitions) so concurrent writers are not
+// clobbered by a stale read-modify-write.
 func (s *Store) Put(sess Session) error {
 	return s.modify(func(f *fileFormat) error {
 		if f.Sessions == nil {
@@ -67,22 +71,23 @@ func (s *Store) Delete(id string) error {
 	})
 }
 
-// Apply transitions a session by event under the lock and returns the updated session.
-// `lastMessage` is set on the session if non-empty (used for Notification text).
-func (s *Store) Apply(id string, ev Event, lastMessage string) (Session, error) {
+// Update atomically applies mutate to the named session under the write lock
+// and returns the updated record. The entire read-modify-write happens inside
+// the lock, so a concurrent writer cannot clobber the result. mutate edits the
+// session in place; returning an error from mutate aborts the write and
+// surfaces that error to the caller. Returns ErrSessionNotFound if the session
+// does not exist. State transitions must go through Apply/ApplySynthetic so the
+// transition table stays the single authority over State; Update is for other
+// fields (e.g. Name).
+func (s *Store) Update(id string, mutate func(*Session) error) (Session, error) {
 	var out Session
 	err := s.modify(func(f *fileFormat) error {
 		sess, ok := f.Sessions[id]
 		if !ok {
 			return ErrSessionNotFound
 		}
-		sess.State = NextState(sess.State, ev)
-		sess.LastEventAt = time.Now().UTC()
-		if lastMessage != "" {
-			sess.LastMessage = lastMessage
-		}
-		if ev == EvPostToolUse {
-			sess.ToolCount++
+		if err := mutate(&sess); err != nil {
+			return err
 		}
 		f.Sessions[id] = sess
 		out = sess
@@ -91,27 +96,35 @@ func (s *Store) Apply(id string, ev Event, lastMessage string) (Session, error) 
 	return out, err
 }
 
+// Apply transitions a session by event under the lock and returns the updated session.
+// `lastMessage` is set on the session if non-empty (used for Notification text).
+func (s *Store) Apply(id string, ev Event, lastMessage string) (Session, error) {
+	return s.Update(id, func(sess *Session) error {
+		sess.State = NextState(sess.State, ev)
+		sess.LastEventAt = time.Now().UTC()
+		if lastMessage != "" {
+			sess.LastMessage = lastMessage
+		}
+		if ev == EvPostToolUse {
+			sess.ToolCount++
+		}
+		return nil
+	})
+}
+
 // ApplySynthetic transitions a session by a reconciler-driven event without
 // bumping LastEventAt. Use this for synthetic events (EvIdleTimeout, EvDead)
 // that represent the absence of activity rather than activity itself.
 // Bumping LastEventAt for these would reset idle timers and prevent stuck
 // sessions from progressing.
 func (s *Store) ApplySynthetic(id string, ev Event, lastMessage string) (Session, error) {
-	var out Session
-	err := s.modify(func(f *fileFormat) error {
-		sess, ok := f.Sessions[id]
-		if !ok {
-			return ErrSessionNotFound
-		}
+	return s.Update(id, func(sess *Session) error {
 		sess.State = NextState(sess.State, ev)
 		if lastMessage != "" {
 			sess.LastMessage = lastMessage
 		}
-		f.Sessions[id] = sess
-		out = sess
 		return nil
 	})
-	return out, err
 }
 
 func (s *Store) modify(fn func(*fileFormat) error) error {
