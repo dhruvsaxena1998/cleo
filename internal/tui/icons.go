@@ -12,6 +12,12 @@ package tui
 // (and its trailing space) entirely in that case, so the unicode/ascii sets stay
 // clean instead of rendering filler.
 type IconSet struct {
+	// Name identifies the set ("nerd"/"unicode"/"ascii"). It keeps IconSet a
+	// comparable, all-scalar struct (so it can be == compared) while letting
+	// code that needs to branch on the set — e.g. spinner — do so without a
+	// slice field.
+	Name string
+
 	// Session-state markers, indexed by the lifecycle states in styles.go.
 	Running   string
 	Waiting   string
@@ -45,6 +51,7 @@ type IconSet struct {
 // alignment holds. They are drawn from the stable FontAwesome / Powerline ranges
 // (U+E0xx, U+F0xx–U+F2xx) present in every Nerd Font build.
 var nerdIcons = IconSet{
+	Name:      "nerd",
 	Running:   "", // fa-circle (filled)
 	Waiting:   "", // fa-question-circle — waiting for input
 	Idle:      "", // fa-circle-o (hollow)
@@ -72,6 +79,7 @@ var nerdIcons = IconSet{
 // Unicode glyphs — the pre-overhaul look. Portable symbols only; chrome icons
 // are left empty so a non-Nerd-Font terminal renders clean text, not filler.
 var unicodeIcons = IconSet{
+	Name:      "unicode",
 	Running:   "●",
 	Waiting:   "◑",
 	Idle:      "○",
@@ -88,6 +96,7 @@ var unicodeIcons = IconSet{
 
 // ASCII glyphs — last resort for terminals that mangle everything above 0x7f.
 var asciiIcons = IconSet{
+	Name:      "ascii",
 	Running:   "*",
 	Waiting:   "?",
 	Idle:      "o",
@@ -125,6 +134,17 @@ func resolveIcons(name string) IconSet {
 	default:
 		return nerdIcons
 	}
+}
+
+// spinner returns the animation frames shown for the "working" states
+// (running, spawning) in place of the static marker. Braille reads well and is
+// single-cell in both Nerd Font and plain Unicode terminals; the ascii set
+// keeps a pure-ASCII spinner so an icons="ascii" terminal still animates.
+func (ic IconSet) spinner() []string {
+	if ic.Name == "ascii" {
+		return []string{"|", "/", "-", "\\"}
+	}
+	return []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 }
 
 // withIcon prefixes text with icon and a single space, but only when icon is

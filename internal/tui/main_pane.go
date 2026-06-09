@@ -75,7 +75,7 @@ func (m Model) renderMetaPanel(w, h int, sess state.Session, has bool) string {
 		faint.Render("last")
 
 	stateVal := lipgloss.NewStyle().Foreground(m.theme.StateColor(string(sess.State))).Bold(true).Render(
-		withIcon(m.theme.stateGlyph(string(sess.State)), truncateWidth(string(sess.State), col-3)))
+		withIcon(m.animGlyph(string(sess.State)), truncateWidth(string(sess.State), col-3)))
 
 	valueRow := padRight(badge, col) +
 		padRight(stateVal, col) +

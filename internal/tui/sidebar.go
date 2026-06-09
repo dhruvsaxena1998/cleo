@@ -125,7 +125,7 @@ func (m Model) renderTreeContent(innerW int) string {
 			ageStr := sessionAge(s)
 			shortSt := fmt.Sprintf("%-4s", shortStateLabel(s.State))
 			stColor := m.theme.StateColor(string(s.State))
-			glyph := m.theme.stateGlyph(string(s.State))
+			glyph := m.animGlyph(string(s.State))
 			label := cfgAgent.Label
 
 			// Left fixed cells before the name: gutter(1) connector(1) space(1)

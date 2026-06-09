@@ -30,6 +30,9 @@ func renderFixtureModel(t *testing.T, icons string, w, h int) Model {
 		{ID: "cleo-web-claude-pricing", ProjectID: "website-frontend", Agent: "claude", Name: "fix-pricing-copy", State: state.WaitingForInput, StartedAt: now.Add(-1 * time.Hour)},
 	}
 	m.cursor = m.cursor.clamp(m.treeShape())
+	// A mid-spinner frame, so the width invariant is checked while a running
+	// session renders an animated marker rather than the static frame 0.
+	m.animFrame = 7
 	return m
 }
 

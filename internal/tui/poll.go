@@ -49,6 +49,16 @@ func statusExpiryCmd(id int, d time.Duration) tea.Cmd {
 	return tea.Tick(d, func(time.Time) tea.Msg { return statusExpiredMsg{id: id} })
 }
 
+// animTickMsg drives the "working" spinner. The loop is self-arming but gated:
+// it runs at ~120ms only while a session is running/spawning, and stops when
+// none are (see the animTickMsg/stateLoadedMsg handlers), so an idle dashboard
+// is not re-rendered on a timer.
+type animTickMsg struct{}
+
+func animTickCmd() tea.Cmd {
+	return tea.Tick(120*time.Millisecond, func(time.Time) tea.Msg { return animTickMsg{} })
+}
+
 // previewTickMsg fires on a fixed interval and drives all pane-preview
 // captures. Replaces the v0.1 paneCapturedMsg -> tea.Tick -> capturePaneTickMsg
 // chain, which deadlocked when the user navigated between fire and response.

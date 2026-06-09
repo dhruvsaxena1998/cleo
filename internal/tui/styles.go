@@ -96,6 +96,18 @@ func (t Theme) StyledGlyph(s string) string {
 	return lipgloss.NewStyle().Foreground(t.StateColor(s)).Render(t.stateGlyph(s))
 }
 
+// animGlyph returns the marker for a state, animating the "working" states
+// (running, spawning) through the icon set's spinner frames at the current
+// animFrame. Every other state returns its static glyph. It is a Model method
+// because the frame counter lives on the model, advanced by the spinner tick.
+func (m Model) animGlyph(s string) string {
+	if s == "running" || s == "spawning" {
+		frames := m.theme.Icons.spinner()
+		return frames[m.animFrame%len(frames)]
+	}
+	return m.theme.stateGlyph(s)
+}
+
 func (t Theme) StyledStateText(s string) string {
 	return lipgloss.NewStyle().Foreground(t.StateColor(s)).Render(s)
 }
