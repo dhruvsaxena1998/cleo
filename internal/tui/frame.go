@@ -77,9 +77,9 @@ func drawFrame(spec frameSpec) string {
 		if fill < 0 {
 			fill = 0
 		}
-		b.WriteString(spec.Border.Render("┌") + leftCap + spec.Border.Render(strings.Repeat("─", fill)) + rightCap + spec.Border.Render("┐") + "\n")
+		b.WriteString(spec.Border.Render("╭") + leftCap + spec.Border.Render(strings.Repeat("─", fill)) + rightCap + spec.Border.Render("╮") + "\n")
 	} else {
-		b.WriteString(spec.Border.Render("┌"+hbar+"┐") + "\n")
+		b.WriteString(spec.Border.Render("╭"+hbar+"╮") + "\n")
 		gap := cw - lipgloss.Width(spec.Title) - lipgloss.Width(spec.Hint)
 		if gap < 0 {
 			gap = 0
@@ -97,6 +97,6 @@ func drawFrame(spec frameSpec) string {
 		}
 	}
 
-	b.WriteString(spec.Border.Render("└" + hbar + "┘"))
+	b.WriteString(spec.Border.Render("╰" + hbar + "╯"))
 	return b.String()
 }

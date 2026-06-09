@@ -68,21 +68,27 @@ func renderFrame(m Model) string {
 // ── Topbar ────────────────────────────────────────────────────────────────────
 
 func (m Model) renderTopbar(width int) string {
+	ic := m.theme.Icons
 	stats := m.sessionStats()
-	sound := lipgloss.NewStyle().Foreground(m.theme.Overlay0).Render("sound on")
+
+	soundIcon, soundLabel := ic.SoundOn, "on"
 	if !m.ctx.Config.Sound.Enabled {
-		sound = lipgloss.NewStyle().Foreground(m.theme.Overlay0).Render("muted")
+		soundIcon, soundLabel = ic.SoundOff, "muted"
 	}
-	left := lipgloss.NewStyle().Foreground(m.theme.Mauve).Bold(true).Render("cleo") +
+	sound := m.theme.Pill(withIcon(soundIcon, soundLabel), m.theme.Overlay0)
+
+	left := lipgloss.NewStyle().Foreground(m.theme.Mauve).Bold(true).Render(withIcon(ic.Logo, "CLEO")) +
 		lipgloss.NewStyle().Foreground(m.theme.Overlay0).Render("  ai agents")
 	memMB := float64(m.heapAlloc+m.agentMemAlloc) / (1024 * 1024)
-	right := fmt.Sprintf("%s  %s  %s  %s  %s",
-		m.theme.Pill(fmt.Sprintf("%d projects", len(m.projects)), m.theme.Subtext0),
-		m.theme.Pill(fmt.Sprintf("%d live", stats.live), m.theme.Green),
-		m.theme.Pill(fmt.Sprintf("%d waiting", stats.waiting), m.theme.Peach),
-		m.theme.Pill(fmt.Sprintf("%.1f MB", memMB), m.theme.Overlay0),
+	// The live/waiting pills lead with the matching state glyph so the topbar
+	// summary and the tree's per-session markers read as the same vocabulary.
+	right := strings.Join([]string{
+		m.theme.Pill(withIcon(ic.Project, fmt.Sprintf("%d projects", len(m.projects))), m.theme.Subtext0),
+		m.theme.Pill(withIcon(ic.Running, fmt.Sprintf("%d live", stats.live)), m.theme.Green),
+		m.theme.Pill(withIcon(ic.Waiting, fmt.Sprintf("%d waiting", stats.waiting)), m.theme.Peach),
+		m.theme.Pill(withIcon(ic.Memory, fmt.Sprintf("%.1f MB", memMB)), m.theme.Overlay0),
 		sound,
-	)
+	}, "  ")
 	space := width - lipgloss.Width(left) - lipgloss.Width(right) - 2
 	if space < 1 {
 		space = 1

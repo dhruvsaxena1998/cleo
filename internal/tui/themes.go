@@ -30,6 +30,13 @@ type Theme struct {
 	Mauve    lipgloss.Color
 	Blue     lipgloss.Color
 	Yellow   lipgloss.Color
+
+	// Icons is the resolved glyph set (ui.icons). It rides on the Theme because
+	// the Theme is the render context already threaded through every styling
+	// method, so attaching the glyph set here makes those methods icon-aware
+	// without widening their signatures. Resolve defaults it to nerd; the model
+	// overrides it from config in New/applyTheme.
+	Icons IconSet
 }
 
 var catppuccinMocha = Theme{
@@ -155,12 +162,17 @@ var registry = map[string]Theme{
 	"synthwave":        synthwave,
 }
 
-// Resolve returns the named theme, falling back to catppuccin-mocha.
+// Resolve returns the named theme, falling back to catppuccin-mocha. The
+// returned Theme carries the default (nerd) icon set so a Theme used without
+// the model — direct Resolve callers, tests — still has non-empty glyphs; the
+// model overrides Icons from ui.icons.
 func Resolve(name string) Theme {
-	if t, ok := registry[name]; ok {
-		return t
+	t := catppuccinMocha
+	if found, ok := registry[name]; ok {
+		t = found
 	}
-	return catppuccinMocha
+	t.Icons = nerdIcons
+	return t
 }
 
 // ThemeNames returns the registry's theme names in sorted order. It is the

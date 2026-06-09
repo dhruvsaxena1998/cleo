@@ -26,16 +26,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		m = m.clampCursor()
+
+		var cmds []tea.Cmd
+		// Start the pulse loop when work appears and it is not already running.
+		// The animTicking guard keeps the 750ms state tick from arming a second,
+		// overlapping ticker on every reload.
+		if m.hasWorkingSession() && !m.animTicking {
+			m.animTicking = true
+			cmds = append(cmds, animTickCmd())
+		}
 		// On the very first state load, fire one immediate capture so the
 		// preview panel renders within ~tmux-ls latency instead of waiting
 		// for the first previewTickCmd interval (~1.5s of "loading…").
 		if firstLoad {
 			if cmd := m.autoCaptureCmd(); cmd != nil {
 				m.paneCaptureInFlight = true
-				return m, cmd
+				cmds = append(cmds, cmd)
 			}
 		}
-		return m, nil
+		return m, tea.Batch(cmds...)
+	case animTickMsg:
+		// Re-arm only while work remains; otherwise let the loop die and clear
+		// the guard so the next stateLoadedMsg can restart it.
+		if !m.hasWorkingSession() {
+			m.animTicking = false
+			return m, nil
+		}
+		m.animFrame++
+		return m, animTickCmd()
 	case tickStateMsg:
 		m.heapAlloc = readHeapAlloc()
 		return m, tea.Batch(loadStateCmd(m.ctx), tickStateCmd())

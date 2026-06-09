@@ -50,11 +50,11 @@ func TestFrameEveryLineMatchesWidth(t *testing.T) {
 func TestFrameBorderGlyphs(t *testing.T) {
 	lines := frameLines(plainSpec(frameSpec{Width: 30, Title: "T", Hint: "h", Sections: [][]string{{"a"}}}))
 	top, bottom := lines[0], lines[len(lines)-1]
-	if !strings.HasPrefix(top, "┌") || !strings.HasSuffix(top, "┐") {
-		t.Errorf("top border = %q, want ┌…┐", top)
+	if !strings.HasPrefix(top, "╭") || !strings.HasSuffix(top, "╮") {
+		t.Errorf("top border = %q, want ╭…╮", top)
 	}
-	if !strings.HasPrefix(bottom, "└") || !strings.HasSuffix(bottom, "┘") {
-		t.Errorf("bottom border = %q, want └…┘", bottom)
+	if !strings.HasPrefix(bottom, "╰") || !strings.HasSuffix(bottom, "╯") {
+		t.Errorf("bottom border = %q, want ╰…╯", bottom)
 	}
 }
 

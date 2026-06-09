@@ -92,6 +92,9 @@ func NewSettingsPopup(cfg config.Config, theme Theme, agentNames []string, maxHe
 		enumField("Appearance", "theme", themes,
 			func(c config.Config) string { return c.UI.Theme },
 			func(c *config.Config, v string) { c.UI.Theme = v }),
+		enumField("Appearance", "icons", IconSetNames(),
+			func(c config.Config) string { return c.UI.Icons },
+			func(c *config.Config, v string) { c.UI.Icons = v }),
 		intField("Appearance", "sidebar width", config.MinSidebarWidth, config.MaxSidebarWidth, 2,
 			func(c config.Config) int { return c.UI.SidebarWidth },
 			func(c *config.Config, v int) { c.UI.SidebarWidth = v }),
@@ -332,8 +335,10 @@ func (p SettingsPopup) editField(dir int) (tea.Model, tea.Cmd) {
 		return p, nil
 	}
 	p.draft = f.step(p.draft, dir)
-	// Keep the popup's own borders in sync when the theme field changes.
+	// Keep the popup's own theme in sync when the theme/icons fields change, so
+	// its chrome tracks the live preview.
 	p.theme = Resolve(p.draft.UI.Theme)
+	p.theme.Icons = resolveIcons(p.draft.UI.Icons)
 	return p, p.changedCmd()
 }
 

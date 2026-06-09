@@ -48,6 +48,25 @@ type Model struct {
 
 	heapAlloc     uint64 // updated once per state tick via runtime.ReadMemStats
 	agentMemAlloc uint64 // combined RSS of all agent process trees (bytes)
+
+	// animFrame advances on each animTick and drives the "working" pulse — the
+	// running/spawning markers breathe (see styles.go pulseColor). animTicking
+	// guards the ~120ms loop so it runs only while a working session exists and
+	// is never double-armed: stateLoadedMsg starts it when work appears, and the
+	// tick stops re-arming when work is gone.
+	animFrame   int
+	animTicking bool
+}
+
+// hasWorkingSession reports whether any session is actively working, gating the
+// pulse animation loop so an idle dashboard does not re-render on a timer.
+func (m Model) hasWorkingSession() bool {
+	for _, s := range m.sessions {
+		if s.State == state.Running || s.State == state.Spawning {
+			return true
+		}
+	}
+	return false
 }
 
 func readHeapAlloc() uint64 {
@@ -68,9 +87,11 @@ func New(ctx *cli.Ctx) Model {
 	// regions. Done here (not in Run) so tests that construct a Model directly
 	// also get a live manager; re-creating per-Model is cheap.
 	zone.NewGlobal()
+	theme := Resolve(ctx.Config.UI.Theme)
+	theme.Icons = resolveIcons(ctx.Config.UI.Icons)
 	m := Model{
 		ctx:            ctx,
-		theme:          Resolve(ctx.Config.UI.Theme),
+		theme:          theme,
 		expanded:       map[string]bool{},
 		paneCache:      map[string]string{},
 		help:           help.New(),
@@ -121,6 +142,10 @@ func (m *Model) clearStatus() {
 func (m *Model) applyTheme(name string) tea.Cmd {
 	prev := m.theme.Base
 	m.theme = Resolve(name)
+	// Re-resolve the glyph set from the live config rather than carrying the old
+	// one, so the settings editor's icons field previews/saves/reverts through
+	// the same path as theme. Every caller updates ctx.Config before calling.
+	m.theme.Icons = resolveIcons(m.ctx.Config.UI.Icons)
 	if m.theme.Base == prev {
 		return nil
 	}

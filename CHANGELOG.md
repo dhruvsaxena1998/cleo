@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- TUI visual overhaul. The dashboard now ships [Nerd Font](https://www.nerdfonts.com/) iconography by default: folder glyphs in the project tree, status markers (running/waiting/idle/…), and small chrome icons across the topbar, footer, panel titles, and session metadata. A new `[ui].icons` setting selects the glyph set — `nerd` (default), `unicode` (portable symbols, for terminals without a patched font), or `ascii` (plain-text fallback). It can be cycled live in the in-app settings editor (`,`) alongside the theme.
+
+### Changed
+- Polished the dashboard look across the board: rounded panel/popup borders, an accent bar on the selected tree row, colored per-agent labels, a `CLEO` wordmark with status pills in the topbar, and key-cap styled footer hints.
+- Working sessions now pulse — a running session's green marker (and a spawning session's yellow one) gently breathes in the tree and session metadata, so active work reads at a glance. The animation only runs while a session is running or spawning, so an idle dashboard isn't redrawn on a timer.
+
 ## [0.2.2] - 2026-06-08
 
 ### Added

@@ -61,7 +61,7 @@ func (m Model) renderMetaPanel(w, h int, sess state.Session, has bool) string {
 			padRight("agent", col) + padRight("state", col) + padRight("project", col) +
 				padRight("runtime", col) + padRight("tools", col) + "last")
 		values := faint.Render("─  no session selected  ─")
-		return m.theme.PanelBox("Session", "—", []string{labels, values}, w, h)
+		return m.theme.PanelBox(withIcon(m.theme.Icons.Session, "Session"), "—", []string{labels, values}, w, h)
 	}
 
 	cfgAgent := m.ctx.Config.Agents[sess.Agent]
@@ -74,8 +74,11 @@ func (m Model) renderMetaPanel(w, h int, sess state.Session, has bool) string {
 		faint.Render(padRight("tools", col)) +
 		faint.Render("last")
 
-	stateVal := lipgloss.NewStyle().Foreground(m.theme.StateColor(string(sess.State))).Bold(true).Render(
-		truncateWidth(string(sess.State), col-1))
+	// The marker pulses (pulseColor) for a working session; the state word keeps
+	// the static colour. Composed via withIcon so spacing matches everywhere.
+	stateGlyphStr := lipgloss.NewStyle().Foreground(m.pulseColor(string(sess.State))).Render(m.theme.stateGlyph(string(sess.State)))
+	stateText := lipgloss.NewStyle().Foreground(m.theme.StateColor(string(sess.State))).Bold(true).Render(truncateWidth(string(sess.State), col-3))
+	stateVal := withIcon(stateGlyphStr, stateText)
 
 	valueRow := padRight(badge, col) +
 		padRight(stateVal, col) +
@@ -85,7 +88,7 @@ func (m Model) renderMetaPanel(w, h int, sess state.Session, has bool) string {
 		metric.Render(humanDuration(sess.LastEventAt))
 
 	hint := truncateWidth(sess.ID, w-14)
-	return m.theme.PanelBox("Session", hint, []string{labelRow, valueRow}, w, h)
+	return m.theme.PanelBox(withIcon(m.theme.Icons.Session, "Session"), hint, []string{labelRow, valueRow}, w, h)
 }
 
 // ── Events panel ──────────────────────────────────────────────────────────────
@@ -118,7 +121,7 @@ func (m Model) renderEventsPanel(w, h int, sess state.Session, has bool) string 
 		lines = strings.TrimRight(b.String(), "\n")
 	}
 
-	return m.theme.PanelBox("Events", hint, strings.Split(lines, "\n"), w, h)
+	return m.theme.PanelBox(withIcon(m.theme.Icons.Events, "Events"), hint, strings.Split(lines, "\n"), w, h)
 }
 
 // ── Preview panel ─────────────────────────────────────────────────────────────
@@ -132,12 +135,12 @@ func (m Model) renderPreviewPanel(w, h int, sess state.Session, has bool) string
 	faint := lipgloss.NewStyle().Foreground(m.theme.Overlay0)
 
 	if !has {
-		return m.theme.PanelBox("Terminal Preview", "tmux capture-pane -p",
+		return m.theme.PanelBox(withIcon(m.theme.Icons.Session, "Terminal Preview"), "tmux capture-pane -p",
 			[]string{faint.Render("navigate to a session to view its terminal")}, w, h)
 	}
 
 	if sess.State.IsFinished() {
-		return m.theme.PanelBox("Terminal Preview", "session finished",
+		return m.theme.PanelBox(withIcon(m.theme.Icons.Session, "Terminal Preview"), "session finished",
 			[]string{faint.Render("tmux session is gone; press K to remove this record")}, w, h)
 	}
 
@@ -145,10 +148,10 @@ func (m Model) renderPreviewPanel(w, h int, sess state.Session, has bool) string
 	hint := "tmux capture-pane -p"
 	switch {
 	case pane == "":
-		return m.theme.PanelBox("Terminal Preview", hint,
+		return m.theme.PanelBox(withIcon(m.theme.Icons.Session, "Terminal Preview"), hint,
 			[]string{faint.Render("loading…  press v to refresh")}, w, h)
 	case strings.TrimSpace(pane) == "":
-		return m.theme.PanelBox("Terminal Preview", hint,
+		return m.theme.PanelBox(withIcon(m.theme.Icons.Session, "Terminal Preview"), hint,
 			[]string{faint.Render("agent hasn't rendered yet — press Enter to attach")}, w, h)
 	}
 
@@ -172,7 +175,7 @@ func (m Model) renderPreviewPanel(w, h int, sess state.Session, has bool) string
 		// mid-code. Raw ANSI passes through to preserve agent output colors.
 		body[i] = ansi.Truncate(l, w-4, "")
 	}
-	return m.theme.PanelBox("Terminal Preview", hint, body, w, h)
+	return m.theme.PanelBox(withIcon(m.theme.Icons.Session, "Terminal Preview"), hint, body, w, h)
 }
 
 // ── Fallback text views (used by snapshot test & renderMain) ──────────────────
