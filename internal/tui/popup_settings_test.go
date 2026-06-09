@@ -93,13 +93,35 @@ func TestSettingsThemeWrapsAround(t *testing.T) {
 	}
 }
 
+func TestSettingsIconsCyclesAndPreviewsLive(t *testing.T) {
+	p := newTestSettings(config.Defaults_()) // icons = nerd (first in the cycle)
+	p.cursor = fieldIndexSec(p, "Appearance", "icons")
+
+	p, msg := step(p, settingsKey("right"))
+
+	changed, ok := msg.(SettingsChanged)
+	if !ok {
+		t.Fatalf("expected SettingsChanged, got %T", msg)
+	}
+	if changed.Config.UI.Icons == "nerd" {
+		t.Fatalf("icons should have advanced off the default, got %q", changed.Config.UI.Icons)
+	}
+	if p.draft.UI.Icons != changed.Config.UI.Icons {
+		t.Fatalf("draft icons %q != emitted icons %q", p.draft.UI.Icons, changed.Config.UI.Icons)
+	}
+	// The popup must re-resolve its own glyph set so previewed chrome tracks it.
+	if p.theme.Icons != resolveIcons(p.draft.UI.Icons) {
+		t.Fatalf("popup glyph set not synced to draft %q", p.draft.UI.Icons)
+	}
+}
+
 func TestSettingsIntClampsAtMin(t *testing.T) {
 	cfg := config.Defaults_()
 	cfg.UI.SidebarWidth = config.MinSidebarWidth + 1
 	p := newTestSettings(cfg)
 	p.cursor = fieldIndexSec(p, "Appearance", "sidebar width")
 
-	p, _ = step(p, settingsKey("left"))   // min+1 -> min
+	p, _ = step(p, settingsKey("left"))    // min+1 -> min
 	_, msg := step(p, settingsKey("left")) // min -> clamped at min
 	changed := msg.(SettingsChanged)
 	if changed.Config.UI.SidebarWidth != config.MinSidebarWidth {
@@ -172,7 +194,7 @@ func TestSettingsPruningSteps(t *testing.T) {
 }
 
 func TestSettingsSoundEventTogglesWithoutMutatingOriginal(t *testing.T) {
-	cfg := config.Defaults_() // session_start enabled = true
+	cfg := config.Defaults_()    // session_start enabled = true
 	original := cfg.Sound.Events // shared reference also held by the revert snapshot
 	const ev = "session_start"
 
@@ -305,6 +327,33 @@ func TestModelEscRevertsThemePreview(t *testing.T) {
 	}
 	if rm.popup != nil {
 		t.Fatal("esc should close the settings popup")
+	}
+}
+
+func TestModelLiveIconsChangeAppliesAndReverts(t *testing.T) {
+	ctx := newTestCtx(t) // default icons = nerd
+	m := New(ctx)
+	if m.theme.Icons != nerdIcons {
+		t.Fatalf("default glyph set is not nerd")
+	}
+
+	// Open settings (snapshots the backup), preview an icon-set change, then esc.
+	opened, _ := m.openSettingsPopup()
+	cfg := opened.ctx.Config
+	cfg.UI.Icons = "ascii"
+	previewed, cmd := opened.Update(SettingsChanged{Config: cfg})
+	pm := previewed.(Model)
+	if pm.theme.Icons != asciiIcons {
+		t.Fatalf("live icon change did not apply to the active theme")
+	}
+	if cmd != nil {
+		t.Fatal("an icons-only change leaves the base colour unchanged, so no background sync is expected")
+	}
+
+	reverted, _ := pm.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	rm := reverted.(Model)
+	if rm.theme.Icons != nerdIcons {
+		t.Fatalf("glyph set after esc did not revert to nerd")
 	}
 }
 

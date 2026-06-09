@@ -102,6 +102,17 @@ var asciiIcons = IconSet{
 	SoundOn: "*",
 }
 
+// iconSetNames is the selectable glyph sets in the order the settings editor
+// cycles them — richest first. resolveIcons maps any of these (and unknown
+// values) to a set.
+var iconSetNames = []string{"nerd", "unicode", "ascii"}
+
+// IconSetNames returns the glyph-set names the in-app settings editor offers,
+// mirroring ThemeNames for the theme field.
+func IconSetNames() []string {
+	return append([]string(nil), iconSetNames...)
+}
+
 // resolveIcons maps the ui.icons config value to a set, defaulting to nerd for
 // the empty or unknown value. The default lives here (not config) so an
 // out-of-range value degrades to the shipped look instead of erroring.

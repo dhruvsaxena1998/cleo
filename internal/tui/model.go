@@ -122,9 +122,11 @@ func (m *Model) clearStatus() {
 // unchanged so non-theme edits don't write escape sequences on every keystroke.
 func (m *Model) applyTheme(name string) tea.Cmd {
 	prev := m.theme.Base
-	icons := m.theme.Icons // a theme switch keeps the active glyph set
 	m.theme = Resolve(name)
-	m.theme.Icons = icons
+	// Re-resolve the glyph set from the live config rather than carrying the old
+	// one, so the settings editor's icons field previews/saves/reverts through
+	// the same path as theme. Every caller updates ctx.Config before calling.
+	m.theme.Icons = resolveIcons(m.ctx.Config.UI.Icons)
 	if m.theme.Base == prev {
 		return nil
 	}
