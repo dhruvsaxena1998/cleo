@@ -19,7 +19,13 @@ type RenameResult struct {
 // The new name is slugified before storage. Returns ErrSessionNotFound when the
 // Session does not exist.
 func (l *Lifecycle) Rename(sessionID, newName string) (RenameResult, error) {
-	sess, err := l.state.Get(sessionID)
+	slug := ids.Slugify(newName)
+	var oldName string
+	updated, err := l.state.Update(sessionID, func(sess *state.Session) error {
+		oldName = sess.Name
+		sess.Name = slug
+		return nil
+	})
 	if err != nil {
 		if errors.Is(err, state.ErrSessionNotFound) {
 			return RenameResult{}, fmt.Errorf("%w: %s", ErrSessionNotFound, sessionID)
@@ -27,16 +33,9 @@ func (l *Lifecycle) Rename(sessionID, newName string) (RenameResult, error) {
 		return RenameResult{}, err
 	}
 
-	oldName := sess.Name
-	sess.Name = ids.Slugify(newName)
-
-	if err := l.state.Put(sess); err != nil {
-		return RenameResult{}, err
-	}
-
 	return RenameResult{
 		SessionID: sessionID,
 		OldName:   oldName,
-		NewName:   sess.Name,
+		NewName:   updated.Name,
 	}, nil
 }

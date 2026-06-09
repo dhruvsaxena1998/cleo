@@ -1,6 +1,7 @@
 package state
 
 import (
+	"errors"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -133,5 +134,72 @@ func TestStoreConcurrentApply(t *testing.T) {
 	got, _ := store.Get("x")
 	if got.ToolCount != 50 {
 		t.Errorf("expected tool_count 50 (no lost updates), got %d", got.ToolCount)
+	}
+}
+
+func TestStoreUpdateNotFound(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(filepath.Join(dir, "state.json"), filepath.Join(dir, "state.json.lock"))
+
+	called := false
+	_, err := store.Update("missing", func(s *Session) error {
+		called = true
+		return nil
+	})
+	if !errors.Is(err, ErrSessionNotFound) {
+		t.Errorf("want ErrSessionNotFound, got %v", err)
+	}
+	if called {
+		t.Error("mutate should not run for a missing session")
+	}
+}
+
+func TestStoreUpdateAbortsOnError(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(filepath.Join(dir, "state.json"), filepath.Join(dir, "state.json.lock"))
+	_ = store.Put(Session{ID: "x", State: Running, Name: "orig"})
+
+	sentinel := errors.New("reject")
+	_, err := store.Update("x", func(s *Session) error {
+		s.Name = "should-not-persist"
+		return sentinel
+	})
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("want sentinel error, got %v", err)
+	}
+	got, _ := store.Get("x")
+	if got.Name != "orig" {
+		t.Errorf("aborted Update must not persist: name = %q", got.Name)
+	}
+}
+
+// TestStoreUpdateApplyNoClobber is the regression test for the read-modify-write
+// window that the old Get+mutate+Put Rename had: a rename (Update of Name)
+// running concurrently with hook activity (Apply bumping ToolCount/State) must
+// not clobber either writer. Both paths now serialize through the same lock, so
+// every ToolCount bump survives and the rename takes effect.
+func TestStoreUpdateApplyNoClobber(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(filepath.Join(dir, "state.json"), filepath.Join(dir, "state.json.lock"))
+	_ = store.Put(Session{ID: "x", State: Running, Name: "orig"})
+
+	var wg sync.WaitGroup
+	for range 50 {
+		wg.Go(func() { _, _ = store.Apply("x", EvPostToolUse, "") })
+		wg.Go(func() {
+			_, _ = store.Update("x", func(s *Session) error {
+				s.Name = "renamed"
+				return nil
+			})
+		})
+	}
+	wg.Wait()
+
+	got, _ := store.Get("x")
+	if got.ToolCount != 50 {
+		t.Errorf("lost Apply updates under concurrent Update: tool_count = %d, want 50", got.ToolCount)
+	}
+	if got.Name != "renamed" {
+		t.Errorf("rename clobbered: name = %q, want %q", got.Name, "renamed")
 	}
 }
