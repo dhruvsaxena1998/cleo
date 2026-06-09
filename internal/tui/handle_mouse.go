@@ -45,8 +45,7 @@ func (m Model) handleTreeClick(msg tea.MouseMsg) (Model, tea.Cmd) {
 	for pi, p := range projs {
 		if zone.Get(projZoneID(pi)).InBounds(msg) {
 			m.clearStatus()
-			m.cursor.projectIdx = pi
-			m.cursor.agentIdx = -1
+			m.cursor = cursor{projectIdx: pi, agentIdx: projectRow}
 			m.expanded[p.ID] = !m.expanded[p.ID]
 			return m, m.autoCaptureCmd()
 		}
@@ -57,10 +56,9 @@ func (m Model) handleTreeClick(msg tea.MouseMsg) (Model, tea.Cmd) {
 			if !zone.Get(sessZoneID(pi, ai)).InBounds(msg) {
 				continue
 			}
-			alreadySelected := m.cursor.projectIdx == pi && m.cursor.agentIdx == ai
+			alreadySelected := m.cursor.onAgent(pi, ai)
 			m.clearStatus()
-			m.cursor.projectIdx = pi
-			m.cursor.agentIdx = ai
+			m.cursor = cursor{projectIdx: pi, agentIdx: ai}
 			if alreadySelected {
 				return m.attachSelectedAgent()
 			}

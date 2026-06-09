@@ -63,11 +63,6 @@ const (
 	ModePopup
 )
 
-type cursor struct {
-	projectIdx int
-	agentIdx   int // -1 = on the project row
-}
-
 func New(ctx *cli.Ctx) Model {
 	// Initialise the global bubblezone manager so View() can mark/scan clickable
 	// regions. Done here (not in Run) so tests that construct a Model directly

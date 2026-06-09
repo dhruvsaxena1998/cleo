@@ -112,7 +112,7 @@ func (m Model) sessionAtCursor() (state.Session, bool) {
 	if !ok {
 		return state.Session{}, false
 	}
-	if !m.expanded[pid] || m.cursor.agentIdx < 0 {
+	if !m.expanded[pid] || m.cursor.agentIdx == projectRow {
 		return state.Session{}, false
 	}
 	ss := m.sessionsFor(pid)
@@ -134,42 +134,13 @@ func (m Model) toggleExpand() (Model, tea.Cmd) {
 
 func (m Model) cursorUp() (Model, tea.Cmd) {
 	m.clearStatus()
-	if m.cursor.agentIdx >= 0 {
-		m.cursor.agentIdx--
-		if m.cursor.agentIdx < 0 {
-			m.cursor.agentIdx = -1
-		}
-		return m, m.autoCaptureCmd()
-	}
-	if m.cursor.projectIdx > 0 {
-		m.cursor.projectIdx--
-		prevPID := m.visibleProjectIDs()[m.cursor.projectIdx]
-		if m.expanded[prevPID] {
-			if ss := m.sessionsFor(prevPID); len(ss) > 0 {
-				m.cursor.agentIdx = len(ss) - 1
-			}
-		}
-	}
+	m.cursor = m.cursor.up(m.treeShape())
 	return m, m.autoCaptureCmd()
 }
 
 func (m Model) cursorDown() (Model, tea.Cmd) {
 	m.clearStatus()
-	pid, ok := m.projectAtCursor()
-	if !ok {
-		return m, nil
-	}
-	if m.expanded[pid] {
-		ss := m.sessionsFor(pid)
-		if m.cursor.agentIdx+1 < len(ss) {
-			m.cursor.agentIdx++
-			return m, m.autoCaptureCmd()
-		}
-	}
-	if m.cursor.projectIdx+1 < len(m.visibleProjectIDs()) {
-		m.cursor.projectIdx++
-		m.cursor.agentIdx = -1
-	}
+	m.cursor = m.cursor.down(m.treeShape())
 	return m, m.autoCaptureCmd()
 }
 
