@@ -3,6 +3,7 @@ package tmux
 import (
 	"fmt"
 	"math/rand"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -203,6 +204,65 @@ func TestSendKeysMultiLine(t *testing.T) {
 	}
 	if !strings.Contains(out, "line one") || !strings.Contains(out, "line two") {
 		t.Errorf("missing multi-line text in pane: %q", out)
+	}
+}
+
+// TestSendKeysCmds pins the structural fix for the intermittent "message lands
+// in the input box but isn't submitted" bug: text and its Enter must be SEPARATE
+// commands (so the Enter is a discrete keystroke, not a pasted newline), and the
+// text must go through -l (so a line matching a tmux key name is typed, not
+// executed).
+func TestSendKeysCmds(t *testing.T) {
+	cases := []struct {
+		name string
+		text string
+		want [][]string
+	}{
+		{
+			name: "single line: literal text then a separate Enter",
+			text: "hello world",
+			want: [][]string{
+				{"send-keys", "-t", "s", "-l", "hello world"},
+				{"send-keys", "-t", "s", "Enter"},
+			},
+		},
+		{
+			name: "line matching a key name is sent literally, not executed",
+			text: "C-c",
+			want: [][]string{
+				{"send-keys", "-t", "s", "-l", "C-c"},
+				{"send-keys", "-t", "s", "Enter"},
+			},
+		},
+		{
+			name: "multi-line keeps each Enter as its own command",
+			text: "line one\nline two",
+			want: [][]string{
+				{"send-keys", "-t", "s", "-l", "line one"},
+				{"send-keys", "-t", "s", "Enter"},
+				{"send-keys", "-t", "s", "-l", "line two"},
+				{"send-keys", "-t", "s", "Enter"},
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := sendKeysCmds("s", tc.text)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("sendKeysCmds(%q) =\n  %v\nwant\n  %v", tc.text, got, tc.want)
+			}
+			// The Enter that submits must never carry -l, or it would be typed
+			// as the literal text "Enter" instead of pressing the key.
+			for _, cmd := range got {
+				if cmd[len(cmd)-1] == "Enter" {
+					for _, a := range cmd {
+						if a == "-l" {
+							t.Errorf("Enter command must not use -l: %v", cmd)
+						}
+					}
+				}
+			}
+		})
 	}
 }
 
