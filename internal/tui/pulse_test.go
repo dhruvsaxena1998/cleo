@@ -8,30 +8,33 @@ import (
 	"github.com/dhruvsaxena1998/cleo/internal/state"
 )
 
-func TestAnimGlyphAnimatesWorkingStatesOnly(t *testing.T) {
-	m := New(newTestCtx(t)) // default nerd icons
-	sp := m.theme.Icons.spinner()
+func TestPulseColorBreathesForWorkingStatesOnly(t *testing.T) {
+	m := New(newTestCtx(t))
+	peak, trough := 0, pulsePeriod/2
 
-	m.animFrame = 0
-	if got := m.animGlyph("running"); got != sp[0] {
-		t.Fatalf("running glyph = %q, want spinner frame 0 %q", got, sp[0])
+	// Running and spawning breathe: peak and trough colours differ.
+	for _, s := range []string{"running", "spawning"} {
+		m.animFrame = peak
+		hi := m.pulseColor(s)
+		m.animFrame = trough
+		lo := m.pulseColor(s)
+		if hi == lo {
+			t.Fatalf("%s should pulse: peak and trough colours are identical (%v)", s, hi)
+		}
 	}
-	m.animFrame = len(sp) + 2 // must wrap with %
-	if got := m.animGlyph("running"); got != sp[2] {
-		t.Fatalf("running glyph did not wrap to frame 2, got %q", got)
-	}
-	if got := m.animGlyph("spawning"); got != sp[2] {
-		t.Fatalf("spawning should animate too, got %q", got)
-	}
-	// Every non-working state keeps its static marker.
-	for _, s := range []string{"idle", "waiting_for_input", "completed", "error", "dead"} {
-		if got := m.animGlyph(s); got != m.theme.stateGlyph(s) {
-			t.Fatalf("%s glyph = %q, want static %q", s, got, m.theme.stateGlyph(s))
+
+	// Every other state holds its static colour at any frame.
+	for _, f := range []int{0, 3, 7, pulsePeriod / 2, pulsePeriod} {
+		m.animFrame = f
+		for _, s := range []string{"idle", "waiting_for_input", "completed", "error", "dead"} {
+			if got := m.pulseColor(s); got != m.theme.StateColor(s) {
+				t.Fatalf("%s at frame %d pulsed (%v); want static %v", s, f, got, m.theme.StateColor(s))
+			}
 		}
 	}
 }
 
-func TestSpinnerTickAdvancesWhileWorkingAndStopsWhenIdle(t *testing.T) {
+func TestPulseTickAdvancesWhileWorkingAndStopsWhenIdle(t *testing.T) {
 	m := New(newTestCtx(t))
 	m.animTicking = true // pretend the loop is live
 
@@ -39,7 +42,7 @@ func TestSpinnerTickAdvancesWhileWorkingAndStopsWhenIdle(t *testing.T) {
 	updated, cmd := m.Update(animTickMsg{})
 	mm := updated.(Model)
 	if cmd != nil {
-		t.Fatal("idle anim tick must not re-arm the spinner")
+		t.Fatal("idle anim tick must not re-arm the pulse")
 	}
 	if mm.animTicking {
 		t.Fatal("anim guard should clear when no work remains")
@@ -51,24 +54,24 @@ func TestSpinnerTickAdvancesWhileWorkingAndStopsWhenIdle(t *testing.T) {
 	updated2, cmd2 := mm.Update(animTickMsg{})
 	mm2 := updated2.(Model)
 	if cmd2 == nil {
-		t.Fatal("working anim tick must re-arm the spinner")
+		t.Fatal("working anim tick must re-arm the pulse")
 	}
 	if mm2.animFrame != before+1 {
 		t.Fatalf("frame = %d, want %d", mm2.animFrame, before+1)
 	}
 }
 
-func TestStateLoadStartsSpinnerOnlyWhenWorking(t *testing.T) {
+func TestStateLoadStartsPulseOnlyWhenWorking(t *testing.T) {
 	working := stateLoadedMsg{
 		projects: []projects.Project{{ID: "p"}},
 		sessions: []state.Session{{ID: "s", ProjectID: "p", Agent: "claude", State: state.Running, StartedAt: time.Now()}},
 	}
 	updated, cmd := New(newTestCtx(t)).Update(working)
 	if !updated.(Model).animTicking {
-		t.Fatal("spinner should start ticking when a working session loads")
+		t.Fatal("pulse should start ticking when a working session loads")
 	}
 	if cmd == nil {
-		t.Fatal("expected a command to start the spinner loop")
+		t.Fatal("expected a command to start the pulse loop")
 	}
 
 	idle := stateLoadedMsg{
@@ -77,6 +80,6 @@ func TestStateLoadStartsSpinnerOnlyWhenWorking(t *testing.T) {
 	}
 	u2, _ := New(newTestCtx(t)).Update(idle)
 	if u2.(Model).animTicking {
-		t.Fatal("spinner should stay idle when no session is working")
+		t.Fatal("pulse should stay idle when no session is working")
 	}
 }

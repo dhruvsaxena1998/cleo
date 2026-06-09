@@ -49,17 +49,17 @@ type Model struct {
 	heapAlloc     uint64 // updated once per state tick via runtime.ReadMemStats
 	agentMemAlloc uint64 // combined RSS of all agent process trees (bytes)
 
-	// animFrame advances on each animTick and drives the "working" spinner
-	// (running/spawning glyphs). animTicking guards the ~120ms spinner loop so
-	// it runs only while a working session exists and is never double-armed:
-	// stateLoadedMsg starts it when work appears, and the tick stops re-arming
-	// when work is gone. See update.go and styles.go animGlyph.
+	// animFrame advances on each animTick and drives the "working" pulse — the
+	// running/spawning markers breathe (see styles.go pulseColor). animTicking
+	// guards the ~120ms loop so it runs only while a working session exists and
+	// is never double-armed: stateLoadedMsg starts it when work appears, and the
+	// tick stops re-arming when work is gone.
 	animFrame   int
 	animTicking bool
 }
 
 // hasWorkingSession reports whether any session is actively working, gating the
-// spinner animation loop so an idle dashboard does not re-render on a timer.
+// pulse animation loop so an idle dashboard does not re-render on a timer.
 func (m Model) hasWorkingSession() bool {
 	for _, s := range m.sessions {
 		if s.State == state.Running || s.State == state.Spawning {

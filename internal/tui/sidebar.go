@@ -125,7 +125,7 @@ func (m Model) renderTreeContent(innerW int) string {
 			ageStr := sessionAge(s)
 			shortSt := fmt.Sprintf("%-4s", shortStateLabel(s.State))
 			stColor := m.theme.StateColor(string(s.State))
-			glyph := m.animGlyph(string(s.State))
+			glyph := m.theme.stateGlyph(string(s.State))
 			label := cfgAgent.Label
 
 			// Left fixed cells before the name: gutter(1) connector(1) space(1)
@@ -149,7 +149,9 @@ func (m Model) renderTreeContent(innerW int) string {
 				inner := lInner + strings.Repeat(" ", gap) + rInner
 				row = bar + selectedSt.Width(innerW-1).Render(inner)
 			} else {
-				glyphSt := lipgloss.NewStyle().Foreground(stColor).Render(glyph)
+				// The marker pulses for working sessions (pulseColor); the state
+				// label keeps the static colour so only the dot breathes.
+				glyphSt := lipgloss.NewStyle().Foreground(m.pulseColor(string(s.State))).Render(glyph)
 				labelSt := lipgloss.NewStyle().Foreground(lipgloss.Color(cfgAgent.Color)).Bold(true).Render(label)
 				left := " " + faint.Render(connector) + " " + withIcon(glyphSt, labelSt) + " " + dimmed.Render(truncName)
 				right := lipgloss.NewStyle().Foreground(stColor).Render(shortSt) + " " + faint.Render(ageStr)

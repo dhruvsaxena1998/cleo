@@ -74,8 +74,11 @@ func (m Model) renderMetaPanel(w, h int, sess state.Session, has bool) string {
 		faint.Render(padRight("tools", col)) +
 		faint.Render("last")
 
-	stateVal := lipgloss.NewStyle().Foreground(m.theme.StateColor(string(sess.State))).Bold(true).Render(
-		withIcon(m.animGlyph(string(sess.State)), truncateWidth(string(sess.State), col-3)))
+	// The marker pulses (pulseColor) for a working session; the state word keeps
+	// the static colour. Composed via withIcon so spacing matches everywhere.
+	stateGlyphStr := lipgloss.NewStyle().Foreground(m.pulseColor(string(sess.State))).Render(m.theme.stateGlyph(string(sess.State)))
+	stateText := lipgloss.NewStyle().Foreground(m.theme.StateColor(string(sess.State))).Bold(true).Render(truncateWidth(string(sess.State), col-3))
+	stateVal := withIcon(stateGlyphStr, stateText)
 
 	valueRow := padRight(badge, col) +
 		padRight(stateVal, col) +

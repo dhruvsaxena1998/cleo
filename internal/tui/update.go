@@ -28,7 +28,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m = m.clampCursor()
 
 		var cmds []tea.Cmd
-		// Start the spinner loop when work appears and it is not already running.
+		// Start the pulse loop when work appears and it is not already running.
 		// The animTicking guard keeps the 750ms state tick from arming a second,
 		// overlapping ticker on every reload.
 		if m.hasWorkingSession() && !m.animTicking {

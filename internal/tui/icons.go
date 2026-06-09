@@ -16,10 +16,9 @@ package tui
 // (and its trailing space) entirely in that case, so the unicode/ascii sets stay
 // clean instead of rendering filler.
 type IconSet struct {
-	// Name identifies the set ("nerd"/"unicode"/"ascii"). It keeps IconSet a
-	// comparable, all-scalar struct (so it can be == compared) while letting
-	// code that needs to branch on the set — e.g. spinner — do so without a
-	// slice field.
+	// Name identifies the set ("nerd"/"unicode"/"ascii"). It is an all-scalar
+	// field, so IconSet stays comparable — the settings editor's live-preview
+	// check compares whole sets with == / != against resolveIcons results.
 	Name string
 
 	// Session-state markers, indexed by the lifecycle states in styles.go.
@@ -59,7 +58,7 @@ var nerdIcons = IconSet{
 	Running:   "", // fa-circle (filled) — small dot for the topbar "live" pill
 	Waiting:   "", // fa-question-circle — needs input, kept prominent
 	Idle:      "", // fa-circle-o (outline)
-	Spawning:  "", // fa-spinner (static; running/spawning animate via spinner())
+	Spawning:  "", // fa-spinner (static glyph; running/spawning pulse via pulseColor)
 	Completed: "", // fa-check-circle-o (outline)
 	Error:     "", // fa-times-circle-o (outline)
 	Dead:      "", // fa-minus-circle
@@ -137,20 +136,6 @@ func resolveIcons(name string) IconSet {
 		return asciiIcons
 	default:
 		return nerdIcons
-	}
-}
-
-// spinner returns the animation frames shown for the "working" states
-// (running, spawning) in place of the static marker. Braille reads well and is
-// single-cell in both Nerd Font and plain Unicode terminals; the ascii set
-// keeps a pure-ASCII spinner so an icons="ascii" terminal still animates.
-func (ic IconSet) spinner() []string {
-	if ic.Name == "ascii" {
-		return []string{"|", "/", "-", "\\"}
-	}
-	return []string{
-		"⠋", "⠙", "⠹", "⠸", "⠼",
-		"⠴", "⠦", "⠧", "⠇", "⠏",
 	}
 }
 

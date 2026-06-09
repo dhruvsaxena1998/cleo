@@ -2,10 +2,12 @@ package tui
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/dhruvsaxena1998/cleo/internal/events"
+	"github.com/lucasb-eyer/go-colorful"
 )
 
 // ── State helpers ─────────────────────────────────────────────────────────────
@@ -96,16 +98,39 @@ func (t Theme) StyledGlyph(s string) string {
 	return lipgloss.NewStyle().Foreground(t.StateColor(s)).Render(t.stateGlyph(s))
 }
 
-// animGlyph returns the marker for a state, animating the "working" states
-// (running, spawning) through the icon set's spinner frames at the current
-// animFrame. Every other state returns its static glyph. It is a Model method
-// because the frame counter lives on the model, advanced by the spinner tick.
-func (m Model) animGlyph(s string) string {
-	if s == "running" || s == "spawning" {
-		frames := m.theme.Icons.spinner()
-		return frames[m.animFrame%len(frames)]
+// pulsePeriod is the number of animation frames in one breath; pulseMaxDim is
+// the deepest fade toward the background at the trough. At ~120ms per frame a
+// 14-frame period is roughly a 1.7s breath, and capping the dim at 0.55 keeps
+// the marker clearly visible (never fully fading into the panel).
+const (
+	pulsePeriod = 14
+	pulseMaxDim = 0.55
+)
+
+// pulseColor returns the colour for a state marker. The "working" states
+// (running, spawning) breathe: their semantic colour fades toward the panel
+// background on a smooth cosine curve driven by animFrame, so a running session
+// reads as a pulsing green dot. Every other state returns its static colour.
+func (m Model) pulseColor(state string) lipgloss.Color {
+	base := m.theme.StateColor(state)
+	if state != "running" && state != "spawning" {
+		return base
 	}
-	return m.theme.stateGlyph(s)
+	phase := float64(m.animFrame%pulsePeriod) / float64(pulsePeriod)
+	amt := (1 - math.Cos(2*math.Pi*phase)) / 2 * pulseMaxDim // 0 at peak, pulseMaxDim at trough
+	return blendToward(base, m.theme.Base, amt)
+}
+
+// blendToward mixes fg toward bg by amt (0 = fg, 1 = bg) in perceptual Lab
+// space. It parses the theme's hex colours; on any parse failure it returns fg
+// unchanged, so a non-hex colour simply doesn't pulse rather than erroring.
+func blendToward(fg, bg lipgloss.Color, amt float64) lipgloss.Color {
+	c1, err1 := colorful.Hex(string(fg))
+	c2, err2 := colorful.Hex(string(bg))
+	if err1 != nil || err2 != nil {
+		return fg
+	}
+	return lipgloss.Color(c1.BlendLab(c2, amt).Clamped().Hex())
 }
 
 func (t Theme) StyledStateText(s string) string {

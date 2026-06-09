@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Polished the dashboard look across the board: rounded panel/popup borders, an accent bar on the selected tree row, colored per-agent labels, a `CLEO` wordmark with status pills in the topbar, and key-cap styled footer hints.
-- Working sessions now show an animated spinner instead of a static marker — a running session's green dot becomes a spinning glyph in the tree and session metadata, so active work reads at a glance. The animation only runs while a session is running or spawning, so an idle dashboard isn't redrawn on a timer.
+- Working sessions now pulse — a running session's green marker (and a spawning session's yellow one) gently breathes in the tree and session metadata, so active work reads at a glance. The animation only runs while a session is running or spawning, so an idle dashboard isn't redrawn on a timer.
 
 ## [0.2.2] - 2026-06-08
 
