@@ -42,26 +42,13 @@ func NewSendPopup(sessionID string, theme Theme) SendPopup {
 func (p SendPopup) Init() tea.Cmd { return textinput.Blink }
 
 func (p SendPopup) View() string {
-	bdr := popupBorderStyle(p.theme)
-	iw := sendPopupWidth - 2
-	cw := iw - 2
+	cw := sendPopupWidth - 4
 
-	var b strings.Builder
-
+	// The send popup is the one outlier: the title and session id are baked into
+	// the top border line, and the body has no internal divider. The frame's
+	// TitleInBorder variant reproduces that compact, airy shape.
 	title := lipgloss.NewStyle().Foreground(p.theme.Text).Bold(true).Render("Quick Message")
 	sid := lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render(truncateWidth(p.sessionID, cw-lipgloss.Width(title)-3))
-	topLabel := " " + title + " "
-	topRight := " " + sid + " "
-	fill := iw - lipgloss.Width(topLabel) - lipgloss.Width(topRight)
-	if fill < 0 {
-		fill = 0
-	}
-	b.WriteString(bdr.Render("┌") + topLabel + bdr.Render(strings.Repeat("─", fill)) + topRight + bdr.Render("┐") + "\n")
-
-	blank := func() {
-		b.WriteString(bdr.Render("│") + " " + strings.Repeat(" ", cw) + " " + bdr.Render("│") + "\n")
-	}
-	blank()
 
 	prompt := lipgloss.NewStyle().Foreground(p.theme.Gold).Bold(true).Render("›")
 	inputSlot := sendPopupInputSlotWidth(p.theme)
@@ -69,10 +56,9 @@ func (p SendPopup) View() string {
 	input.Prompt = ""
 	input.Width = sendPopupInputViewportWidth(p.theme)
 	inputView := padRight(ansi.Truncate(input.View(), inputSlot, ""), inputSlot)
-	line := prompt + " " + inputView
-	b.WriteString(bdr.Render("│") + " " + padRight(ansi.Truncate(line, cw, ""), cw) + " " + bdr.Render("│") + "\n")
-
-	blank()
+	// Fit the input line to the content width with ANSI-aware truncation so the
+	// (already styled) prompt and input never slice a colour escape mid-sequence.
+	inputLine := padRight(ansi.Truncate(prompt+" "+inputView, cw, ""), cw)
 
 	hint := sendPopupHint(p.theme)
 	hintGap := cw - lipgloss.Width(hint)
@@ -80,11 +66,16 @@ func (p SendPopup) View() string {
 		hintGap = 0
 		hint = ansi.Truncate(hint, cw, "")
 	}
-	b.WriteString(bdr.Render("│") + " " + strings.Repeat(" ", hintGap) + hint + " " + bdr.Render("│") + "\n")
+	hintRow := strings.Repeat(" ", hintGap) + hint
 
-	b.WriteString(bdr.Render("└" + strings.Repeat("─", iw) + "┘"))
-
-	return b.String()
+	return drawFrame(frameSpec{
+		Width:         sendPopupWidth,
+		Title:         title,
+		Hint:          sid,
+		Border:        popupBorderStyle(p.theme),
+		TitleInBorder: true,
+		Sections:      [][]string{{"", inputLine, "", hintRow}},
+	})
 }
 
 func sendPopupHint(theme Theme) string {

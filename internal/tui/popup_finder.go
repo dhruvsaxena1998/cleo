@@ -183,37 +183,7 @@ func (p FinderPopup) visibleRows(matches []int, limit int) []finderRow {
 
 func (p FinderPopup) View() string {
 	const popW = 78
-	iw := popW - 2
-	cw := iw - 2
-
-	bdr := popupBorderStyle(p.theme)
-
-	var b strings.Builder
-	hbar := strings.Repeat("─", iw)
-	b.WriteString(bdr.Render("┌"+hbar+"┐") + "\n")
-
-	titleLeft := lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render("Find Session")
-	titleRight := lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("attach to live agent")
-	gap := cw - lipgloss.Width(titleLeft) - lipgloss.Width(titleRight)
-	if gap < 0 {
-		gap = 0
-	}
-	b.WriteString(bdr.Render("│") + " " + titleLeft + strings.Repeat(" ", gap) + titleRight + " " + bdr.Render("│") + "\n")
-	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
-
-	blank := func() {
-		b.WriteString(bdr.Render("│") + " " + strings.Repeat(" ", cw) + " " + bdr.Render("│") + "\n")
-	}
-	row := func(s string) {
-		b.WriteString(bdr.Render("│") + " " + padRight(truncateWidth(s, cw), cw) + " " + bdr.Render("│") + "\n")
-	}
-
-	blank()
-
-	// query line — the text input owns the cursor and placeholder
-	chevron := lipgloss.NewStyle().Foreground(p.theme.Gold).Bold(true).Render("›")
-	row(chevron + " " + p.input.View())
-	blank()
+	cw := popW - 4
 
 	// styles
 	selectedBg := lipgloss.NewStyle().Background(p.theme.Surf1).Foreground(p.theme.Text).Bold(true)
@@ -221,17 +191,19 @@ func (p FinderPopup) View() string {
 	faint := lipgloss.NewStyle().Foreground(p.theme.Overlay0)
 	dimmed := lipgloss.NewStyle().Foreground(p.theme.Subtext0)
 
+	// query line — the text input owns the cursor and placeholder
+	chevron := lipgloss.NewStyle().Foreground(p.theme.Gold).Bold(true).Render("›")
+	rows := []string{"", chevron + " " + p.input.View(), ""}
+
 	matches := p.matches()
 	if len(matches) == 0 {
-		row(faint.Render("no matching sessions"))
+		rows = append(rows, faint.Render("no matching sessions"))
 	} else {
 		const maxSessions = 12
-		rows := p.visibleRows(matches, maxSessions)
-
-		for _, r := range rows {
+		for _, r := range p.visibleRows(matches, maxSessions) {
 			if r.isHeader {
 				// Grey non-selectable project group header.
-				row(headerSt.Render("  " + r.project))
+				rows = append(rows, headerSt.Render("  "+r.project))
 				continue
 			}
 
@@ -254,7 +226,7 @@ func (p FinderPopup) View() string {
 					gap = 1
 				}
 				plain := plainL + strings.Repeat(" ", gap) + plainR
-				row(selectedBg.Width(cw).Render(plain))
+				rows = append(rows, selectedBg.Width(cw).Render(plain))
 			} else {
 				agentLbl := lipgloss.NewStyle().Foreground(lipgloss.Color(cfgAgent.Color)).Bold(true).Render(badge)
 				stColor := p.theme.StateColor(string(s.State))
@@ -265,25 +237,25 @@ func (p FinderPopup) View() string {
 				if gap < 1 {
 					gap = 1
 				}
-				row(left + strings.Repeat(" ", gap) + right)
+				rows = append(rows, left+strings.Repeat(" ", gap)+right)
 			}
 		}
 
 		if len(matches) > maxSessions {
-			row(faint.Render(fmt.Sprintf("  … and %d more — refine your query", len(matches)-maxSessions)))
+			rows = append(rows, faint.Render(fmt.Sprintf("  … and %d more — refine your query", len(matches)-maxSessions)))
 		}
 	}
 
-	// pad to minimum height
-	linesSoFar := strings.Count(b.String(), "\n")
-	minLines := 11
-	for linesSoFar < minLines+3 {
-		blank()
-		linesSoFar++
+	// Pad the result list to a stable minimum so the popup doesn't jump as
+	// matches change. The frame later adds the top border, title, and its
+	// divider (3 lines) above these rows; the original bookkeeping padded until
+	// those 3 plus the body reached 14, then appended one final blank.
+	for len(rows) < 11 {
+		rows = append(rows, "")
 	}
-	blank()
+	rows = append(rows, "")
 
-	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
+	// footer — a centered three-part hint, pre-built to the full content width.
 	footLeft := faint.Render("esc cancel")
 	footMid := faint.Render("↑/↓ move")
 	footRight := faint.Render("↵ attach")
@@ -295,11 +267,15 @@ func (p FinderPopup) View() string {
 	pad1 := footSpace / 2
 	pad2 := footSpace - pad1
 	footLine := footLeft + strings.Repeat(" ", pad1) + footMid + strings.Repeat(" ", pad2) + footRight
-	footPad := cw - lipgloss.Width(footLine)
-	if footPad > 0 {
+	if footPad := cw - lipgloss.Width(footLine); footPad > 0 {
 		footLine += strings.Repeat(" ", footPad)
 	}
-	b.WriteString(bdr.Render("│") + " " + footLine + " " + bdr.Render("│") + "\n")
-	b.WriteString(bdr.Render("└"+hbar+"┘"))
-	return b.String()
+
+	return drawFrame(frameSpec{
+		Width:    popW,
+		Title:    lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render("Find Session"),
+		Hint:     lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("attach to live agent"),
+		Border:   popupBorderStyle(p.theme),
+		Sections: [][]string{rows, {footLine}},
+	})
 }

@@ -41,9 +41,6 @@ func (p HelpPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (p HelpPopup) View() string {
 	const popW = 58
-	bdr := popupBorderStyle(p.theme)
-	iw := popW - 2
-	cw := iw - 2
 
 	type row struct{ key, desc string }
 	km := p.keymap
@@ -85,42 +82,26 @@ func (p HelpPopup) View() string {
 		}},
 	}
 
-	hbar := strings.Repeat("─", iw)
-	var b strings.Builder
-
-	b.WriteString(bdr.Render("┌"+hbar+"┐") + "\n")
-	titleLeft := lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render("Keybindings")
-	titleRight := lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("esc / q to close")
-	gap := cw - lipgloss.Width(titleLeft) - lipgloss.Width(titleRight)
-	if gap < 0 {
-		gap = 0
-	}
-	b.WriteString(bdr.Render("│") + " " + titleLeft + strings.Repeat(" ", gap) + titleRight + " " + bdr.Render("│") + "\n")
-	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
-
-	writeRow := func(s string) {
-		b.WriteString(bdr.Render("│") + " " + padRight(truncateWidth(s, cw), cw) + " " + bdr.Render("│") + "\n")
-	}
-	writeBlank := func() {
-		b.WriteString(bdr.Render("│") + " " + strings.Repeat(" ", cw) + " " + bdr.Render("│") + "\n")
-	}
-
-	for si, sec := range sections {
-		if si > 0 {
-			b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
-		}
-		writeBlank()
-		writeRow(lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render(sec.title))
+	// Each keybinding section becomes one frame section (blank, section title,
+	// the key rows, blank); the frame draws a divider between adjacent sections.
+	frameSections := make([][]string, 0, len(sections))
+	for _, sec := range sections {
+		rows := []string{"", lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render(sec.title)}
 		for _, r := range sec.rows {
-			line := fmt.Sprintf("  %s  %s",
+			rows = append(rows, fmt.Sprintf("  %s  %s",
 				lipgloss.NewStyle().Foreground(p.theme.Gold).Bold(true).Render(r.key),
 				lipgloss.NewStyle().Foreground(p.theme.Subtext0).Render(r.desc),
-			)
-			writeRow(line)
+			))
 		}
-		writeBlank()
+		rows = append(rows, "")
+		frameSections = append(frameSections, rows)
 	}
 
-	b.WriteString(bdr.Render("└" + hbar + "┘"))
-	return b.String()
+	return drawFrame(frameSpec{
+		Width:    popW,
+		Title:    lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render("Keybindings"),
+		Hint:     lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("esc / q to close"),
+		Border:   popupBorderStyle(p.theme),
+		Sections: frameSections,
+	})
 }

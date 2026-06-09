@@ -121,58 +121,28 @@ func popupBorderStyle(t Theme) lipgloss.Style {
 	return lipgloss.NewStyle().Foreground(t.Mauve).Bold(true)
 }
 
+// PanelBox draws a dashboard panel — a bordered box with a title row and a
+// fixed-height body. It is a thin adapter over the shared frame core: the panel
+// look (Surf1 border, Base-filled inner) is expressed as the Border/Fill styles,
+// and the panel's fixed height is the frame's Height. Its exported interface is
+// unchanged, so the panel call sites stay untouched.
 func (t Theme) PanelBox(title, hint string, body []string, w, h int) string {
-	iw := w - 2
-	if iw < 4 {
-		iw = 4
-	}
-	cUsable := iw - 2
-	tUsable := iw - 2
-
-	// bdr carries the Base background so border characters fill with the theme colour
-	// rather than the terminal default.
-	bdr := lipgloss.NewStyle().Foreground(t.Surf1).Background(t.Base)
 	titleSt := lipgloss.NewStyle().Foreground(t.Accent).Bold(true)
-	hintSt := lipgloss.NewStyle().Foreground(t.Overlay0)
-	// innerSt fills the full iw-wide slot between the two │ glyphs with Base bg;
-	// Width(iw) ensures trailing spaces are explicitly styled, not transparent.
-	innerSt := lipgloss.NewStyle().Background(t.Base).Width(iw)
-
-	left := titleSt.Render(title)
-	right := ""
+	hintStr := ""
 	if hint != "" {
-		right = hintSt.Render(hint)
+		hintStr = lipgloss.NewStyle().Foreground(t.Overlay0).Render(hint)
 	}
-	gap := tUsable - lipgloss.Width(left) - lipgloss.Width(right)
-	if gap < 0 {
-		gap = 0
-	}
-	titleRow := left + strings.Repeat(" ", gap) + right
-
-	contentH := h - 4
-	if contentH < 0 {
-		contentH = 0
-	}
-	lines := make([]string, contentH)
-	for i := 0; i < len(body) && i < contentH; i++ {
-		lines[i] = body[i]
-	}
-
-	hbar := strings.Repeat("─", iw)
-
-	var b strings.Builder
-	b.WriteString(bdr.Render("┌"+hbar+"┐") + "\n")
-	b.WriteString(bdr.Render("│") + innerSt.Render(" "+padRight(titleRow, tUsable)) + bdr.Render("│") + "\n")
-	b.WriteString(bdr.Render("├"+hbar+"┤") + "\n")
-	for _, line := range lines {
-		padded := padRight(line, cUsable)
-		if lipgloss.Width(padded) > cUsable {
-			padded = truncateWidth(padded, cUsable)
-		}
-		b.WriteString(bdr.Render("│") + innerSt.Render(" "+padded) + bdr.Render("│") + "\n")
-	}
-	b.WriteString(bdr.Render("└" + hbar + "┘"))
-	return b.String()
+	return drawFrame(frameSpec{
+		Width:    w,
+		Title:    titleSt.Render(title),
+		Hint:     hintStr,
+		Sections: [][]string{body},
+		// The Base background on both the border glyphs and the inner fill makes
+		// transparent cells show the theme colour rather than the terminal default.
+		Border: lipgloss.NewStyle().Foreground(t.Surf1).Background(t.Base),
+		Fill:   lipgloss.NewStyle().Background(t.Base),
+		Height: h,
+	})
 }
 
 func (t Theme) SectionDivider(label string, width int) string {
