@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- TUI visual overhaul. The dashboard now ships [Nerd Font](https://www.nerdfonts.com/) iconography by default: folder glyphs in the project tree, status markers (running/waiting/idle/…), and small chrome icons across the topbar, footer, panel titles, and session metadata. A new `[ui].icons` setting selects the glyph set — `nerd` (default), `unicode` (portable symbols, for terminals without a patched font), or `ascii` (plain-text fallback).
+- TUI visual overhaul. The dashboard now ships [Nerd Font](https://www.nerdfonts.com/) iconography by default: folder glyphs in the project tree, status markers (running/waiting/idle/…), and small chrome icons across the topbar, footer, panel titles, and session metadata. A new `[ui].icons` setting selects the glyph set — `nerd` (default), `unicode` (portable symbols, for terminals without a patched font), or `ascii` (plain-text fallback). It can be cycled live in the in-app settings editor (`,`) alongside the theme.
 
 ### Changed
 - Polished the dashboard look across the board: rounded panel/popup borders, an accent bar on the selected tree row, colored per-agent labels, a `CLEO` wordmark with status pills in the topbar, and key-cap styled footer hints.

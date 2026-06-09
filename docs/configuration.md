@@ -238,7 +238,7 @@ Unknown values fall back to `catppuccin-mocha` and are reported as config warnin
 | `unicode` | Broadly-portable symbols (`●◑○✓✗`, `▸▾`). Use this if you do not have a Nerd Font installed. |
 | `ascii` | Plain ASCII fallback (`* ? o + x`, `> v`) for terminals that mangle wider Unicode. |
 
-Unknown values fall back to `nerd`. The setting takes effect on the next launch.
+Unknown values fall back to `nerd`. Like the theme, `icons` can be cycled live in the in-app settings editor (`,`) with `←`/`→` — the dashboard re-renders behind the popup as you change it.
 
 ## `[timeouts]`
 
@@ -308,7 +308,7 @@ Action names and their defaults:
 Press `,` in the dashboard to open the settings editor. It covers the settings you tweak most often without leaving the TUI:
 
 - **General** — `default_agent`, `editor`
-- **Appearance** — `theme`, `sidebar_width`
+- **Appearance** — `theme`, `icons`, `sidebar_width`
 - **Pane Preview** — `enabled`, `lines`, `interval`
 - **UX** — `status_timeout_seconds`, `event_log_lines`
 - **Timeouts** — `idle_to_completed_timeout`, `spawning_timeout`
