@@ -13,8 +13,11 @@ type KillResult struct {
 	Warning   error // non-nil when tmux kill failed; Session is still deleted
 }
 
-// Kill removes the Session record and best-effort kills the tmux session.
-// Returns an error wrapping ErrSessionNotFound when the Session does not exist.
+// Kill removes the Session record and best-effort kills the tmux session when
+// one is still live. A session whose tmux session has already exited (e.g. a
+// dead session) is deleted without a warning, since its absence from tmux is
+// the very state a kill aims for. Returns an error wrapping ErrSessionNotFound
+// when the Session does not exist.
 func (l *Lifecycle) Kill(sessionID string) (KillResult, error) {
 	if _, err := l.state.Get(sessionID); err != nil {
 		if errors.Is(err, state.ErrSessionNotFound) {
@@ -23,9 +26,17 @@ func (l *Lifecycle) Kill(sessionID string) (KillResult, error) {
 		return KillResult{}, err
 	}
 
+	// Only ask tmux to kill a session that is actually live. A dead session has
+	// no tmux session, so `tmux kill-session` exits non-zero ("can't find
+	// session") and would surface a spurious warning — even though "no tmux
+	// session" is exactly the post-condition a kill aims for. Treat a confirmed
+	// absence as success; if liveness can't be determined, fall through to a
+	// best-effort kill so genuine failures still surface.
 	var warning error
-	if err := l.tmux.Kill(sessionID); err != nil {
-		warning = fmt.Errorf("tmux kill failed: %w", err)
+	if live, err := l.tmux.HasSession(sessionID); err != nil || live {
+		if err := l.tmux.Kill(sessionID); err != nil {
+			warning = fmt.Errorf("tmux kill failed: %w", err)
+		}
 	}
 
 	if err := l.state.Delete(sessionID); err != nil {

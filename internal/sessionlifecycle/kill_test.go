@@ -55,6 +55,35 @@ func TestKillExistingFinishedSessionDeletesRecord(t *testing.T) {
 	}
 }
 
+func TestKillDeadSessionSkipsTmuxKillAndDoesNotWarn(t *testing.T) {
+	root := t.TempDir()
+	target := mkdirProjectDir(t, "myapp")
+	p := pathsFromRoot(root)
+	projectStore, lifecycle, fake := newLifecycleWithProject(t, p, target)
+	stateStore := stateFromLifecycle(t, p)
+	sid := seedSession(t, stateStore, projectStore, "myapp", state.Dead, "test-session")
+
+	// The tmux session is already gone. killErr stands in for the "can't find
+	// session" tmux would return; the lifecycle must skip the kill entirely
+	// rather than surface that as a warning.
+	fake.hasSession = false
+	fake.killErr = errors.New("can't find session")
+
+	result, err := lifecycle.Kill(sid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Warning != nil {
+		t.Fatalf("unexpected warning killing a dead session: %v", result.Warning)
+	}
+	if len(fake.killed) != 0 {
+		t.Fatalf("tmux kill should be skipped for a dead session, got killed=%v", fake.killed)
+	}
+	if _, err := stateStore.Get(sid); !errors.Is(err, state.ErrSessionNotFound) {
+		t.Fatalf("dead session should be deleted after kill, got err=%v", err)
+	}
+}
+
 func TestKillUnknownSessionReturnsErrSessionNotFound(t *testing.T) {
 	root := t.TempDir()
 	p := pathsFromRoot(root)
