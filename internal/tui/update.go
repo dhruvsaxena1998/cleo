@@ -145,29 +145,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) clampCursor() Model {
-	projects := m.visibleProjectIDs()
-	if len(projects) == 0 {
-		m.cursor.projectIdx = 0
-		m.cursor.agentIdx = -1
-		return m
-	}
-	if m.cursor.projectIdx < 0 {
-		m.cursor.projectIdx = 0
-	}
-	if m.cursor.projectIdx >= len(projects) {
-		m.cursor.projectIdx = len(projects) - 1
-	}
-	pid := projects[m.cursor.projectIdx]
-	if !m.expanded[pid] {
-		m.cursor.agentIdx = -1
-		return m
-	}
-	ss := m.sessionsFor(pid)
-	if m.cursor.agentIdx >= len(ss) {
-		m.cursor.agentIdx = len(ss) - 1
-	}
-	if m.cursor.agentIdx < -1 {
-		m.cursor.agentIdx = -1
-	}
+	m.cursor = m.cursor.clamp(m.treeShape())
 	return m
 }

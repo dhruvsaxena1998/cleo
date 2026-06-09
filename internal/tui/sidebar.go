@@ -65,7 +65,7 @@ func (m Model) renderTreeContent(innerW int) string {
 	for pi, p := range projs {
 		expanded := m.expanded[p.ID]
 		ss := m.sessionsFor(p.ID)
-		onProject := pi == m.cursor.projectIdx && m.cursor.agentIdx == -1
+		onProject := m.cursor.onProject(pi)
 
 		active := 0
 		for _, s := range ss {
@@ -105,7 +105,7 @@ func (m Model) renderTreeContent(innerW int) string {
 
 		for ai, s := range ss {
 			cfgAgent := m.ctx.Config.Agents[s.Agent]
-			onAgent := pi == m.cursor.projectIdx && ai == m.cursor.agentIdx
+			onAgent := m.cursor.onAgent(pi, ai)
 
 			connector := "├"
 			if ai == len(ss)-1 {
@@ -222,6 +222,21 @@ func (m Model) visibleProjects() []projects.Project {
 	return projs
 }
 
+// treeShape captures the current sidebar shape (visible projects, their
+// expanded flags, and session counts) for the cursor to navigate over. It is
+// the single bridge from Model data to the positional logic in cursor.go.
+func (m Model) treeShape() treeShape {
+	projs := m.visibleProjects()
+	rows := make([]projectRowShape, len(projs))
+	for i, p := range projs {
+		rows[i] = projectRowShape{
+			expanded: m.expanded[p.ID],
+			sessions: len(m.sessionsFor(p.ID)),
+		}
+	}
+	return treeShape{rows: rows}
+}
+
 func (m Model) sessionsFor(pid string) []state.Session {
 	var out []state.Session
 	for _, s := range m.sessions {
@@ -269,21 +284,7 @@ func shortState(s state.State) string {
 // cursorFlatIdx returns the 0-based row index of the cursor in the full
 // rendered tree (one row per project header, one per expanded session).
 func (m Model) cursorFlatIdx() int {
-	projs := m.visibleProjects()
-	row := 0
-	for pi, p := range projs {
-		if pi == m.cursor.projectIdx {
-			if m.cursor.agentIdx < 0 {
-				return row // on the project header
-			}
-			return row + 1 + m.cursor.agentIdx // +1 for the header row
-		}
-		row++ // project header
-		if m.expanded[p.ID] {
-			row += len(m.sessionsFor(p.ID))
-		}
-	}
-	return 0
+	return m.cursor.flatRow(m.treeShape())
 }
 
 // sessionAge returns the age string for a session row (last event or start).
