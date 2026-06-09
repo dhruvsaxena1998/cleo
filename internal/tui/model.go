@@ -68,9 +68,11 @@ func New(ctx *cli.Ctx) Model {
 	// regions. Done here (not in Run) so tests that construct a Model directly
 	// also get a live manager; re-creating per-Model is cheap.
 	zone.NewGlobal()
+	theme := Resolve(ctx.Config.UI.Theme)
+	theme.Icons = resolveIcons(ctx.Config.UI.Icons)
 	m := Model{
 		ctx:            ctx,
-		theme:          Resolve(ctx.Config.UI.Theme),
+		theme:          theme,
 		expanded:       map[string]bool{},
 		paneCache:      map[string]string{},
 		help:           help.New(),
@@ -120,7 +122,9 @@ func (m *Model) clearStatus() {
 // unchanged so non-theme edits don't write escape sequences on every keystroke.
 func (m *Model) applyTheme(name string) tea.Cmd {
 	prev := m.theme.Base
+	icons := m.theme.Icons // a theme switch keeps the active glyph set
 	m.theme = Resolve(name)
+	m.theme.Icons = icons
 	if m.theme.Base == prev {
 		return nil
 	}

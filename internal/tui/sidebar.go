@@ -45,7 +45,7 @@ func (m Model) renderTreePanel(w, h int) string {
 	if scrollOff > len(allLines) {
 		scrollOff = len(allLines)
 	}
-	return m.theme.PanelBox("Projects / Sessions", hint, allLines[scrollOff:], w, h)
+	return m.theme.PanelBox(withIcon(m.theme.Icons.Project, "Projects / Sessions"), hint, allLines[scrollOff:], w, h)
 }
 
 func (m Model) renderTreeContent(innerW int) string {
@@ -57,10 +57,18 @@ func (m Model) renderTreeContent(innerW int) string {
 		return b.String()
 	}
 
+	ic := m.theme.Icons
 	faint := lipgloss.NewStyle().Foreground(m.theme.Overlay0)
 	dimmed := lipgloss.NewStyle().Foreground(m.theme.Subtext0)
 	selectedSt := lipgloss.NewStyle().Background(m.theme.Surf0).Foreground(m.theme.Text).Bold(true)
 	projectSt := lipgloss.NewStyle().Foreground(m.theme.Text).Bold(true)
+	// barSt paints the accent gutter that marks the cursor row. It sits on the
+	// Surf0 highlight so the bar reads as part of the selected band, not a stray
+	// glyph in the margin. Selected rows render plain text under selectedSt; the
+	// per-element colours (agent, state) intentionally give way to the uniform
+	// highlight, matching the pre-overhaul selection look.
+	barSt := lipgloss.NewStyle().Foreground(m.theme.Accent).Background(m.theme.Surf0)
+	bar := barSt.Render("▎")
 
 	for pi, p := range projs {
 		expanded := m.expanded[p.ID]
@@ -74,28 +82,30 @@ func (m Model) renderTreeContent(innerW int) string {
 			}
 		}
 
-		caret := faint.Render("▸")
+		folder := ic.FolderClosed
 		if expanded {
-			caret = dimmed.Render("▾")
+			folder = ic.FolderOpen
 		}
 
 		countColor := m.theme.Subtext0
 		if active > 0 {
 			countColor = m.theme.Green
 		}
+		countStr := lipgloss.NewStyle().Foreground(countColor).Render(fmt.Sprintf("%d", len(ss)))
 
 		var projLine string
 		if onProject {
-			arrow := "▸"
-			if expanded {
-				arrow = "▾"
-			}
-			inner := fmt.Sprintf("%s %s", arrow, p.ID)
-			projLine = selectedSt.Width(innerW).Render(inner)
+			// bar(1) + highlighted band(innerW-1); the folder hugs the bar, so the
+			// folder column lines up with the unselected rows' " "+folder gutter.
+			inner := withIcon(folder, truncateWidth(p.ID, innerW-4))
+			projLine = bar + selectedSt.Width(innerW-1).Render(inner)
 		} else {
-			name := projectSt.Render(truncateWidth(p.ID, innerW-6))
-			countStr := lipgloss.NewStyle().Foreground(countColor).Render(fmt.Sprintf("%d", len(ss)))
-			projLine = caret + " " + padRight(name, innerW-4) + countStr
+			left := " " + withIcon(dimmed.Render(folder), projectSt.Render(truncateWidth(p.ID, innerW-7)))
+			gap := innerW - lipgloss.Width(left) - lipgloss.Width(countStr)
+			if gap < 1 {
+				gap = 1
+			}
+			projLine = left + strings.Repeat(" ", gap) + countStr
 		}
 		b.WriteString(zone.Mark(projZoneID(pi), projLine) + "\n")
 
@@ -113,40 +123,39 @@ func (m Model) renderTreeContent(innerW int) string {
 			}
 
 			ageStr := sessionAge(s)
-			shortSt := shortStateLabel(s.State)
+			shortSt := fmt.Sprintf("%-4s", shortStateLabel(s.State))
 			stColor := m.theme.StateColor(string(s.State))
-			ageW := lipgloss.Width(ageStr)
+			glyph := m.theme.stateGlyph(string(s.State))
+			label := cfgAgent.Label
 
-			bracketed := "[" + cfgAgent.Label + "]"
-			agentLbl := lipgloss.NewStyle().
-				Foreground(lipgloss.Color(cfgAgent.Color)).Bold(true).
-				Render(bracketed)
-			labelW := len(bracketed)
-
-			overhead := 1 + 1 + labelW + 1 + 4 + 1 + ageW
-			nameW := innerW - overhead
+			// Left fixed cells before the name: gutter(1) connector(1) space(1)
+			// glyph(1) space(1) label space(1); right cells: shortSt(4) space(1) age.
+			rightW := lipgloss.Width(shortSt) + 1 + lipgloss.Width(ageStr)
+			nameW := innerW - (6 + lipgloss.Width(label)) - rightW - 1
 			if nameW < 3 {
 				nameW = 3
 			}
-
 			truncName := truncateWidth(s.Name, nameW)
-			lPart := connector + " " + bracketed + " " + truncName
-			rPart := fmt.Sprintf("%-4s", shortSt) + " " + ageStr
-			gap := innerW - lipgloss.Width(lPart) - lipgloss.Width(rPart)
-			if gap < 1 {
-				gap = 1
-			}
 
 			var row string
 			if onAgent {
-				plain := lPart + strings.Repeat(" ", gap) + rPart
-				row = selectedSt.Width(innerW).Render(plain)
+				lInner := connector + " " + withIcon(glyph, label) + " " + truncName
+				rInner := shortSt + " " + ageStr
+				gap := (innerW - 1) - lipgloss.Width(lInner) - lipgloss.Width(rInner)
+				if gap < 1 {
+					gap = 1
+				}
+				inner := lInner + strings.Repeat(" ", gap) + rInner
+				row = bar + selectedSt.Width(innerW-1).Render(inner)
 			} else {
-				stLabel := lipgloss.NewStyle().Foreground(stColor).Render(fmt.Sprintf("%-4s", shortSt))
-				left := faint.Render(connector) + " " +
-					agentLbl + " " +
-					dimmed.Render(truncName)
-				right := stLabel + " " + faint.Render(ageStr)
+				glyphSt := lipgloss.NewStyle().Foreground(stColor).Render(glyph)
+				labelSt := lipgloss.NewStyle().Foreground(lipgloss.Color(cfgAgent.Color)).Bold(true).Render(label)
+				left := " " + faint.Render(connector) + " " + withIcon(glyphSt, labelSt) + " " + dimmed.Render(truncName)
+				right := lipgloss.NewStyle().Foreground(stColor).Render(shortSt) + " " + faint.Render(ageStr)
+				gap := innerW - lipgloss.Width(left) - lipgloss.Width(right)
+				if gap < 1 {
+					gap = 1
+				}
 				row = left + strings.Repeat(" ", gap) + right
 			}
 			b.WriteString(zone.Mark(sessZoneID(pi, ai), row) + "\n")
@@ -211,7 +220,7 @@ func (m Model) renderActionsPanel(w, h int) string {
 		lines = append(lines, marker+label+strings.Repeat(" ", gap)+keyStr)
 	}
 
-	return m.theme.PanelBox("Actions", hint, lines, w, h)
+	return m.theme.PanelBox(withIcon(m.theme.Icons.Tool, "Actions"), hint, lines, w, h)
 }
 
 // ── Shared helpers ────────────────────────────────────────────────────────────

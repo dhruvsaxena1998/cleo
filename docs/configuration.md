@@ -68,6 +68,7 @@ color = "#7C3AED"
 
 [ui]
 theme = "catppuccin-mocha"
+icons = "nerd"
 editor = ""
 sidebar_width = 48
 event_log_lines = 200
@@ -194,6 +195,7 @@ Hook support is installed by `cleo hooks init` for supported agents. Custom agen
 | --- | --- | --- |
 | `editor` | `""` | Optional editor command for Dashboard `ctrl+g`; falls back to `$EDITOR` when empty. |
 | `event_log_lines` | `200` | Number of recent event log rows available in the UI. |
+| `icons` | `"nerd"` | Glyph set used throughout the TUI. See list below. |
 | `sidebar_width` | `48` | Sidebar width in character columns (10–200). |
 | `status_timeout_seconds` | `3.0` | Seconds a Dashboard status bar message stays visible before it auto-expires. Fractional values allowed; clamped to 0.5–10. |
 | `theme` | `"catppuccin-mocha"` | Color theme used by the TUI. See list below. |
@@ -225,6 +227,18 @@ Hook support is installed by `cleo hooks init` for supported agents. Custom agen
 | `synthwave` | Vivid magenta/cyan neon dark theme. | ![synthwave](../screenshots/theme-synthwave.png) |
 
 Unknown values fall back to `catppuccin-mocha` and are reported as config warnings. To preview a theme without committing to it, open the in-app settings editor (`,`) and cycle the **theme** field with `←`/`→` — the dashboard recolors live; press `esc` to discard or `enter` to save (see [Editing the config](#editing-the-config)).
+
+### Icons
+
+`icons` selects the glyph set used for session-state markers, the project tree, and the topbar/footer/panel chrome:
+
+| Name | Style |
+| --- | --- |
+| `nerd` | Default. [Nerd Font](https://www.nerdfonts.com/) glyphs (folder, git-branch, status, clock…). Requires a patched font in your terminal, or these render as missing-glyph boxes. |
+| `unicode` | Broadly-portable symbols (`●◑○✓✗`, `▸▾`). Use this if you do not have a Nerd Font installed. |
+| `ascii` | Plain ASCII fallback (`* ? o + x`, `> v`) for terminals that mangle wider Unicode. |
+
+Unknown values fall back to `nerd`. The setting takes effect on the next launch.
 
 ## `[timeouts]`
 

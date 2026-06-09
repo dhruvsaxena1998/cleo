@@ -10,24 +10,26 @@ import (
 
 // ── State helpers ─────────────────────────────────────────────────────────────
 
-func stateGlyph(s string) string {
+// stateGlyph returns the glyph for a session state from the active icon set, so
+// the marker restyles with ui.icons rather than being hard-coded.
+func (t Theme) stateGlyph(s string) string {
 	switch s {
 	case "running":
-		return "●"
+		return t.Icons.Running
 	case "waiting_for_input":
-		return "◑"
+		return t.Icons.Waiting
 	case "idle":
-		return "○"
+		return t.Icons.Idle
 	case "spawning":
-		return "◌"
+		return t.Icons.Spawning
 	case "completed":
-		return "✓"
+		return t.Icons.Completed
 	case "error":
-		return "✗"
+		return t.Icons.Error
 	case "dead":
-		return "·"
+		return t.Icons.Dead
 	}
-	return "·"
+	return t.Icons.Dead
 }
 
 func agentLabel(label, color string) string {
@@ -91,7 +93,7 @@ func (t Theme) StateColor(s string) lipgloss.Color {
 }
 
 func (t Theme) StyledGlyph(s string) string {
-	return lipgloss.NewStyle().Foreground(t.StateColor(s)).Render(stateGlyph(s))
+	return lipgloss.NewStyle().Foreground(t.StateColor(s)).Render(t.stateGlyph(s))
 }
 
 func (t Theme) StyledStateText(s string) string {
@@ -111,8 +113,12 @@ func (t Theme) Pill(label string, fg lipgloss.Color) string {
 	return lipgloss.NewStyle().Foreground(fg).Background(t.Mantle).Padding(0, 1).Render(label)
 }
 
+// KeyHint renders a footer key→label pair. The key gets a Surf0 background so it
+// reads as a small key-cap chip, while the visible text stays exactly
+// "<key> <desc>" with no inserted padding — footer assertions match that raw
+// text, and the chip is purely an SGR background.
 func (t Theme) KeyHint(k, desc string) string {
-	key := lipgloss.NewStyle().Foreground(t.Gold).Bold(true).Render(k)
+	key := lipgloss.NewStyle().Foreground(t.Gold).Background(t.Surf0).Bold(true).Render(k)
 	sub := lipgloss.NewStyle().Foreground(t.Subtext0).Render(" " + desc)
 	return key + sub
 }
