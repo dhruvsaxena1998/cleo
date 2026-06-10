@@ -177,7 +177,7 @@ func (m Model) openSpawnPopup() (Model, tea.Cmd) {
 
 	cwd, _ := os.Getwd()
 
-	m.popup = NewSpawnPopup(defaultPID, m.projects, cwd, agents, m.theme)
+	m.popup = NewSpawnPopup(defaultPID, m.projects, cwd, agents, m.ctx.Config.DefaultAgent, m.theme)
 	m.mode = ModePopup
 	return m, m.popup.Init()
 }

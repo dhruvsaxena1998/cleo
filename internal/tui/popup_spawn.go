@@ -28,7 +28,7 @@ type SpawnPopup struct {
 	theme      Theme
 }
 
-func NewSpawnPopup(projectID string, projectList []projects.Project, cwd string, agents []string, theme Theme) SpawnPopup {
+func NewSpawnPopup(projectID string, projectList []projects.Project, cwd string, agents []string, defaultAgent string, theme Theme) SpawnPopup {
 	sorted := append([]string(nil), agents...)
 	sort.Strings(sorted)
 
@@ -39,7 +39,7 @@ func NewSpawnPopup(projectID string, projectList []projects.Project, cwd string,
 	pi.ShowSuggestions = true
 	pi.CompletionStyle = lipgloss.NewStyle().Foreground(theme.Overlay0)
 	pi.KeyMap.AcceptSuggestion = key.NewBinding(key.WithKeys("right"))
-	pi.KeyMap.NextSuggestion = key.NewBinding() // disable — we use j/k for agents
+	pi.KeyMap.NextSuggestion = key.NewBinding() // disable — we use l/right for agents
 	pi.KeyMap.PrevSuggestion = key.NewBinding() // disable
 
 	ni := textinput.New()
@@ -56,14 +56,20 @@ func NewSpawnPopup(projectID string, projectList []projects.Project, cwd string,
 		theme:     theme,
 	}
 
-	// Resolve initial path and agent defaults based on project.
+	// Resolve initial path and focus based on whether a project is selected.
+	// Agent precedence: the project's own default wins, then the global
+	// default_agent, then the first agent (agentIndex returns 0 when nothing
+	// matches). The global default must apply in both branches — otherwise
+	// opening the popup on a project with no per-project default would ignore
+	// default_agent and silently fall back to the alphabetically-first agent.
+	effectiveAgent := defaultAgent
 	if projectID != "" {
-		// Existing project: prefill path, start on label, select project's default agent.
+		// Existing project: prefill path, start on label.
 		for _, proj := range projectList {
 			if proj.ID == projectID {
 				p.pathInput.SetValue(proj.Path)
 				if proj.DefaultAgent != "" {
-					p.cursor = agentIndex(sorted, proj.DefaultAgent)
+					effectiveAgent = proj.DefaultAgent
 				}
 				break
 			}
@@ -77,6 +83,9 @@ func NewSpawnPopup(projectID string, projectList []projects.Project, cwd string,
 		}
 		p.focusIndex = 0 // path
 		p.pathInput.Focus()
+	}
+	if effectiveAgent != "" {
+		p.cursor = agentIndex(sorted, effectiveAgent)
 	}
 
 	p.updatePathSuggestions()
@@ -133,14 +142,12 @@ func (p SpawnPopup) View() string {
 
 	// ── 3. AI Agent ─────────────────────────────────────────────────────────
 	agentRows := []string{"", overlay.Render("3. ai-agent")}
-	selectedSt := lipgloss.NewStyle().Background(p.theme.Surf0).Foreground(p.theme.Text).Bold(true)
-	dimSt := lipgloss.NewStyle().Foreground(p.theme.Subtext0)
-	for i, a := range p.agents {
-		if i == p.cursor && p.focusIndex == 2 {
-			agentRows = append(agentRows, selectedSt.Width(cw).Render(fmt.Sprintf("  ● %s", a)))
-		} else {
-			agentRows = append(agentRows, dimSt.Render(fmt.Sprintf("  ○ %s", a)))
-		}
+	if p.focusIndex == 2 {
+		// Focused: show as a horizontal selector like settings themes.
+		agentRows = append(agentRows, "   "+lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render("‹ "+p.agents[p.cursor]+" ›"))
+	} else {
+		// Unfocused: show the selected agent dimly.
+		agentRows = append(agentRows, "   "+lipgloss.NewStyle().Foreground(p.theme.Subtext0).Render(p.agents[p.cursor]))
 	}
 	agentRows = append(agentRows, "")
 
@@ -162,7 +169,7 @@ func (p SpawnPopup) View() string {
 	}
 	previewRows = append(previewRows, "")
 
-	foot := p.theme.KeyHint("tab", "next field") + "  " + p.theme.KeyHint("→", "complete path") + "  " + p.theme.KeyHint("j/k", "move agents") + "  " +
+	foot := p.theme.KeyHint("tab", "next field") + "  " + p.theme.KeyHint("←/→", "switch agent") + "  " +
 		p.theme.KeyHint("enter", "spawn") + "  " + p.theme.KeyHint("esc", "cancel")
 
 	return drawFrame(frameSpec{
@@ -280,6 +287,22 @@ func (p SpawnPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return p, nil
 		case "down", "j":
+			if p.focusIndex != 2 {
+				break
+			}
+			if p.cursor < len(p.agents)-1 {
+				p.cursor++
+			}
+			return p, nil
+		case "left", "h":
+			if p.focusIndex != 2 {
+				break
+			}
+			if p.cursor > 0 {
+				p.cursor--
+			}
+			return p, nil
+		case "right", "l":
 			if p.focusIndex != 2 {
 				break
 			}

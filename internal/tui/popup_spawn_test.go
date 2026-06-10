@@ -14,14 +14,14 @@ import (
 // Helper: create a SpawnPopup with sensible defaults for testing.
 func newTestSpawnPopup(t *testing.T) SpawnPopup {
 	t.Helper()
-	return NewSpawnPopup("", nil, "/tmp", []string{"claude", "codex"}, Resolve("catppuccin"))
+	return NewSpawnPopup("", nil, "/tmp", []string{"claude", "codex"}, "", Resolve("catppuccin"))
 }
 
 // Helper: create a SpawnPopup with a pre-filled project path.
 func newTestSpawnPopupWithProject(t *testing.T, projectPath string) SpawnPopup {
 	t.Helper()
 	projs := []projects.Project{{ID: "myapp", Path: projectPath}}
-	return NewSpawnPopup("myapp", projs, "/tmp", []string{"claude", "codex"}, Resolve("catppuccin"))
+	return NewSpawnPopup("myapp", projs, "/tmp", []string{"claude", "codex"}, "", Resolve("catppuccin"))
 }
 
 // ── pathSuggestions ────────────────────────────────────────────────────────
@@ -229,7 +229,7 @@ func TestSpawnPopupValidationValidNewDirectory(t *testing.T) {
 func TestSpawnPopupValidationExistingProjectPath(t *testing.T) {
 	dir := t.TempDir()
 	projs := []projects.Project{{ID: "myapp", Path: dir}}
-	popup := NewSpawnPopup("", projs, "/tmp", []string{"claude", "codex"}, Resolve("catppuccin"))
+	popup := NewSpawnPopup("", projs, "/tmp", []string{"claude", "codex"}, "", Resolve("catppuccin"))
 	popup.pathInput.SetValue(dir)
 	model, cmd := popup.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	sp := model.(SpawnPopup)
@@ -281,7 +281,7 @@ func TestSpawnPopupWithProjectDefaultsFocusOnLabel(t *testing.T) {
 }
 
 func TestSpawnPopupWithoutProjectDefaultsFocusOnPath(t *testing.T) {
-	popup := NewSpawnPopup("", nil, "/custom/cwd", []string{"claude", "codex"}, Resolve("catppuccin"))
+	popup := NewSpawnPopup("", nil, "/custom/cwd", []string{"claude", "codex"}, "", Resolve("catppuccin"))
 	if popup.focusIndex != 0 {
 		t.Fatalf("without project, focus should start on path (0), got %d", popup.focusIndex)
 	}
@@ -295,16 +295,53 @@ func TestSpawnPopupWithoutProjectDefaultsFocusOnPath(t *testing.T) {
 func TestSpawnPopupDefaultAgentFromProject(t *testing.T) {
 	dir := t.TempDir()
 	projs := []projects.Project{{ID: "myapp", Path: dir, DefaultAgent: "codex"}}
-	popup := NewSpawnPopup("myapp", projs, "/tmp", []string{"claude", "codex"}, Resolve("catppuccin"))
+	popup := NewSpawnPopup("myapp", projs, "/tmp", []string{"claude", "codex"}, "", Resolve("catppuccin"))
 	if popup.cursor != 1 {
 		t.Fatalf("cursor should be on codex (index 1), got %d", popup.cursor)
 	}
 }
 
+func TestSpawnPopupGlobalDefaultAgent(t *testing.T) {
+	popup := NewSpawnPopup("", nil, "/tmp", []string{"claude", "codex", "gemini"}, "codex", Resolve("catppuccin"))
+	if popup.cursor != 1 {
+		t.Fatalf("cursor should be on codex (index 1) from global default, got %d", popup.cursor)
+	}
+}
+
+// Regression: opening the popup on an existing project with no per-project
+// default must still honor the global default_agent. Previously the project
+// branch ignored it, so default_agent="pi" showed the alphabetically-first
+// agent (claude) selected instead.
+func TestSpawnPopupProjectFallsBackToGlobalDefault(t *testing.T) {
+	dir := t.TempDir()
+	projs := []projects.Project{{ID: "myapp", Path: dir}} // no per-project DefaultAgent
+	popup := NewSpawnPopup("myapp", projs, "/tmp", []string{"claude", "codex", "pi"}, "pi", Resolve("catppuccin"))
+	if popup.cursor != 2 {
+		t.Fatalf("cursor should be on pi (index 2) from global default, got %d", popup.cursor)
+	}
+}
+
+// A per-project default takes precedence over the global default_agent.
+func TestSpawnPopupProjectDefaultOverridesGlobal(t *testing.T) {
+	dir := t.TempDir()
+	projs := []projects.Project{{ID: "myapp", Path: dir, DefaultAgent: "codex"}}
+	popup := NewSpawnPopup("myapp", projs, "/tmp", []string{"claude", "codex", "pi"}, "pi", Resolve("catppuccin"))
+	if popup.cursor != 1 {
+		t.Fatalf("project default 'codex' (index 1) should win over global 'pi', got %d", popup.cursor)
+	}
+}
+
 func TestSpawnPopupDefaultAgentFallsBackToFirst(t *testing.T) {
-	popup := NewSpawnPopup("", nil, "/tmp", []string{"claude", "codex"}, Resolve("catppuccin"))
+	popup := NewSpawnPopup("", nil, "/tmp", []string{"claude", "codex"}, "", Resolve("catppuccin"))
 	if popup.cursor != 0 {
 		t.Fatalf("cursor should default to first agent (0), got %d", popup.cursor)
+	}
+}
+
+func TestSpawnPopupGlobalDefaultAgentNotFoundFallsBack(t *testing.T) {
+	popup := NewSpawnPopup("", nil, "/tmp", []string{"claude", "codex"}, "nonexistent", Resolve("catppuccin"))
+	if popup.cursor != 0 {
+		t.Fatalf("cursor should fall back to first agent (0) when default not found, got %d", popup.cursor)
 	}
 }
 
@@ -502,8 +539,8 @@ func TestSpawnPopupViewShowsFooterHints(t *testing.T) {
 	if !strings.Contains(view, "tab") || !strings.Contains(view, "next field") {
 		t.Fatal("view should contain tab/next field hint")
 	}
-	if !strings.Contains(view, "complete path") {
-		t.Fatal("view should contain 'complete path' hint for right arrow")
+	if !strings.Contains(view, "switch agent") {
+		t.Fatal("view should contain 'switch agent' hint")
 	}
 }
 
