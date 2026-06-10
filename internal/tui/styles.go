@@ -150,12 +150,12 @@ func (t Theme) Pill(label string, fg lipgloss.Color) string {
 	return lipgloss.NewStyle().Foreground(fg).Background(t.Mantle).Padding(0, 1).Render(label)
 }
 
-// KeyHint renders a footer key→label pair. The key gets a Surf0 background so it
-// reads as a small key-cap chip, while the visible text stays exactly
-// "<key> <desc>" with no inserted padding — footer assertions match that raw
-// text, and the chip is purely an SGR background.
+// KeyHint renders a footer key→label pair. The key is styled in Gold bold
+// (no explicit background) so it reads as a key-cap chip without clashing
+// with the popup or dashboard fill. The visible text stays exactly
+// "<key> <desc>" with no inserted padding — footer assertions match that raw text.
 func (t Theme) KeyHint(k, desc string) string {
-	key := lipgloss.NewStyle().Foreground(t.Gold).Background(t.Surf0).Bold(true).Render(k)
+	key := lipgloss.NewStyle().Foreground(t.Gold).Bold(true).Render(k)
 	sub := lipgloss.NewStyle().Foreground(t.Subtext0).Render(" " + desc)
 	return key + sub
 }

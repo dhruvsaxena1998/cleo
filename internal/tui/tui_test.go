@@ -812,7 +812,7 @@ func TestSpawnRollsBackStateWhenTmuxCreationFails(t *testing.T) {
 	m.projects, _ = c.Projects.List()
 	m.sessions, _ = c.State.List()
 	m.mode = ModePopup
-	m.popup = NewSpawnPopup("myapp", m.projects, "/tmp", []string{"claude"}, m.theme)
+	m.popup = NewSpawnPopup("myapp", m.projects, "/tmp", []string{"claude"}, "", m.theme)
 
 	updated, _ := m.performSpawn(SpawnSubmitted{
 		ProjectID: "myapp",
