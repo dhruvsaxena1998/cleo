@@ -29,6 +29,8 @@ func formatTmuxKey(k string) string {
 
 func (p HelpPopup) Init() tea.Cmd { return nil }
 
+func (p HelpPopup) withTheme(t Theme) tea.Model { p.theme = t; return p }
+
 func (p HelpPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if k, ok := msg.(tea.KeyMsg); ok {
 		switch k.String() {

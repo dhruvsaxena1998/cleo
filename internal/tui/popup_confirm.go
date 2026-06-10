@@ -54,6 +54,8 @@ func (p ConfirmPopup) View() string {
 	})
 }
 
+func (p ConfirmPopup) withTheme(t Theme) tea.Model { p.theme = t; return p }
+
 func (p ConfirmPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if k, ok := msg.(tea.KeyMsg); ok {
 		switch k.String() {

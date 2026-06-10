@@ -23,6 +23,8 @@ func NewWarningsPopup(theme Theme, diagnostics []config.Diagnostic) WarningsPopu
 
 func (p WarningsPopup) Init() tea.Cmd { return nil }
 
+func (p WarningsPopup) withTheme(t Theme) tea.Model { p.theme = t; return p }
+
 func (p WarningsPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if k, ok := msg.(tea.KeyMsg); ok {
 		switch k.String() {

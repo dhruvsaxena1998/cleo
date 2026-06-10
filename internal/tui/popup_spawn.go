@@ -235,6 +235,8 @@ func (p SpawnPopup) resolveProjectID() string {
 	return ""
 }
 
+func (p SpawnPopup) withTheme(t Theme) tea.Model { p.theme = t; return p }
+
 func (p SpawnPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:

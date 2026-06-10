@@ -58,6 +58,16 @@ type Model struct {
 	animTicking bool
 }
 
+// themeUpdater is implemented by popups that hold their own Theme snapshot.
+// When the dashboard theme changes (settings live-preview, config reload),
+// the model propagates the new theme so stale popups don't render with the old
+// palette. The method returns the updated popup value so the caller (which holds
+// a tea.Model interface slot) can reassign it — value-type popups can't be
+// mutated through a pointer-receiver interface assertion on a boxed value.
+type themeUpdater interface {
+	withTheme(Theme) tea.Model
+}
+
 // hasWorkingSession reports whether any session is actively working, gating the
 // pulse animation loop so an idle dashboard does not re-render on a timer.
 func (m Model) hasWorkingSession() bool {
@@ -146,6 +156,15 @@ func (m *Model) applyTheme(name string) tea.Cmd {
 	// one, so the settings editor's icons field previews/saves/reverts through
 	// the same path as theme. Every caller updates ctx.Config before calling.
 	m.theme.Icons = resolveIcons(m.ctx.Config.UI.Icons)
+	// Propagate the new theme to any open popup so it doesn't render with a
+	// stale palette. SettingsPopup also updates itself via editField, but this
+	// covers belt-and-suspenders paths (config watcher, direct SettingsChanged)
+	// and every other popup type that holds a theme snapshot.
+	if m.popup != nil {
+		if updater, ok := m.popup.(themeUpdater); ok {
+			m.popup = updater.withTheme(m.theme)
+		}
+	}
 	if m.theme.Base == prev {
 		return nil
 	}

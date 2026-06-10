@@ -52,6 +52,8 @@ func (p RenamePopup) View() string {
 	})
 }
 
+func (p RenamePopup) withTheme(t Theme) tea.Model { p.theme = t; return p }
+
 func (p RenamePopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:

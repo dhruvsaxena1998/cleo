@@ -83,6 +83,8 @@ func (p FinderPopup) Init() tea.Cmd {
 	return textinput.Blink
 }
 
+func (p FinderPopup) withTheme(t Theme) tea.Model { p.theme = t; return p }
+
 func (p FinderPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if msg, ok := msg.(tea.KeyMsg); ok {
 		switch msg.Type {

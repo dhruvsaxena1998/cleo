@@ -342,6 +342,13 @@ func (p SettingsPopup) editField(dir int) (tea.Model, tea.Cmd) {
 	return p, p.changedCmd()
 }
 
+// updateTheme propagates a theme change to the settings popup. The settings
+// popup also carries a draft config; when the theme/icons fields change via
+// editField, p.theme is re-resolved there. This method exists for the
+// belt-and-suspenders case where a SettingsChanged message reaches the model
+// without going through editField first (e.g. a future config-watcher).
+func (p SettingsPopup) withTheme(t Theme) tea.Model { p.theme = t; return p }
+
 func (p SettingsPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if ws, ok := msg.(tea.WindowSizeMsg); ok {
 		p.maxHeight = ws.Height

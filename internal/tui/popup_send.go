@@ -94,6 +94,8 @@ func sendPopupInputViewportWidth(theme Theme) int {
 	return sendPopupInputSlotWidth(theme) - 1
 }
 
+func (p SendPopup) withTheme(t Theme) tea.Model { p.theme = t; return p }
+
 func (p SendPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
