@@ -141,13 +141,14 @@ func (p SpawnPopup) View() string {
 	}
 
 	// ── 3. AI Agent ─────────────────────────────────────────────────────────
-	agentRows := []string{"", overlay.Render("3. ai-agent")}
+	agentRows := []string{""}
+	labelPart := overlay.Render("3. ai-agent")
 	if p.focusIndex == 2 {
 		// Focused: show as a horizontal selector like settings themes.
-		agentRows = append(agentRows, "   "+lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render("‹ "+p.agents[p.cursor]+" ›"))
+		agentRows = append(agentRows, "   "+labelPart+"  "+lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render("‹ "+p.agents[p.cursor]+" ›"))
 	} else {
 		// Unfocused: show the selected agent dimly.
-		agentRows = append(agentRows, "   "+lipgloss.NewStyle().Foreground(p.theme.Subtext0).Render(p.agents[p.cursor]))
+		agentRows = append(agentRows, "   "+labelPart+"  "+lipgloss.NewStyle().Foreground(p.theme.Subtext0).Render(p.agents[p.cursor]))
 	}
 	agentRows = append(agentRows, "")
 
@@ -278,37 +279,25 @@ func (p SpawnPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					Name:      strings.TrimSpace(p.nameInput.Value()),
 				}
 			}
-		case "up", "k":
+		case "up", "k", "left", "h":
 			if p.focusIndex != 2 { // only move agents when agents section is focused
 				break
 			}
-			if p.cursor > 0 {
-				p.cursor--
+			n := len(p.agents)
+			if n == 0 {
+				break
 			}
+			p.cursor = (p.cursor - 1 + n) % n
 			return p, nil
-		case "down", "j":
+		case "down", "j", "right", "l":
 			if p.focusIndex != 2 {
 				break
 			}
-			if p.cursor < len(p.agents)-1 {
-				p.cursor++
-			}
-			return p, nil
-		case "left", "h":
-			if p.focusIndex != 2 {
+			n := len(p.agents)
+			if n == 0 {
 				break
 			}
-			if p.cursor > 0 {
-				p.cursor--
-			}
-			return p, nil
-		case "right", "l":
-			if p.focusIndex != 2 {
-				break
-			}
-			if p.cursor < len(p.agents)-1 {
-				p.cursor++
-			}
+			p.cursor = (p.cursor + 1) % n
 			return p, nil
 		}
 	default:
