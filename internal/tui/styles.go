@@ -161,7 +161,7 @@ func (t Theme) KeyHint(k, desc string) string {
 }
 
 func popupBorderStyle(t Theme) lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(t.Mauve).Bold(true)
+	return lipgloss.NewStyle().Foreground(t.Mauve).Background(t.Base).Bold(true)
 }
 
 // PanelBox draws a dashboard panel — a bordered box with a title row and a

@@ -41,13 +41,27 @@ func drawFrame(spec frameSpec) string {
 	cw := iw - 2
 	hbar := strings.Repeat("─", iw)
 
+	// Inherit: when the fill style has no explicit background, adopt the
+	// border's background so that the inner region always has a theme-aware
+	// background. Without this, ansi.Truncate's reset during overlay splicing
+	// clears the background, leaving popup borders and content on the
+	// terminal's default background instead of the theme's Base.
+	fill := spec.Fill
+	if _, ok := fill.GetBackground().(lipgloss.NoColor); ok {
+		bg := spec.Border.GetBackground()
+		if _, notSet := bg.(lipgloss.NoColor); !notSet {
+			fill = fill.Background(bg)
+		}
+	}
+
 	// One body row: the left border glyph, the Fill-styled inner slot (a leading
 	// pad space, the content fitted to the content width, a trailing pad space),
-	// then the right border glyph. An empty Fill renders the inner slot as bare
-	// spaces (the popup look); a Base-background Fill paints it (the panel look).
+	// then the right border glyph. The fill inherits the border's background
+	// when no explicit fill background is set so popups and panels both render
+	// on the theme's Base.
 	contentRow := func(content string) string {
 		cell := padRight(truncateWidth(content, cw), cw)
-		return spec.Border.Render("│") + spec.Fill.Render(" "+cell+" ") + spec.Border.Render("│")
+		return spec.Border.Render("│") + fill.Render(" "+cell+" ") + spec.Border.Render("│")
 	}
 	divider := spec.Border.Render("├" + hbar + "┤")
 
