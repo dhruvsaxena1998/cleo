@@ -49,11 +49,10 @@ func (m Model) openSelectedProjectInEditor() (Model, tea.Cmd) {
 
 	cmd := plan.Command()
 	if plan.Mode == editoropen.ModeTerminal {
+		// Always route the resume through editorFinishedMsg (even on success) so
+		// Update re-arms mouse tracking, which ExecProcess leaves disabled.
 		return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
-			if err != nil {
-				return editorFinishedMsg{err: err}
-			}
-			return nil
+			return editorFinishedMsg{err: err}
 		})
 	}
 

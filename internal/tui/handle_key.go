@@ -210,14 +210,18 @@ func (m Model) attachToSession(sessionID string) (Model, tea.Cmd) {
 	}
 
 	// AttachReady or AttachRevived — proceed with attaching. Done clears focus
-	// once the user detaches and Bubble Tea resumes.
+	// once the user detaches and Bubble Tea resumes; attachExitedMsg lets Update
+	// re-arm mouse tracking, which ExecProcess leaves disabled (see resumeMouseCmd).
 	done := plan.Done
 	return m, tea.ExecProcess(plan.Cmd, func(err error) tea.Msg {
 		done()
-		// nothing to send back; just resume rendering
-		return nil
+		return attachExitedMsg{}
 	})
 }
+
+// attachExitedMsg is delivered when a tmux attach run via ExecProcess returns
+// (the user detached). It exists so Update can re-enable mouse tracking on resume.
+type attachExitedMsg struct{}
 
 func (m Model) attachSelectedAgent() (Model, tea.Cmd) {
 	sess, ok := m.sessionAtCursor()
