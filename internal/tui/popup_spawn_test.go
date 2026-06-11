@@ -116,30 +116,18 @@ func TestPathSuggestions_TrailingSlash(t *testing.T) {
 
 func TestSpawnPopupTabCyclesForwardThroughFocusZones(t *testing.T) {
 	popup := newTestSpawnPopup(t)
-	// focusIndex: 0=path, 1=label, 2=agents
+	// focusIndex: 0=path, 1=label, 2=agents, 3=worktree
 	if popup.focusIndex != 0 {
 		t.Fatalf("initial focusIndex: want 0 (path), got %d", popup.focusIndex)
 	}
 
-	// Tab: path → label
-	model, _ := popup.Update(tea.KeyMsg{Type: tea.KeyTab})
-	popup = model.(SpawnPopup)
-	if popup.focusIndex != 1 {
-		t.Fatalf("after 1st tab: want focusIndex 1 (label), got %d", popup.focusIndex)
-	}
-
-	// Tab: label → agents
-	model, _ = popup.Update(tea.KeyMsg{Type: tea.KeyTab})
-	popup = model.(SpawnPopup)
-	if popup.focusIndex != 2 {
-		t.Fatalf("after 2nd tab: want focusIndex 2 (agents), got %d", popup.focusIndex)
-	}
-
-	// Tab: agents → path (wrap)
-	model, _ = popup.Update(tea.KeyMsg{Type: tea.KeyTab})
-	popup = model.(SpawnPopup)
-	if popup.focusIndex != 0 {
-		t.Fatalf("after 3rd tab: want focusIndex 0 (path), got %d", popup.focusIndex)
+	// Tab cycles path → label → agents → worktree → path (wrap).
+	for _, want := range []int{1, 2, 3, 0} {
+		model, _ := popup.Update(tea.KeyMsg{Type: tea.KeyTab})
+		popup = model.(SpawnPopup)
+		if popup.focusIndex != want {
+			t.Fatalf("tab: want focusIndex %d, got %d", want, popup.focusIndex)
+		}
 	}
 }
 
@@ -149,22 +137,13 @@ func TestSpawnPopupShiftTabCyclesBackward(t *testing.T) {
 		t.Fatalf("initial focusIndex: want 0, got %d", popup.focusIndex)
 	}
 
-	model, _ := popup.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
-	popup = model.(SpawnPopup)
-	if popup.focusIndex != 2 {
-		t.Fatalf("after shift+tab from path: want focusIndex 2 (agents), got %d", popup.focusIndex)
-	}
-
-	model, _ = popup.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
-	popup = model.(SpawnPopup)
-	if popup.focusIndex != 1 {
-		t.Fatalf("after shift+tab from agents: want focusIndex 1 (label), got %d", popup.focusIndex)
-	}
-
-	model, _ = popup.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
-	popup = model.(SpawnPopup)
-	if popup.focusIndex != 0 {
-		t.Fatalf("after shift+tab from label: want focusIndex 0 (path), got %d", popup.focusIndex)
+	// Shift+tab cycles path → worktree → agents → label → path (wrap).
+	for _, want := range []int{3, 2, 1, 0} {
+		model, _ := popup.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+		popup = model.(SpawnPopup)
+		if popup.focusIndex != want {
+			t.Fatalf("shift+tab: want focusIndex %d, got %d", want, popup.focusIndex)
+		}
 	}
 }
 
@@ -539,8 +518,8 @@ func TestSpawnPopupViewShowsFooterHints(t *testing.T) {
 	if !strings.Contains(view, "tab") || !strings.Contains(view, "next field") {
 		t.Fatal("view should contain tab/next field hint")
 	}
-	if !strings.Contains(view, "switch agent") {
-		t.Fatal("view should contain 'switch agent' hint")
+	if !strings.Contains(view, "switch") {
+		t.Fatal("view should contain 'switch' hint (←/→ drives both the agent selector and the worktree toggle)")
 	}
 }
 

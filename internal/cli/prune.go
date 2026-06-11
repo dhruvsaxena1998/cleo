@@ -17,6 +17,7 @@ func newPruneCmd(getCtx func() *Ctx) *cobra.Command {
 	var all bool
 	var dryRun bool
 	var yes bool
+	var force bool
 
 	cmd := &cobra.Command{
 		Use:   "prune [project]",
@@ -64,6 +65,7 @@ func newPruneCmd(getCtx func() *Ctx) *cobra.Command {
 				ProjectID:   projectFilter,
 				Keep:        keep,
 				AllProjects: all,
+				Force:       force,
 			})
 			if err != nil {
 				return err
@@ -79,5 +81,6 @@ func newPruneCmd(getCtx func() *Ctx) *cobra.Command {
 	cmd.Flags().BoolVar(&all, "all", false, "across all projects")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview without removing")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation")
+	cmd.Flags().BoolVar(&force, "force", false, "remove dirty worktrees too instead of skipping their sessions")
 	return cmd
 }
