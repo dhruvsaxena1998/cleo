@@ -34,6 +34,9 @@ func newKillCmd(getCtx func() *Ctx) *cobra.Command {
 			if result.Warning != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "warning: tmux kill failed: %v\n", result.Warning)
 			}
+			if result.WorktreePath != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "worktree preserved at %s — `cleo rm %s` removes it\n", result.WorktreePath, id)
+			}
 			return nil
 		},
 	}

@@ -30,6 +30,54 @@ func TestLsShowsProjectsAndSessions(t *testing.T) {
 	}
 }
 
+func TestLsShowsWorktreeBadge(t *testing.T) {
+	root := t.TempDir()
+	c, _ := NewCtxWithRoot(root)
+	target := filepath.Join(t.TempDir(), "myapp")
+	_ = mkdir(target)
+	_, _ = c.Projects.Add(target)
+	_ = c.State.Put(state.Session{
+		ID: "cleo-myapp-claude-iso", ProjectID: "myapp", Agent: "claude", Name: "iso", State: state.Running,
+		WorktreePath: filepath.Join(target, ".cleo", "worktrees", "claude-iso"), WorktreeBranch: "cleo/wt-claude-iso",
+	})
+	_ = c.State.Put(state.Session{ID: "cleo-myapp-claude-plain", ProjectID: "myapp", Agent: "claude", Name: "plain", State: state.Running})
+	c.Tmux = &fakeTmux{exists: map[string]bool{"cleo-myapp-claude-iso": true, "cleo-myapp-claude-plain": true}}
+
+	cmd := newLsCmd(func() *Ctx { return c })
+	out := &bytes.Buffer{}
+	cmd.SetOut(out)
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var isoLine, plainLine string
+	for _, line := range strings.Split(out.String(), "\n") {
+		if strings.Contains(line, "claude-iso") {
+			isoLine = line
+		}
+		if strings.Contains(line, "claude-plain") {
+			plainLine = line
+		}
+	}
+	if !strings.Contains(isoLine, "wt") {
+		t.Fatalf("worktree session row %q should carry a wt badge", isoLine)
+	}
+	if strings.Contains(plainLine, "wt") {
+		t.Fatalf("plain session row %q should not carry a wt badge", plainLine)
+	}
+
+	// JSON output carries the stored branch so scripts can find the work.
+	cmd = newLsCmd(func() *Ctx { return c })
+	out = &bytes.Buffer{}
+	cmd.SetOut(out)
+	cmd.SetArgs([]string{"--json"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "cleo/wt-claude-iso") {
+		t.Fatalf("json output should include the worktree branch: %s", out.String())
+	}
+}
+
 func TestLsJSONFlag(t *testing.T) {
 	root := t.TempDir()
 	c, _ := NewCtxWithRoot(root)

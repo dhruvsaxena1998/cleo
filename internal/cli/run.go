@@ -20,6 +20,9 @@ func newRunCmd(getCtx func() *Ctx) *cobra.Command {
 	var cwdFlag string
 	var yes bool
 	var noAttach bool
+	var worktreeFlag bool
+	var noWorktreeFlag bool
+	var base string
 
 	cmd := &cobra.Command{
 		Use:   "run <agent>",
@@ -31,6 +34,14 @@ func newRunCmd(getCtx func() *Ctx) *cobra.Command {
 			_, ok := c.Config.Agents[agentName]
 			if !ok {
 				return fmt.Errorf("unknown agent %q (configured: %v)", agentName, agentKeys(c.Config.Agents))
+			}
+
+			if worktreeFlag && noWorktreeFlag {
+				return errors.New("--worktree and --no-worktree are mutually exclusive")
+			}
+			var worktreeChoice *bool
+			if worktreeFlag || noWorktreeFlag {
+				worktreeChoice = &worktreeFlag
 			}
 
 			cwd := cwdFlag
@@ -49,6 +60,8 @@ func newRunCmd(getCtx func() *Ctx) *cobra.Command {
 				Name:                name,
 				Path:                cwd,
 				AutoRegisterProject: yes,
+				Worktree:            worktreeChoice,
+				Base:                base,
 			})
 			if errors.Is(err, sessionlifecycle.ErrProjectRegistrationNeeded) {
 				fmt.Fprintf(cmd.OutOrStdout(), "register %q as a new project? [Y/n] ", cwd)
@@ -62,6 +75,8 @@ func newRunCmd(getCtx func() *Ctx) *cobra.Command {
 					Name:                name,
 					Path:                cwd,
 					AutoRegisterProject: true,
+					Worktree:            worktreeChoice,
+					Base:                base,
 				})
 			}
 			if err != nil {
@@ -70,7 +85,13 @@ func newRunCmd(getCtx func() *Ctx) *cobra.Command {
 			if result.ProjectRegistered {
 				fmt.Fprintf(cmd.OutOrStdout(), "registered project %q\n", result.Project.ID)
 			}
+			if result.Warning != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warning: %v\n", result.Warning)
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "spawned %s\n", result.Session.ID)
+			if result.Session.HasWorktree() {
+				fmt.Fprintf(cmd.OutOrStdout(), "worktree %s on branch %s\n", result.Session.WorktreePath, result.Session.WorktreeBranch)
+			}
 			if !noAttach {
 				plan, err := lifecycle.Attach(result.Session.ID)
 				if err != nil {
@@ -91,6 +112,9 @@ func newRunCmd(getCtx func() *Ctx) *cobra.Command {
 	cmd.Flags().StringVar(&cwdFlag, "cwd", "", "override working directory")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip auto-register confirmation")
 	cmd.Flags().BoolVar(&noAttach, "no-attach", false, "spawn without attaching to the session")
+	cmd.Flags().BoolVar(&worktreeFlag, "worktree", false, "spawn into an isolated git worktree")
+	cmd.Flags().BoolVar(&noWorktreeFlag, "no-worktree", false, "spawn in the main working tree even if the project defaults to worktrees")
+	cmd.Flags().StringVar(&base, "base", "", "ref the worktree branch starts from (default: current HEAD); requires worktree mode")
 	return cmd
 }
 

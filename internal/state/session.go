@@ -43,4 +43,11 @@ type Session struct {
 	LastEventAt time.Time `json:"last_event_at"`
 	LastMessage string    `json:"last_message,omitempty"`
 	ToolCount   int       `json:"tool_count"`
+	// Worktree fields are persisted at creation for worktree-backed Sessions so
+	// cleanup and display never re-derive them. Empty for main-tree Sessions.
+	WorktreePath   string `json:"worktree_path,omitempty"`
+	WorktreeBranch string `json:"worktree_branch,omitempty"`
 }
+
+// HasWorktree reports whether the Session is backed by a Cleo-managed Worktree.
+func (s Session) HasWorktree() bool { return s.WorktreePath != "" }

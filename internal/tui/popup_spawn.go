@@ -20,13 +20,17 @@ type SpawnPopup struct {
 	nameInput  textinput.Model
 	agents     []string
 	cursor     int // agent cursor
-	focusIndex int // 0=path, 1=label, 2=agents
+	focusIndex int // 0=path, 1=label, 2=agents, 3=worktree
+	worktree   bool
 	projectID  string
 	pathError  string
 	projects   []projects.Project
 	cwd        string
 	theme      Theme
 }
+
+// spawnFocusZones is the number of tab-cycle stops in the popup.
+const spawnFocusZones = 4
 
 func NewSpawnPopup(projectID string, projectList []projects.Project, cwd string, agents []string, defaultAgent string, theme Theme) SpawnPopup {
 	sorted := append([]string(nil), agents...)
@@ -71,6 +75,9 @@ func NewSpawnPopup(projectID string, projectList []projects.Project, cwd string,
 				if proj.DefaultAgent != "" {
 					effectiveAgent = proj.DefaultAgent
 				}
+				// Pre-set the worktree toggle from the project's default so the
+				// TUI and CLI agree on what happens by default.
+				p.worktree = proj.DefaultWorktree
 				break
 			}
 		}
@@ -108,6 +115,7 @@ type SpawnSubmitted struct {
 	Path      string // raw path from input
 	Agent     string
 	Name      string
+	Worktree  bool // spawn into an isolated git worktree
 }
 
 type SpawnCancelled struct{}
@@ -152,6 +160,20 @@ func (p SpawnPopup) View() string {
 	}
 	agentRows = append(agentRows, "")
 
+	// ── 4. Worktree ─────────────────────────────────────────────────────────
+	worktreeRows := []string{""}
+	wtLabel := overlay.Render("4. worktree")
+	wtValue := "off"
+	if p.worktree {
+		wtValue = "on"
+	}
+	if p.focusIndex == 3 {
+		worktreeRows = append(worktreeRows, "   "+wtLabel+"  "+lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render("‹ "+wtValue+" ›"))
+	} else {
+		worktreeRows = append(worktreeRows, "   "+wtLabel+"  "+lipgloss.NewStyle().Foreground(p.theme.Subtext0).Render(wtValue))
+	}
+	worktreeRows = append(worktreeRows, "")
+
 	// ── Preview ─────────────────────────────────────────────────────────────
 	previewRows := []string{""}
 	if resolvedID := p.resolveProjectID(); resolvedID == "" {
@@ -167,10 +189,15 @@ func (p SpawnPopup) View() string {
 			overlay.Render("will create  ")+lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render(truncateWidth(sessID, cw-14)),
 			overlay.Render(fmt.Sprintf("$ tmux new-session -d -s %s %s", sessID, a)),
 		)
+		if p.worktree {
+			previewRows = append(previewRows,
+				overlay.Render("in worktree  ")+lipgloss.NewStyle().Foreground(p.theme.Accent).Render(truncateWidth("cleo/wt-"+a+"-"+name, cw-14)),
+			)
+		}
 	}
 	previewRows = append(previewRows, "")
 
-	foot := p.theme.KeyHint("tab", "next field") + "  " + p.theme.KeyHint("←/→", "switch agent") + "  " +
+	foot := p.theme.KeyHint("tab", "next field") + "  " + p.theme.KeyHint("←/→", "switch") + "  " +
 		p.theme.KeyHint("enter", "spawn") + "  " + p.theme.KeyHint("esc", "cancel")
 
 	return drawFrame(frameSpec{
@@ -178,7 +205,7 @@ func (p SpawnPopup) View() string {
 		Title:    lipgloss.NewStyle().Foreground(p.theme.Accent).Bold(true).Render("New Session"),
 		Hint:     lipgloss.NewStyle().Foreground(p.theme.Overlay0).Render("spawn tmux-backed agent"),
 		Border:   popupBorderStyle(p.theme),
-		Sections: [][]string{pathRows, labelRows, agentRows, previewRows, {foot}},
+		Sections: [][]string{pathRows, labelRows, agentRows, worktreeRows, previewRows, {foot}},
 	})
 }
 
@@ -242,11 +269,11 @@ func (p SpawnPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc":
 			return p, func() tea.Msg { return SpawnCancelled{} }
 		case "tab":
-			p.focusIndex = (p.focusIndex + 1) % 3
+			p.focusIndex = (p.focusIndex + 1) % spawnFocusZones
 			p.updateFocus()
 			return p, nil
 		case "shift+tab":
-			p.focusIndex = (p.focusIndex + 2) % 3 // +2 mod 3 = -1 mod 3
+			p.focusIndex = (p.focusIndex + spawnFocusZones - 1) % spawnFocusZones
 			p.updateFocus()
 			return p, nil
 		case "enter":
@@ -277,9 +304,19 @@ func (p SpawnPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					Path:      path,
 					Agent:     p.agents[p.cursor],
 					Name:      strings.TrimSpace(p.nameInput.Value()),
+					Worktree:  p.worktree,
 				}
 			}
+		case " ":
+			if p.focusIndex == 3 {
+				p.worktree = !p.worktree
+				return p, nil
+			}
 		case "up", "k", "left", "h":
+			if p.focusIndex == 3 {
+				p.worktree = !p.worktree
+				return p, nil
+			}
 			if p.focusIndex != 2 { // only move agents when agents section is focused
 				break
 			}
@@ -290,6 +327,10 @@ func (p SpawnPopup) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			p.cursor = (p.cursor - 1 + n) % n
 			return p, nil
 		case "down", "j", "right", "l":
+			if p.focusIndex == 3 {
+				p.worktree = !p.worktree
+				return p, nil
+			}
 			if p.focusIndex != 2 {
 				break
 			}
@@ -337,7 +378,7 @@ func (p *SpawnPopup) updateFocus() {
 		p.nameInput.Focus()
 		// Clear suggestions when leaving path field
 		p.pathInput.SetSuggestions(nil)
-	case 2:
+	case 2, 3:
 		p.pathInput.Blur()
 		p.nameInput.Blur()
 		p.pathInput.SetSuggestions(nil)

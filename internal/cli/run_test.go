@@ -105,6 +105,113 @@ func TestRunWithoutNameUsesDockerStyleGeneratedName(t *testing.T) {
 	}
 }
 
+func TestRunWorktreeFlagSpawnsIntoWorktree(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(t.TempDir(), "myapp")
+	_ = mkdir(target)
+
+	c, _ := NewCtxWithRoot(root)
+	usePortableAgentCommand(c, "claude")
+	_, _ = c.Projects.Add(target)
+	fake := &fakeTmux{}
+	wt := &fakeWorktree{}
+	c.Tmux = fake
+	c.Worktree = wt
+
+	cmd := newRunCmd(func() *Ctx { return c })
+	cmd.SetArgs([]string{"claude", "--name", "isolated", "--cwd", target, "--yes", "--no-attach", "--worktree"})
+	out := &bytes.Buffer{}
+	cmd.SetOut(out)
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	wantDir := filepath.Join(target, ".cleo", "worktrees", "claude-isolated")
+	if len(wt.created) != 1 || wt.created[0].Dir != wantDir {
+		t.Fatalf("worktree created = %#v, want dir %q", wt.created, wantDir)
+	}
+	if len(fake.created) != 1 || fake.created[0].Cwd != wantDir {
+		t.Fatalf("tmux cwd = %#v, want the worktree", fake.created)
+	}
+	got, err := c.State.Get("cleo-myapp-claude-isolated")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.WorktreeBranch != "cleo/wt-claude-isolated" {
+		t.Fatalf("stored branch = %q", got.WorktreeBranch)
+	}
+	if !strings.Contains(out.String(), "cleo/wt-claude-isolated") {
+		t.Fatalf("run output should name the worktree branch, got %q", out.String())
+	}
+}
+
+func TestRunBaseFlagIsPassedToWorktreeCreation(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(t.TempDir(), "myapp")
+	_ = mkdir(target)
+
+	c, _ := NewCtxWithRoot(root)
+	usePortableAgentCommand(c, "claude")
+	_, _ = c.Projects.Add(target)
+	wt := &fakeWorktree{}
+	c.Tmux = &fakeTmux{}
+	c.Worktree = wt
+
+	cmd := newRunCmd(func() *Ctx { return c })
+	cmd.SetArgs([]string{"claude", "--cwd", target, "--yes", "--no-attach", "--worktree", "--base", "main"})
+	cmd.SetOut(&bytes.Buffer{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if len(wt.created) != 1 || wt.created[0].Base != "main" {
+		t.Fatalf("worktree created = %#v, want base main", wt.created)
+	}
+}
+
+func TestRunRejectsWorktreeAndNoWorktreeTogether(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(t.TempDir(), "myapp")
+	_ = mkdir(target)
+
+	c, _ := NewCtxWithRoot(root)
+	usePortableAgentCommand(c, "claude")
+	_, _ = c.Projects.Add(target)
+	c.Tmux = &fakeTmux{}
+	c.Worktree = &fakeWorktree{}
+
+	cmd := newRunCmd(func() *Ctx { return c })
+	cmd.SetArgs([]string{"claude", "--cwd", target, "--yes", "--no-attach", "--worktree", "--no-worktree"})
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected an error for --worktree with --no-worktree")
+	}
+}
+
+func TestRunNoWorktreeOverridesProjectDefault(t *testing.T) {
+	root := t.TempDir()
+	target := filepath.Join(t.TempDir(), "myapp")
+	_ = mkdir(target)
+
+	c, _ := NewCtxWithRoot(root)
+	usePortableAgentCommand(c, "claude")
+	proj, _ := c.Projects.Add(target)
+	setProjectDefaultWorktree(t, c, proj.ID)
+	wt := &fakeWorktree{}
+	c.Tmux = &fakeTmux{}
+	c.Worktree = wt
+
+	cmd := newRunCmd(func() *Ctx { return c })
+	cmd.SetArgs([]string{"claude", "--cwd", target, "--yes", "--no-attach", "--no-worktree"})
+	cmd.SetOut(&bytes.Buffer{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if len(wt.created) != 0 {
+		t.Fatalf("--no-worktree should suppress the project default, got %#v", wt.created)
+	}
+}
+
 func TestRunUsesConfiguredAgentCommand(t *testing.T) {
 	root := t.TempDir()
 	target := filepath.Join(t.TempDir(), "myapp")

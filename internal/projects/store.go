@@ -14,11 +14,15 @@ import (
 var ErrNotFound = errors.New("project not found")
 
 type Project struct {
-	ID           string    `json:"id"`
-	Name         string    `json:"name"`
-	Path         string    `json:"path"`
-	DefaultAgent string    `json:"default_agent,omitempty"`
-	AddedAt      time.Time `json:"added_at"`
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Path         string `json:"path"`
+	DefaultAgent string `json:"default_agent,omitempty"`
+	// DefaultWorktree makes Sessions spawn into a Worktree by default for this
+	// Project. Hand-edited in projects.json, like DefaultAgent; an explicit
+	// --worktree/--no-worktree (or TUI toggle) wins over it.
+	DefaultWorktree bool      `json:"default_worktree,omitempty"`
+	AddedAt         time.Time `json:"added_at"`
 }
 
 type fileFormat struct {

@@ -127,6 +127,11 @@ func (m Model) renderTreeContent(innerW int) string {
 			stColor := m.theme.StateColor(string(s.State))
 			glyph := m.theme.stateGlyph(string(s.State))
 			label := cfgAgent.Label
+			name := s.Name
+			if s.HasWorktree() {
+				// Worktree badge: the session runs in an isolated git worktree.
+				name = worktreeBadge(ic) + " " + name
+			}
 
 			// Left fixed cells before the name: gutter(1) connector(1) space(1)
 			// glyph(1) withIcon-gap(2) label space(1); right cells: shortSt(4)
@@ -136,7 +141,7 @@ func (m Model) renderTreeContent(innerW int) string {
 			if nameW < 3 {
 				nameW = 3
 			}
-			truncName := truncateWidth(s.Name, nameW)
+			truncName := truncateWidth(name, nameW)
 
 			var row string
 			if onAgent {

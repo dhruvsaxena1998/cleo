@@ -13,6 +13,7 @@ import (
 	"github.com/dhruvsaxena1998/cleo/internal/sound"
 	"github.com/dhruvsaxena1998/cleo/internal/state"
 	"github.com/dhruvsaxena1998/cleo/internal/tmux"
+	"github.com/dhruvsaxena1998/cleo/internal/worktree"
 )
 
 type Ctx struct {
@@ -22,6 +23,7 @@ type Ctx struct {
 	State    *state.Store
 	Focus    *focus.Store
 	Tmux     TmuxClient
+	Worktree sessionlifecycle.Worktree
 	Player   *sound.Player
 	Events   func(sid string) *events.Log
 }
@@ -34,6 +36,7 @@ func (c *Ctx) NewLifecycle() *sessionlifecycle.Lifecycle {
 		Projects: c.Projects,
 		State:    c.State,
 		Tmux:     c.Tmux,
+		Worktree: c.Worktree,
 		Paths:    c.Paths,
 		Focus:    c.Focus,
 	})
@@ -60,6 +63,7 @@ func NewCtxWithRoot(root string) (*Ctx, error) {
 		State:    state.NewStore(p.StateFile(), p.StateLock()),
 		Focus:    focus.NewStore(p.FocusFile()),
 		Tmux:     tmux.NewClient(""),
+		Worktree: worktree.NewClient(),
 		Player:   sound.NewPlayer(cfg.Sound.Volume),
 		Events:   func(sid string) *events.Log { return events.NewLog(p.EventsLog(sid)) },
 	}, nil

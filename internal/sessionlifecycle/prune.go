@@ -14,6 +14,7 @@ type PruneInput struct {
 	Keep        int    // keep N most recent finished Sessions per project; 0 = keep none
 	AllProjects bool   // if true, ignore ProjectID and prune across all projects
 	DryRun      bool   // if true, return candidates without archiving or deleting
+	Force       bool   // if true, remove dirty Worktrees too instead of skipping their Sessions
 }
 
 // PruneResult describes the outcome of a prune operation.
@@ -48,7 +49,7 @@ func (l *Lifecycle) Prune(input PruneInput) (PruneResult, error) {
 		byProj[s.ProjectID] = append(byProj[s.ProjectID], s)
 	}
 
-	var toPrune []string
+	var toPrune []state.Session
 	for _, ss := range byProj {
 		sort.Slice(ss, func(i, j int) bool {
 			return ss[i].LastEventAt.After(ss[j].LastEventAt)
@@ -57,24 +58,43 @@ func (l *Lifecycle) Prune(input PruneInput) (PruneResult, error) {
 			if i < input.Keep {
 				continue
 			}
-			toPrune = append(toPrune, s.ID)
+			toPrune = append(toPrune, s)
 		}
 	}
 
 	if input.DryRun {
-		return PruneResult{Pruned: toPrune}, nil
+		return PruneResult{Pruned: sessionIDs(toPrune)}, nil
 	}
 
-	// Perform prune: archive event logs and delete Session records.
+	// Perform prune: remove Worktrees, archive event logs, and delete Session
+	// records. A dirty Worktree skips its whole Session — worktree and record
+	// live and die together (ADR 0005) — unless Force is set. The branch is
+	// never deleted.
+	var pruned []string
 	var warnings []error
-	for _, id := range toPrune {
-		if err := events.Archive(l.paths.EventsLog(id), l.paths.ArchiveDir()); err != nil {
-			warnings = append(warnings, fmt.Errorf("archive event log for %s: %w", id, err))
+	for _, s := range toPrune {
+		if s.HasWorktree() {
+			if removeErr := l.removeWorktreeUnlessDirty(s, input.Force); removeErr != nil {
+				warnings = append(warnings, removeErr)
+				continue
+			}
 		}
-		if err := l.state.Delete(id); err != nil {
-			return PruneResult{}, fmt.Errorf("delete session %s: %w", id, err)
+		if err := events.Archive(l.paths.EventsLog(s.ID), l.paths.ArchiveDir()); err != nil {
+			warnings = append(warnings, fmt.Errorf("archive event log for %s: %w", s.ID, err))
 		}
+		if err := l.state.Delete(s.ID); err != nil {
+			return PruneResult{}, fmt.Errorf("delete session %s: %w", s.ID, err)
+		}
+		pruned = append(pruned, s.ID)
 	}
 
-	return PruneResult{Pruned: toPrune, Warnings: warnings}, nil
+	return PruneResult{Pruned: pruned, Warnings: warnings}, nil
+}
+
+func sessionIDs(ss []state.Session) []string {
+	out := make([]string, 0, len(ss))
+	for _, s := range ss {
+		out = append(out, s.ID)
+	}
+	return out
 }

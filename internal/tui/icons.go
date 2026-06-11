@@ -114,6 +114,15 @@ var asciiIcons = IconSet{
 	SoundOn: "*",
 }
 
+// worktreeBadge marks worktree-backed sessions in lists: the set's git-branch
+// glyph, or plain "wt" for sets that have none.
+func worktreeBadge(ic IconSet) string {
+	if ic.Branch != "" {
+		return ic.Branch
+	}
+	return "wt"
+}
+
 // iconSetNames is the selectable glyph sets in the order the settings editor
 // cycles them — richest first. resolveIcons maps any of these (and unknown
 // values) to a set.

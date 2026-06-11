@@ -2,7 +2,9 @@ package state
 
 import (
 	"errors"
+	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -72,6 +74,48 @@ func TestStorePutGet(t *testing.T) {
 	}
 	if got.State != Spawning {
 		t.Errorf("state %s", got.State)
+	}
+}
+
+func TestWorktreeFieldsRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(filepath.Join(dir, "state.json"), filepath.Join(dir, "state.json.lock"))
+
+	s := Session{
+		ID: "cleo-foo-claude-1", ProjectID: "foo", Agent: "claude",
+		Name: "1", State: Spawning, StartedAt: time.Now().UTC(),
+		WorktreePath:   "/Users/x/Dev/myapp/.cleo/worktrees/claude-1",
+		WorktreeBranch: "cleo/wt-claude-1",
+	}
+	if err := store.Put(s); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.Get(s.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.WorktreePath != s.WorktreePath {
+		t.Errorf("worktree path %q", got.WorktreePath)
+	}
+	if got.WorktreeBranch != s.WorktreeBranch {
+		t.Errorf("worktree branch %q", got.WorktreeBranch)
+	}
+}
+
+func TestWorktreeFieldsOmittedForMainTreeSessions(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.json")
+	store := NewStore(path, path+".lock")
+
+	if err := store.Put(Session{ID: "s1", State: Running}); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), "worktree") {
+		t.Errorf("main-tree session serialized worktree fields: %s", b)
 	}
 }
 

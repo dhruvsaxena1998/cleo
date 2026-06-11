@@ -16,6 +16,7 @@ import (
 	"github.com/dhruvsaxena1998/cleo/internal/projects"
 	"github.com/dhruvsaxena1998/cleo/internal/state"
 	"github.com/dhruvsaxena1998/cleo/internal/tmux"
+	"github.com/dhruvsaxena1998/cleo/internal/worktree"
 )
 
 var (
@@ -46,6 +47,7 @@ type Options struct {
 	Projects     *projects.Store
 	State        *state.Store
 	Tmux         Tmux
+	Worktree     Worktree
 	Paths        paths.Paths
 	Focus        *focus.Store
 	CleoBin      string
@@ -57,6 +59,7 @@ type Lifecycle struct {
 	projects     *projects.Store
 	state        *state.Store
 	tmux         Tmux
+	worktree     Worktree
 	paths        paths.Paths
 	focus        *focus.Store
 	cleoBin      string
@@ -73,6 +76,7 @@ func New(opts Options) *Lifecycle {
 		projects:     opts.Projects,
 		state:        opts.State,
 		tmux:         opts.Tmux,
+		worktree:     opts.Worktree,
 		paths:        opts.Paths,
 		focus:        opts.Focus,
 		cleoBin:      opts.CleoBin,
@@ -86,12 +90,19 @@ type CreateInput struct {
 	Path                string
 	ProjectID           string
 	AutoRegisterProject bool
+	// Worktree explicitly enables or disables spawning into a Worktree. Nil
+	// falls back to the Project's DefaultWorktree (flag > project default > off).
+	Worktree *bool
+	// Base is the ref the Worktree branch is created from; empty means HEAD.
+	// Only meaningful when the spawn is worktree-enabled.
+	Base string
 }
 
 type CreateResult struct {
 	Session           state.Session
 	Project           projects.Project
 	ProjectRegistered bool
+	Warning           error // non-nil for non-fatal problems (e.g. exclude maintenance failed)
 }
 
 func (l *Lifecycle) Create(input CreateInput) (CreateResult, error) {
@@ -103,6 +114,10 @@ func (l *Lifecycle) Create(input CreateInput) (CreateResult, error) {
 	proj, registered, err := l.resolveProject(input)
 	if err != nil {
 		return CreateResult{}, err
+	}
+
+	if input.Base != "" && !l.worktreeEnabled(input, proj) {
+		return CreateResult{}, fmt.Errorf("--base %q only applies to worktree sessions (add --worktree)", input.Base)
 	}
 
 	if err := validateAgentCommand(input.Agent, agent.Command); err != nil {
@@ -126,25 +141,77 @@ func (l *Lifecycle) Create(input CreateInput) (CreateResult, error) {
 		State:     state.Spawning,
 		StartedAt: time.Now().UTC(),
 	}
+
+	cwd := proj.Path
+	var warning error
+	if l.worktreeEnabled(input, proj) {
+		if l.worktree == nil {
+			return CreateResult{}, fmt.Errorf("%w: no worktree adapter wired", ErrWorktreeFailed)
+		}
+		// Hygiene first, so `.cleo/` never appears as untracked noise — not a
+		// spawn precondition, so a failure only warns.
+		if err := l.worktree.EnsureExcluded(proj.Path); err != nil {
+			warning = fmt.Errorf("maintain .git/info/exclude: %w", err)
+		}
+		key := worktreeKey(input.Agent, name)
+		created, err := l.worktree.Create(worktree.CreateOpts{
+			ProjectPath: proj.Path,
+			Dir:         worktreeDir(proj.Path, key),
+			Branch:      worktreeBranch(key),
+			Base:        input.Base,
+		})
+		if err != nil {
+			return CreateResult{}, fmt.Errorf("%w: %v", ErrWorktreeFailed, err)
+		}
+		sess.WorktreePath = worktreeDir(proj.Path, key)
+		sess.WorktreeBranch = worktreeBranch(key)
+		cwd = created.CWD
+	}
+
+	// rollback undoes everything a failed spawn created. For worktree spawns
+	// that includes the just-created worktree and its branch — the branch
+	// points at its base and holds no work, and leaving it would collide with
+	// a retry under the same name.
+	rollback := func() {
+		_ = l.state.Delete(sid)
+		if sess.HasWorktree() {
+			_ = l.worktree.Remove(worktree.RemoveOpts{
+				ProjectPath:  proj.Path,
+				Dir:          sess.WorktreePath,
+				Force:        true,
+				DeleteBranch: sess.WorktreeBranch,
+			})
+		}
+	}
+
 	if err := l.state.Put(sess); err != nil {
 		return CreateResult{}, err
 	}
 	if err := l.tmux.NewSession(tmux.NewSessionOpts{
 		Name: sid,
-		Cwd:  proj.Path,
+		Cwd:  cwd,
 		Cmd:  agent.Command,
 		Env:  map[string]string{"CLEO_SESSION_ID": sid},
 	}); err != nil {
-		_ = l.state.Delete(sid)
+		rollback()
 		return CreateResult{}, fmt.Errorf("%w: %v", ErrLaunchFailed, err)
 	}
 	if err := l.verifySessionAlive(sid); err != nil {
-		_ = l.state.Delete(sid)
+		rollback()
 		return CreateResult{}, err
 	}
 	l.installFocusHooks()
 	l.bindDetachKey()
-	return CreateResult{Session: sess, Project: proj, ProjectRegistered: registered}, nil
+	return CreateResult{Session: sess, Project: proj, ProjectRegistered: registered, Warning: warning}, nil
+}
+
+// worktreeEnabled resolves the opt-in precedence: explicit flag/toggle >
+// per-project default > off.
+func (l *Lifecycle) worktreeEnabled(input CreateInput, proj projects.Project) bool {
+	if input.Worktree != nil {
+		return *input.Worktree
+	}
+	return proj.DefaultWorktree
 }
 
 func validateAgentCommand(agentName, command string) error {

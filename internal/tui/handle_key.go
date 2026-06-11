@@ -353,12 +353,13 @@ func (m Model) performSpawn(s SpawnSubmitted) (Model, tea.Cmd) {
 	}
 
 	lifecycle := m.ctx.NewLifecycle()
-	_, err := lifecycle.Create(sessionlifecycle.CreateInput{
+	result, err := lifecycle.Create(sessionlifecycle.CreateInput{
 		Agent:               s.Agent,
 		Name:                s.Name,
 		Path:                s.Path,
 		ProjectID:           s.ProjectID,
 		AutoRegisterProject: s.ProjectID == "",
+		Worktree:            &s.Worktree,
 	})
 	if err != nil {
 		statusCmd := m.setStatus(fmt.Sprintf("spawn failed: %v", err))
@@ -366,9 +367,13 @@ func (m Model) performSpawn(s SpawnSubmitted) (Model, tea.Cmd) {
 		m.popup = nil
 		return m, tea.Batch(statusCmd, loadStateCmd(m.ctx))
 	}
+	var statusCmd tea.Cmd
+	if result.Warning != nil {
+		statusCmd = m.setStatus(fmt.Sprintf("spawned %s with warning: %v", result.Session.ID, result.Warning))
+	}
 	m.mode = ModeNormal
 	m.popup = nil
-	return m, loadStateCmd(m.ctx)
+	return m, tea.Batch(statusCmd, loadStateCmd(m.ctx))
 }
 
 func (m Model) performKill(target string) (Model, tea.Cmd) {

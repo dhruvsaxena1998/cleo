@@ -40,6 +40,34 @@ func TestAddDuplicateIDDeconflicts(t *testing.T) {
 	}
 }
 
+func TestDefaultWorktreeRoundTripsAndOldRecordsLoad(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "projects.json")
+	// Hand-written file, the supported way to set per-project defaults.
+	content := `{"projects":[
+		{"id":"isolated","name":"isolated","path":"/x/isolated","default_worktree":true},
+		{"id":"legacy","name":"legacy","path":"/x/legacy"}
+	]}`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	store := NewStore(path)
+
+	got, err := store.Get("isolated")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.DefaultWorktree {
+		t.Error("default_worktree not loaded")
+	}
+	legacy, err := store.Get("legacy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacy.DefaultWorktree {
+		t.Error("legacy record without field should default to false")
+	}
+}
+
 func TestRemove(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "projects.json")
 	store := NewStore(path)

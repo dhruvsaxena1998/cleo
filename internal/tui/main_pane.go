@@ -228,6 +228,11 @@ func (m Model) renderSessionDetail(sess state.Session, width int) string {
 		dot + dimmed.Render("tools ") + metric.Render(fmt.Sprintf("%d", sess.ToolCount)) +
 		dot + dimmed.Render("last ") + metric.Render(humanDuration(sess.LastEventAt))
 	b.WriteString("  " + truncateWidth(statsLine, width-4) + "\n")
+	if sess.HasWorktree() {
+		wtLine := dimmed.Render(withIcon(worktreeBadge(m.theme.Icons), "worktree ")) + metric.Render(sess.WorktreeBranch) +
+			faint.Render(" · "+sess.WorktreePath)
+		b.WriteString("  " + truncateWidth(wtLine, width-4) + "\n")
+	}
 	if sess.LastMessage != "" {
 		b.WriteString("  " + dimmed.Render(truncateWidth(sess.LastMessage, width-4)) + "\n")
 	}

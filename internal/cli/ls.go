@@ -13,13 +13,15 @@ import (
 )
 
 type lsRow struct {
-	Project     string     `json:"project"`
-	Agent       *string    `json:"agent"`
-	Name        *string    `json:"name"`
-	State       *string    `json:"state"`
-	ID          *string    `json:"id"`
-	StartedAt   *time.Time `json:"started_at"`
-	LastEventAt *time.Time `json:"last_event_at"`
+	Project        string     `json:"project"`
+	Agent          *string    `json:"agent"`
+	Name           *string    `json:"name"`
+	State          *string    `json:"state"`
+	ID             *string    `json:"id"`
+	StartedAt      *time.Time `json:"started_at"`
+	LastEventAt    *time.Time `json:"last_event_at"`
+	WorktreePath   string     `json:"worktree_path,omitempty"`
+	WorktreeBranch string     `json:"worktree_branch,omitempty"`
 }
 
 func strPtr(s string) *string { return &s }
@@ -92,13 +94,15 @@ func newLsCmd(getCtx func() *Ctx) *cobra.Command {
 						s := sessions[i]
 						st := string(s.State)
 						rows = append(rows, lsRow{
-							Project:     p.ID,
-							Agent:       strPtr(s.Agent),
-							Name:        strPtr(s.Name),
-							State:       strPtr(st),
-							ID:          strPtr(s.ID),
-							StartedAt:   timePtr(s.StartedAt),
-							LastEventAt: timePtr(s.LastEventAt),
+							Project:        p.ID,
+							Agent:          strPtr(s.Agent),
+							Name:           strPtr(s.Name),
+							State:          strPtr(st),
+							ID:             strPtr(s.ID),
+							StartedAt:      timePtr(s.StartedAt),
+							LastEventAt:    timePtr(s.LastEventAt),
+							WorktreePath:   s.WorktreePath,
+							WorktreeBranch: s.WorktreeBranch,
 						})
 					}
 				}
@@ -114,10 +118,10 @@ func newLsCmd(getCtx func() *Ctx) *cobra.Command {
 			}
 
 			tw := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
-			fmt.Fprintln(tw, "PROJECT\tAGENT\tNAME\tSTATE\tID\tAGE")
+			fmt.Fprintln(tw, "PROJECT\tAGENT\tNAME\tSTATE\tWT\tID\tAGE")
 			for _, p := range projects {
 				if len(byProj[p.ID]) == 0 {
-					fmt.Fprintf(tw, "%s\t-\t-\t-\t-\t-\n", p.ID)
+					fmt.Fprintf(tw, "%s\t-\t-\t-\t-\t-\t-\n", p.ID)
 					continue
 				}
 				for _, i := range byProj[p.ID] {
@@ -126,7 +130,11 @@ func newLsCmd(getCtx func() *Ctx) *cobra.Command {
 					if effectiveTime.IsZero() {
 						effectiveTime = s.StartedAt
 					}
-					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\n", p.ID, s.Agent, s.Name, s.State, s.ID, fmtAge(effectiveTime))
+					badge := ""
+					if s.HasWorktree() {
+						badge = "wt"
+					}
+					fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", p.ID, s.Agent, s.Name, s.State, badge, s.ID, fmtAge(effectiveTime))
 				}
 			}
 			return tw.Flush()
