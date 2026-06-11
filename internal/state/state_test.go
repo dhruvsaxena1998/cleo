@@ -119,6 +119,53 @@ func TestWorktreeFieldsOmittedForMainTreeSessions(t *testing.T) {
 	}
 }
 
+// A cleo binary must never destroy session fields written by a newer cleo: a
+// long-running dashboard polls state.json every 750ms, so one stale binary in
+// the mix silently wipes any field it doesn't know (exactly how the worktree
+// badge vanished when an old binary's reconcile rewrote the record).
+func TestReadModifyWritePreservesUnknownFieldsFromNewerSchemas(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.json")
+	written := `{
+		"version": 1,
+		"sessions": {
+			"s1": {
+				"id": "s1",
+				"state": "running",
+				"tool_count": 2,
+				"future_field": "from-a-newer-cleo",
+				"future_obj": {"nested": true}
+			}
+		}
+	}`
+	if err := os.WriteFile(path, []byte(written), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	store := NewStore(path, path+".lock")
+
+	// Read-modify-write through this (older) schema.
+	if _, err := store.Apply("s1", EvStop, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"future_field", "from-a-newer-cleo", "future_obj"} {
+		if !strings.Contains(string(b), want) {
+			t.Fatalf("rewrite dropped unknown field %q:\n%s", want, b)
+		}
+	}
+	got, err := store.Get("s1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.State != Idle {
+		t.Fatalf("known-field update lost: state = %s, want idle", got.State)
+	}
+}
+
 func TestStoreApplyEvent(t *testing.T) {
 	dir := t.TempDir()
 	store := NewStore(filepath.Join(dir, "state.json"), filepath.Join(dir, "state.json.lock"))
