@@ -6,11 +6,21 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 
 	"github.com/dhruvsaxena1998/cleo/internal/cli"
 )
 
 func Run(c *cli.Ctx) error {
+	// Force TrueColor rendering so every theme's hex colours are emitted
+	// verbatim. Without this, lipgloss auto-detects the terminal's colour
+	// profile and falls back to ANSI256 or ANSI16 inside limited environments
+	// (e.g. a tmux that doesn't pass COLORTERM), where distinct theme colours
+	// collapse to the same approximation and popup borders stop reading as
+	// theme-specific. Modern terminals universally support 24-bit colour; those
+	// that don't silently approximate the sequences, no worse than ANSI256.
+	lipgloss.SetColorProfile(termenv.TrueColor)
+
 	m := New(c)
 
 	// Sync the terminal background colour to the theme's Base so that areas
