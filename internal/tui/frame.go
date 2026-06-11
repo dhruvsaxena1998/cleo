@@ -15,7 +15,7 @@ import (
 // frame only lays them out (left title, right-aligned hint). Sections holds the
 // body as groups of pre-styled rows; a ├──┤ divider is drawn between adjacent
 // groups, so a body+footer popup is two sections and a single-list popup is
-// one. Border and Fill carry the look: popups pass a Mauve bold border and an
+// one. Border and Fill carry the look: popups pass an Accent bold border and an
 // empty fill (bare spaces); panels pass a Surf1 border and a Base-background
 // fill. The core never branches on "popup vs panel" — that distinction lives
 // entirely in the styles the caller passes.
