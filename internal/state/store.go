@@ -5,6 +5,8 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 	"time"
 
 	"github.com/gofrs/flock"
@@ -15,7 +17,29 @@ var ErrSessionNotFound = errors.New("session not found")
 type fileFormat struct {
 	Version  int                `json:"version"`
 	Sessions map[string]Session `json:"sessions"`
+	// unknown holds, per session, the JSON keys this binary's Session struct
+	// does not recognize — fields written by a newer cleo. They are carried
+	// from read to write so a read-modify-write through an older schema never
+	// destroys them: a long-running dashboard rewrites records every poll, so
+	// without this one stale binary silently wipes newer fields.
+	unknown map[string]map[string]json.RawMessage
 }
+
+// sessionKnownKeys is every JSON key the current Session schema can produce,
+// derived from the struct tags. Keys outside this set are preserved verbatim
+// across rewrites; keys inside it always reflect the current struct (so a
+// field legitimately cleared by omitempty stays cleared).
+var sessionKnownKeys = func() map[string]bool {
+	keys := map[string]bool{}
+	rt := reflect.TypeOf(Session{})
+	for i := 0; i < rt.NumField(); i++ {
+		tag := rt.Field(i).Tag.Get("json")
+		if name, _, _ := strings.Cut(tag, ","); name != "" && name != "-" {
+			keys[name] = true
+		}
+	}
+	return keys
+}()
 
 type Store struct {
 	path     string
@@ -164,12 +188,36 @@ func (s *Store) readUnlocked() (fileFormat, error) {
 	if err != nil {
 		return fileFormat{}, err
 	}
-	var f fileFormat
-	if err := json.Unmarshal(b, &f); err != nil {
+	var raw struct {
+		Version  int                        `json:"version"`
+		Sessions map[string]json.RawMessage `json:"sessions"`
+	}
+	if err := json.Unmarshal(b, &raw); err != nil {
 		return fileFormat{}, err
 	}
-	if f.Sessions == nil {
-		f.Sessions = map[string]Session{}
+	f := fileFormat{Version: raw.Version, Sessions: map[string]Session{}}
+	for id, msg := range raw.Sessions {
+		var sess Session
+		if err := json.Unmarshal(msg, &sess); err != nil {
+			return fileFormat{}, err
+		}
+		f.Sessions[id] = sess
+
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(msg, &fields); err != nil {
+			return fileFormat{}, err
+		}
+		for k := range fields {
+			if sessionKnownKeys[k] {
+				delete(fields, k)
+			}
+		}
+		if len(fields) > 0 {
+			if f.unknown == nil {
+				f.unknown = map[string]map[string]json.RawMessage{}
+			}
+			f.unknown[id] = fields
+		}
 	}
 	if f.Version == 0 {
 		f.Version = 1
@@ -178,7 +226,35 @@ func (s *Store) readUnlocked() (fileFormat, error) {
 }
 
 func (s *Store) writeUnlocked(f fileFormat) error {
-	b, err := json.MarshalIndent(f, "", "  ")
+	sessions := map[string]json.RawMessage{}
+	for id, sess := range f.Sessions {
+		known, err := json.Marshal(sess)
+		if err != nil {
+			return err
+		}
+		extra := f.unknown[id]
+		if len(extra) == 0 {
+			sessions[id] = known
+			continue
+		}
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(known, &fields); err != nil {
+			return err
+		}
+		for k, v := range extra {
+			fields[k] = v
+		}
+		merged, err := json.Marshal(fields)
+		if err != nil {
+			return err
+		}
+		sessions[id] = merged
+	}
+
+	b, err := json.MarshalIndent(struct {
+		Version  int                        `json:"version"`
+		Sessions map[string]json.RawMessage `json:"sessions"`
+	}{Version: f.Version, Sessions: sessions}, "", "  ")
 	if err != nil {
 		return err
 	}
