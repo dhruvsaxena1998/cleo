@@ -5,6 +5,23 @@ import (
 	"strings"
 )
 
+func (s *Store) ResolveExactPath(path string) (Project, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return Project{}, err
+	}
+	all, err := s.List()
+	if err != nil {
+		return Project{}, err
+	}
+	for _, p := range all {
+		if p.Path == abs {
+			return p, nil
+		}
+	}
+	return Project{}, ErrNotFound
+}
+
 func (s *Store) ResolveFromCwd(cwd string) (Project, error) {
 	abs, err := filepath.Abs(cwd)
 	if err != nil {
