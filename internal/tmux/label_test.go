@@ -1,6 +1,7 @@
 package tmux
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -91,53 +92,99 @@ func TestStatusLeftLengthNeverShrinksBelowTmuxDefault(t *testing.T) {
 	}
 }
 
-func TestSessionLabelCmdsAreSessionScopedAndNameTheWindow(t *testing.T) {
-	cmds := sessionLabelCmds(testLabel(), "@3")
-	var kinds []string
+func TestSessionLabelCmdsAreSessionScoped(t *testing.T) {
+	cmds := sessionLabelCmds(testLabel())
+	if len(cmds) != 2 {
+		t.Fatalf("commands = %v, want status-left and status-left-length", cmds)
+	}
 	for _, args := range cmds {
-		kinds = append(kinds, strings.Join(args[:1], ""))
+		if args[0] != "set-option" || args[1] != "-t" || args[2] != "cleo-pickup-api-codex-lucid-turing" {
+			t.Errorf("command is not scoped to the Cleo session: %v", args)
+		}
 		for _, arg := range args {
 			if arg == "-g" {
 				t.Fatalf("label must never set a global option: %v", args)
 			}
 		}
 	}
-	want := []string{"set-option", "set-option", "rename-window", "set-option", "set-option"}
-	if strings.Join(kinds, ",") != strings.Join(want, ",") {
-		t.Fatalf("commands = %v, want %v", kinds, want)
+	if cmds[0][3] != "status-left" || cmds[1][3] != "status-left-length" {
+		t.Errorf("commands set the wrong options: %v", cmds)
 	}
-	if got := cmds[0]; got[2] != "cleo-pickup-api-codex-lucid-turing" || got[3] != "status-left" {
-		t.Errorf("first command targets the wrong session/option: %v", got)
+}
+
+func TestWindowFormatCmdsRewriteOnlyWhatNeedsIt(t *testing.T) {
+	cmds := windowFormatCmds("@3", []WindowFormat{
+		{Option: "window-status-format", Value: " #I:#W "},
+		{Option: "window-status-current-format", Value: " #I "}, // nothing to hide
+	})
+	if len(cmds) != 1 {
+		t.Fatalf("commands = %v, want only the format that has a name to hide", cmds)
 	}
-	if got := cmds[2]; got[2] != "@3" || got[3] != "lucid-turing" {
-		t.Errorf("rename-window = %v, want window @3 named lucid-turing", got)
+	got := cmds[0]
+	if got[0] != "set-option" || got[1] != "-w" || got[2] != "-t" || got[3] != "@3" {
+		t.Errorf("command is not window-scoped on @3: %v", got)
 	}
-	for _, args := range cmds[3:] {
-		if args[2] != "-t" || args[1] != "-w" || args[3] != "@3" {
-			t.Errorf("window option is not window-scoped on @3: %v", args)
+	if got[4] != "window-status-format" || !strings.Contains(got[5], autoRenameCond) {
+		t.Errorf("command = %v, want a rewritten window-status-format", got)
+	}
+	for _, arg := range got {
+		if arg == "-g" {
+			t.Fatalf("label must never set a global option: %v", got)
 		}
 	}
-	if !hasOption(cmds, "automatic-rename", "off") || !hasOption(cmds, "allow-rename", "off") {
-		t.Errorf("label must take renaming away from the agent: %v", cmds)
-	}
 }
 
-func TestSessionLabelCmdsSkipWindowCommandsWithoutATarget(t *testing.T) {
-	cmds := sessionLabelCmds(testLabel(), "")
-	if len(cmds) != 2 {
-		t.Fatalf("commands = %v, want only the two session options", cmds)
+func TestHideAutoWindowNamesKeepsTheUsersStylingAndDropsTheSeparator(t *testing.T) {
+	cases := []struct {
+		name   string
+		format string
+		want   string
+	}{
+		{
+			name:   "tmux default",
+			format: " #I:#W ",
+			want:   " #I#{?automatic-rename,,:#W} ",
+		},
+		{
+			name:   "styled current-window format",
+			format: "#[bold,fg=colour234,bg=colour39] #I:#W #[default]",
+			want:   "#[bold,fg=colour234,bg=colour39] #I#{?automatic-rename,,:#W} #[default]",
+		},
+		{
+			name:   "flags kept outside the conditional",
+			format: "#I:#W#{?window_flags,#{window_flags},}",
+			want:   "#I#{?automatic-rename,,:#W}#{?window_flags,#{window_flags},}",
+		},
+		{
+			name:   "space separated name",
+			format: " #I #W ",
+			want:   " #I#{?automatic-rename,, #W} ",
+		},
+		{
+			name:   "no name to hide",
+			format: " #I ",
+			want:   " #I ",
+		},
+		{
+			name:   "empty",
+			format: "",
+			want:   "",
+		},
 	}
-}
-
-func hasOption(cmds [][]string, option, value string) bool {
-	for _, args := range cmds {
-		for i, arg := range args {
-			if arg == option && i+1 < len(args) && args[i+1] == value {
-				return true
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := hideAutoWindowNames(tc.format); got != tc.want {
+				t.Errorf("hideAutoWindowNames(%q) = %q, want %q", tc.format, got, tc.want)
 			}
-		}
+		})
 	}
-	return false
+}
+
+func TestHideAutoWindowNamesIsIdempotentSoReattachingDoesNotNest(t *testing.T) {
+	once := hideAutoWindowNames(" #I:#W ")
+	if twice := hideAutoWindowNames(once); twice != once {
+		t.Errorf("second rewrite changed the format: %q -> %q", once, twice)
+	}
 }
 
 func TestApplySessionLabelRelabelsOnlyTheTargetSession(t *testing.T) {
@@ -153,6 +200,15 @@ func TestApplySessionLabelRelabelsOnlyTheTargetSession(t *testing.T) {
 	if err := c.cmd("set-option", "-g", "status-left-length", "10").Run(); err != nil {
 		t.Fatal(err)
 	}
+	// Two windows: the agent's, named by tmux after whatever it runs, and one the
+	// user opened and named.
+	if err := c.cmd("new-window", "-d", "-t", label.Session).Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.cmd("rename-window", "-t", label.Session+":2", "my-notes").Run(); err != nil {
+		t.Fatal(err)
+	}
+	autoName := display(t, c, label.Session+":1", "#{window_name}")
 
 	if err := c.ApplySessionLabel(label); err != nil {
 		t.Fatal(err)
@@ -164,11 +220,17 @@ func TestApplySessionLabelRelabelsOnlyTheTargetSession(t *testing.T) {
 			t.Errorf("rendered status-left %q lost %q to truncation", rendered, want)
 		}
 	}
-	if got := display(t, c, label.Session, "#{window_name}"); got != "lucid-turing" {
-		t.Errorf("window name = %q, want lucid-turing", got)
+	// The window list shows bare indexes, except for the window the user named.
+	// Cleo never renames a window itself.
+	windows := display(t, c, label.Session, "#{W:[#{T:window-status-format}]}")
+	if strings.Contains(windows, autoName) {
+		t.Errorf("window list %q still shows the derived name %q", windows, autoName)
 	}
-	if got := display(t, c, label.Session, "#{automatic-rename}"); got != "0" {
-		t.Errorf("automatic-rename = %q, want off", got)
+	if !strings.Contains(windows, "2:my-notes") {
+		t.Errorf("window list %q dropped the name the user gave window 2", windows)
+	}
+	if got := display(t, c, label.Session+":1", "#{window_name}"); got != autoName {
+		t.Errorf("window name = %q, want tmux's own %q left alone", got, autoName)
 	}
 	// The user's other sessions keep their own status bar.
 	if got := display(t, c, "someone-elses-session", "#{status-left-length}"); got != "10" {
@@ -193,4 +255,28 @@ func display(t *testing.T, c *Client, target, format string) string {
 		t.Fatalf("display-message %q: %v", format, err)
 	}
 	return strings.TrimSpace(string(out))
+}
+
+func TestParseWindowStatesKeepsFormatsPerWindowAndSkipsShortRows(t *testing.T) {
+	out := strings.Join([]string{
+		"@0" + windowStateSep + " #I:#W " + windowStateSep + "#[bold] #I:#W #[default]",
+		"@1" + windowStateSep + " #I " + windowStateSep + " #I ",
+		"@2" + windowStateSep + "missing the second format", // ignored
+		"", // ignored
+	}, "\n")
+
+	got := parseWindowStates(out)
+	if len(got) != 2 {
+		t.Fatalf("states = %#v, want the two complete rows", got)
+	}
+	if got[0].Target != "@0" || got[1].Target != "@1" {
+		t.Errorf("targets = %q, %q", got[0].Target, got[1].Target)
+	}
+	want := []WindowFormat{
+		{Option: "window-status-format", Value: " #I:#W "},
+		{Option: "window-status-current-format", Value: "#[bold] #I:#W #[default]"},
+	}
+	if !reflect.DeepEqual(got[0].Formats, want) {
+		t.Errorf("formats = %#v, want %#v", got[0].Formats, want)
+	}
 }
