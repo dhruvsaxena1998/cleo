@@ -217,7 +217,7 @@ func (l *Lifecycle) resolveProject(input CreateInput) (projects.Project, bool, e
 	if path != "" {
 		path, _ = filepath.Abs(path)
 	}
-	proj, err := l.projects.ResolveFromCwd(path)
+	proj, err := l.projects.ResolveExactPath(path)
 	if errors.Is(err, projects.ErrNotFound) {
 		if !input.AutoRegisterProject {
 			return projects.Project{}, false, ErrProjectRegistrationNeeded

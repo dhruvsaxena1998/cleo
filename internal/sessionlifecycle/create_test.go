@@ -67,6 +67,48 @@ func TestCreateForUnregisteredPathWithAutoRegistrationRegistersProjectAndCreates
 	assertCreatedSession(t, p, fake, result, "cleo-myapp-claude-fix-auth-bug", target)
 }
 
+func TestCreateForChildOfRegisteredProjectRegistersChildAsSeparateProject(t *testing.T) {
+	root := t.TempDir()
+	parent := mkdirProjectDir(t, "parent")
+	child := filepath.Join(parent, "child")
+	if err := os.MkdirAll(child, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	p := paths.NewWithRoot(root)
+	projectStore := projects.NewStore(p.ProjectsFile())
+	if _, err := projectStore.Add(parent); err != nil {
+		t.Fatal(err)
+	}
+	fake := &fakeTmux{}
+	lifecycle := newTestLifecycle(p, fake)
+
+	result, err := lifecycle.Create(sessionlifecycle.CreateInput{
+		Agent:               "claude",
+		Name:                "Child Work",
+		Path:                child,
+		AutoRegisterProject: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.ProjectRegistered {
+		t.Fatal("expected child directory to be registered as a separate project")
+	}
+	if result.Project.ID != "child" || result.Project.Path != child {
+		t.Fatalf("project = %#v, want child at %q", result.Project, child)
+	}
+	assertCreatedSession(t, p, fake, result, "cleo-child-claude-child-work", child)
+
+	projects, err := projectStore.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(projects) != 2 {
+		t.Fatalf("registered projects = %#v, want parent and child", projects)
+	}
+}
+
 func TestCreateWithExplicitProjectIDUsesRegisteredProjectPath(t *testing.T) {
 	root := t.TempDir()
 	projectPath := mkdirProjectDir(t, "myapp")
