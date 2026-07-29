@@ -23,6 +23,7 @@ coverage.html
 .cache/
 
 # Local agent/tooling state
+.scratch/
 .superpowers/
 .handoff/
 .claude/
