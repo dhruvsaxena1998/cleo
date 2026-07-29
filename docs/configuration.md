@@ -115,9 +115,11 @@ On `status_line = "auto"`, Cleo fixes both when it creates a session and again o
 
 - `status-left` becomes a compact `project · agent · name` label, with the agent segment in that agent's configured `color`.
 - `status-left-length` is widened for that session so the label is never truncated.
-- The agent's window is named after the session, with `automatic-rename` and `allow-rename` turned off so the agent cannot overwrite it.
+- The window list shows bare indexes — `1  2  3`. Cleo never renames a window; it rewrites the session's own copy of `window-status-format` / `window-status-current-format` so a window tmux named after its running process shows only its index. A window *you* renamed has `automatic-rename` off, so its name still shows (`2:my-notes`). Whatever padding, colors, and window flags your own format has are kept — only the name is made conditional.
 
-Every option is set on the Cleo session (or its window), never globally: your own tmux sessions and your global `status-style`, `status-right`, and window formats are untouched. Set `status_line = "off"` if you would rather your own `status-left` apply to Cleo sessions too.
+Every option is set on the Cleo session or its windows, never globally: your own tmux sessions and your global `status-style`, `status-right`, and window formats are untouched. Set `status_line = "off"` if you would rather your own `status-left` and window formats apply to Cleo sessions too.
+
+Because tmux resolves window formats per window (a new window inherits the global value, not the session's), a window you open mid-session keeps tmux's naming until the next attach re-applies the label.
 
 ## `[sound]`
 
