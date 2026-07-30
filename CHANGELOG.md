@@ -7,8 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Fixed
-- Prevented transparent terminal profiles from leaking through dashboard and popup backgrounds.
+## [0.3.0] - 2026-07-30
 
 ### Added
 - Attached sessions get a readable tmux status bar. Cleo now paints a compact `project · agent · name` label (agent segment in that agent's configured color) onto the sessions it manages and widens that session's `status-left-length` so the label isn't truncated — previously the full session ID, `cleo-pickup-api-codex-lucid-turing`, was cut off at whatever `status-left-length` the user's tmux config allowed. The window list is reduced to bare indexes (`1  2  3`) by making the name conditional on `automatic-rename` in that session's window formats: a window tmux named after its running process (`2.1.220` for Claude Code's versioned binary, `codex-window` for Codex) shows only its index, while a window you renamed keeps its name. Every option is session- or window-scoped, so your global tmux theme and your own sessions are untouched; opt out with `[tmux] status_line = "off"`.
@@ -17,6 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Polished the dashboard look across the board: rounded panel/popup borders, an accent bar on the selected tree row, colored per-agent labels, a `CLEO` wordmark with status pills in the topbar, and key-cap styled footer hints.
 - Working sessions now pulse — a running session's green marker (and a spawning session's yellow one) gently breathes in the tree and session metadata, so active work reads at a glance. The animation only runs while a session is running or spawning, so an idle dashboard isn't redrawn on a timer.
+
+### Fixed
+- Prevented transparent terminal profiles from leaking through dashboard and popup backgrounds, and preserved intentional highlight surfaces while painting the composed view.
+- The new-session popup now consistently honors project and global `default_agent` settings and exposes a compact, wrapping horizontal agent selector.
+- Quick messages reliably submit to agent panes by sending text and Enter separately; tmux key names such as `C-c` are inserted literally instead of being interpreted as commands.
+- Mouse tracking is restored after returning from an attached session or terminal editor when `[ui.mouse].enabled` is on.
+- Explicitly selected nested projects now create sessions in the child project instead of resolving to a registered parent.
+- Killing an already-absent tmux session no longer reports a spurious failure, and concurrent rename/state updates no longer overwrite each other.
+- Popup border colors now follow each theme's accent, with TrueColor output preserved even when terminal capability detection is limited.
 
 ## [0.2.2] - 2026-06-08
 
