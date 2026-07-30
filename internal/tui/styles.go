@@ -242,6 +242,7 @@ func (t Theme) FormatEventRow(e events.Entry, width int, highlight bool) string 
 	row := ts + "  " + evType + "  " + padRight(detailStr, detailW) + "  " + padRight(dur, durW)
 	if highlight {
 		row = lipgloss.NewStyle().Background(t.Surf0).Foreground(t.Text).Bold(true).Render(row)
+		row = paintBackground(row, t.Surf0)
 	}
 	return row
 }

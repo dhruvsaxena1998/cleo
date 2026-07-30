@@ -15,6 +15,7 @@ func (m Model) View() string {
 	if m.mode == ModePopup && m.popup != nil {
 		out = m.renderOverlay(out, m.popup.View())
 	}
+	out = paintBackground(out, m.theme.Base)
 	// Scan strips the invisible bubblezone markers emitted by renderTreeContent
 	// and records each clickable row's screen bounds for hit-testing in
 	// handleMouse. No-op on text that contains no markers.
@@ -54,13 +55,11 @@ func renderFrame(m Model) string {
 	right := m.renderRightColumn(mainW, bodyH)
 	body := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 
-	// Stamp the theme's base background on every line so that any transparent
-	// characters (spaces between ANSI-styled spans) show the theme colour
-	// instead of the terminal default.
-	baseSt := lipgloss.NewStyle().Background(m.theme.Base).Width(w)
+	// Fit every row before the final View pass paints it. Bounding here preserves
+	// panel alignment even when nested content unexpectedly renders too wide.
 	rows := strings.Split(strings.Join([]string{m.renderTopbar(w), body, m.renderFooter(w)}, "\n"), "\n")
 	for i, row := range rows {
-		rows[i] = baseSt.Render(row)
+		rows[i] = padRight(truncateWidth(row, w), w)
 	}
 	return strings.Join(rows, "\n")
 }
@@ -93,8 +92,9 @@ func (m Model) renderTopbar(width int) string {
 	if space < 1 {
 		space = 1
 	}
-	return lipgloss.NewStyle().Background(m.theme.Mantle).Foreground(m.theme.Text).Padding(0, 1).
+	topbar := lipgloss.NewStyle().Background(m.theme.Mantle).Foreground(m.theme.Text).Padding(0, 1).
 		Width(width).Render(left + strings.Repeat(" ", space) + right)
+	return paintBackground(topbar, m.theme.Mantle)
 }
 
 // ── Footer ────────────────────────────────────────────────────────────────────
