@@ -34,9 +34,20 @@ func TestStatusLeftShowsProjectAgentAndNameInAgentColour(t *testing.T) {
 func TestStatusLeftFallsBackToSessionNameWhenNameEmpty(t *testing.T) {
 	l := testLabel()
 	l.Name = ""
-	// Long session names still get the segment cap, so match the leading part.
-	if got := StatusLeft(l); !strings.Contains(got, "cleo-pickup-api-codex") {
+	if got := StatusLeft(l); !strings.Contains(got, l.Session) {
 		t.Errorf("status-left %q should fall back to the session name", got)
+	}
+}
+
+func TestStatusLeftDoesNotTruncateAgentOrSessionName(t *testing.T) {
+	l := testLabel()
+	l.Agent = "a-very-long-agent-label-that-must-render-in-full"
+	l.Name = "a-very-long-session-name-that-must-render-in-full"
+	got := StatusLeft(l)
+	for _, want := range []string{l.Agent, l.Name} {
+		if !strings.Contains(got, want) {
+			t.Errorf("status-left %q truncated %q", got, want)
+		}
 	}
 }
 
@@ -143,22 +154,22 @@ func TestHideAutoWindowNamesKeepsTheUsersStylingAndDropsTheSeparator(t *testing.
 		{
 			name:   "tmux default",
 			format: " #I:#W ",
-			want:   " #I#{?automatic-rename,,:#W} ",
+			want:   " #I#{?#{==:#{automatic-rename},1},,:#W} ",
 		},
 		{
 			name:   "styled current-window format",
 			format: "#[bold,fg=colour234,bg=colour39] #I:#W #[default]",
-			want:   "#[bold,fg=colour234,bg=colour39] #I#{?automatic-rename,,:#W} #[default]",
+			want:   "#[bold,fg=colour234,bg=colour39] #I#{?#{==:#{automatic-rename},1},,:#W} #[default]",
 		},
 		{
 			name:   "flags kept outside the conditional",
 			format: "#I:#W#{?window_flags,#{window_flags},}",
-			want:   "#I#{?automatic-rename,,:#W}#{?window_flags,#{window_flags},}",
+			want:   "#I#{?#{==:#{automatic-rename},1},,:#W}#{?window_flags,#{window_flags},}",
 		},
 		{
 			name:   "space separated name",
 			format: " #I #W ",
-			want:   " #I#{?automatic-rename,, #W} ",
+			want:   " #I#{?#{==:#{automatic-rename},1},, #W} ",
 		},
 		{
 			name:   "no name to hide",
@@ -196,19 +207,29 @@ func TestApplySessionLabelRelabelsOnlyTheTargetSession(t *testing.T) {
 	if err := c.NewSession(NewSessionOpts{Name: "someone-elses-session", Cwd: "/tmp", Cmd: "sleep 60"}); err != nil {
 		t.Fatal(err)
 	}
+	// The session target resolves to its current (original) window. Creating the
+	// second window detached leaves that target stable without assuming base-index.
+	autoWindow := label.Session
+	// Make the fixture independent of the host's tmux defaults. Cleo hides names
+	// only when automatic-rename is on; rename-window turns it off for userWindow.
+	if err := c.cmd("set-option", "-w", "-t", autoWindow, "automatic-rename", "on").Run(); err != nil {
+		t.Fatal(err)
+	}
 	// A tight global budget is the usual cause of the truncated status bar.
 	if err := c.cmd("set-option", "-g", "status-left-length", "10").Run(); err != nil {
 		t.Fatal(err)
 	}
 	// Two windows: the agent's, named by tmux after whatever it runs, and one the
 	// user opened and named.
-	if err := c.cmd("new-window", "-d", "-t", label.Session).Run(); err != nil {
+	userWindowOut, err := c.cmd("new-window", "-d", "-P", "-F", "#{window_id}", "-t", label.Session).Output()
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := c.cmd("rename-window", "-t", label.Session+":2", "my-notes").Run(); err != nil {
+	userWindow := strings.TrimSpace(string(userWindowOut))
+	if err := c.cmd("rename-window", "-t", userWindow, "my-notes").Run(); err != nil {
 		t.Fatal(err)
 	}
-	autoName := display(t, c, label.Session+":1", "#{window_name}")
+	autoName := display(t, c, autoWindow, "#{window_name}")
 
 	if err := c.ApplySessionLabel(label); err != nil {
 		t.Fatal(err)
@@ -220,17 +241,23 @@ func TestApplySessionLabelRelabelsOnlyTheTargetSession(t *testing.T) {
 			t.Errorf("rendered status-left %q lost %q to truncation", rendered, want)
 		}
 	}
-	// The window list shows bare indexes, except for the window the user named.
-	// Cleo never renames a window itself.
-	windows := display(t, c, label.Session, "#{W:[#{T:window-status-format}]}")
-	if strings.Contains(windows, autoName) {
-		t.Errorf("window list %q still shows the derived name %q", windows, autoName)
+	// Every window gets the conditional format. The pure format tests verify that
+	// it hides automatic names and retains user names; inspecting the installed
+	// option avoids relying on version-specific recursive #{T:...} expansion.
+	for _, window := range c.windowStates(label.Session) {
+		foundConditional := false
+		for _, format := range window.Formats {
+			foundConditional = foundConditional || strings.Contains(format.Value, autoRenameCond)
+		}
+		if !foundConditional {
+			t.Errorf("window %s formats were not rewritten: %#v", window.Target, window.Formats)
+		}
 	}
-	if !strings.Contains(windows, "2:my-notes") {
-		t.Errorf("window list %q dropped the name the user gave window 2", windows)
-	}
-	if got := display(t, c, label.Session+":1", "#{window_name}"); got != autoName {
+	if got := display(t, c, autoWindow, "#{window_name}"); got != autoName {
 		t.Errorf("window name = %q, want tmux's own %q left alone", got, autoName)
+	}
+	if got := display(t, c, userWindow, "#{window_name}"); got != "my-notes" {
+		t.Errorf("user window name = %q, want my-notes left alone", got)
 	}
 	// The user's other sessions keep their own status bar.
 	if got := display(t, c, "someone-elses-session", "#{status-left-length}"); got != "10" {

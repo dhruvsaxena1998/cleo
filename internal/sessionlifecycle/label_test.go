@@ -137,6 +137,27 @@ func TestLabelSurvivesTmuxFailureWithoutFailingCreate(t *testing.T) {
 	}
 }
 
+func TestLabelFailureStillReturnsAUsableAttachPlan(t *testing.T) {
+	lifecycle, projectID, fake := newLabelLifecycle(t, labelTestConfig())
+	created, err := lifecycle.Create(sessionlifecycle.CreateInput{
+		Agent:     "claude",
+		Name:      "lucid-turing",
+		ProjectID: projectID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fake.labelErr = errTmuxLabel
+
+	plan, err := lifecycle.Attach(created.Session.ID)
+	if err != nil {
+		t.Fatalf("a failed status option must not fail attach: %v", err)
+	}
+	if plan.Action != sessionlifecycle.AttachReady || plan.Cmd == nil || plan.Done == nil {
+		t.Fatalf("attach plan = %#v, want a ready plan with command and teardown", plan)
+	}
+}
+
 func TestRenameRefreshesTheLabelWithTheNewName(t *testing.T) {
 	lifecycle, projectID, fake := newLabelLifecycle(t, labelTestConfig())
 	created, err := lifecycle.Create(sessionlifecycle.CreateInput{
