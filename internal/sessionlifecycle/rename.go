@@ -33,6 +33,10 @@ func (l *Lifecycle) Rename(sessionID, newName string) (RenameResult, error) {
 		return RenameResult{}, err
 	}
 
+	// Keep the status bar honest immediately rather than at the next attach; a
+	// no-op for a session whose tmux side is already gone.
+	l.applySessionLabel(updated)
+
 	return RenameResult{
 		SessionID: sessionID,
 		OldName:   oldName,

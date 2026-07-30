@@ -179,6 +179,12 @@ func validate(c *Config) {
 		)
 		c.UI.Theme = defaults.UI.Theme
 	}
+	if c.Tmux.StatusLine == "" {
+		c.Tmux.StatusLine = defaults.Tmux.StatusLine
+	} else if c.Tmux.StatusLine != StatusLineAuto && c.Tmux.StatusLine != StatusLineOff {
+		c.adjust(fmt.Sprintf("tmux.status_line %q is unknown; using %q", c.Tmux.StatusLine, defaults.Tmux.StatusLine))
+		c.Tmux.StatusLine = defaults.Tmux.StatusLine
+	}
 	if c.Timeouts.IdleToCompletedTimeout < MinTimeout {
 		c.adjust("timeouts.idle_to_completed_timeout below 100ms; clamped to 100ms")
 		c.Timeouts.IdleToCompletedTimeout = MinTimeout

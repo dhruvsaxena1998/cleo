@@ -34,6 +34,9 @@ type Tmux interface {
 	HasSession(name string) (bool, error)
 	BindDetachKey(detachKey string) error
 	InstallFocusHooks(cleoBin string) error
+	// ApplySessionLabel relabels one managed session's status bar and window.
+	// See tmux.Client.ApplySessionLabel.
+	ApplySessionLabel(label tmux.SessionLabel) error
 	Kill(name string) error
 	// AttachCmd builds (does not run) the attach command. The lifecycle.Attach
 	// verb will build with it; it lives on the seam now so every adapter honors
@@ -144,6 +147,7 @@ func (l *Lifecycle) Create(input CreateInput) (CreateResult, error) {
 	}
 	l.installFocusHooks()
 	l.bindDetachKey()
+	l.applySessionLabel(sess)
 	return CreateResult{Session: sess, Project: proj, ProjectRegistered: registered}, nil
 }
 
@@ -192,6 +196,24 @@ func (l *Lifecycle) bindDetachKey() {
 		return
 	}
 	_ = l.tmux.BindDetachKey(l.cfg.Tmux.DetachKey)
+}
+
+// applySessionLabel paints the compact `project · agent · name` label onto the
+// Session's tmux session. Run on create and again on every attach: it is the
+// attach that puts the label in front of the user, and re-applying repairs a
+// session whose window the agent renamed while it ran. Best-effort like the focus
+// hooks — a display option that does not take must not fail a spawn or an attach.
+func (l *Lifecycle) applySessionLabel(sess state.Session) {
+	if !l.cfg.Tmux.ManagesStatusLine() {
+		return
+	}
+	_ = l.tmux.ApplySessionLabel(tmux.SessionLabel{
+		Session: sess.ID,
+		Project: sess.ProjectID,
+		Agent:   sess.Agent,
+		Name:    sess.Name,
+		Color:   l.cfg.Agents[sess.Agent].Color,
+	})
 }
 
 func (l *Lifecycle) installFocusHooks() {

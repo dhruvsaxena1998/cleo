@@ -482,6 +482,15 @@ type fakeTmux struct {
 	killed                  []string
 	killErr                 error
 	attached                []string
+	labels                  []tmux.SessionLabel
+	labelErr                error
+}
+
+var errTmuxLabel = errors.New("tmux: status option refused")
+
+func (f *fakeTmux) ApplySessionLabel(label tmux.SessionLabel) error {
+	f.labels = append(f.labels, label)
+	return f.labelErr
 }
 
 func (f *fakeTmux) NewSession(o tmux.NewSessionOpts) error {

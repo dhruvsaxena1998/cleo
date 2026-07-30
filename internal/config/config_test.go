@@ -421,3 +421,51 @@ func TestNormalizeClampsInMemory(t *testing.T) {
 		t.Error("Normalize should record warnings for clamped values")
 	}
 }
+
+func TestStatusLineDefaultsToAutoAndTreatsALegacyConfigAsOptedIn(t *testing.T) {
+	if got := Defaults_().Tmux.StatusLine; got != StatusLineAuto {
+		t.Errorf("default tmux.status_line = %q, want %q", got, StatusLineAuto)
+	}
+	// A config written before the setting existed decodes to "" and must still get
+	// the label — only an explicit "off" opts out.
+	c := Config{}
+	if !c.Tmux.ManagesStatusLine() {
+		t.Error("an unset tmux.status_line should manage the status line")
+	}
+	if (Tmux{StatusLine: StatusLineOff}).ManagesStatusLine() {
+		t.Error("tmux.status_line = off should not manage the status line")
+	}
+}
+
+func TestStatusLineOffLoadsVerbatimAndUnknownValueFallsBackWithAWarning(t *testing.T) {
+	dir := t.TempDir()
+	offPath := filepath.Join(dir, "off.toml")
+	if err := os.WriteFile(offPath, []byte("[tmux]\nstatus_line = \"off\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	off, err := Load(offPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if off.Tmux.StatusLine != StatusLineOff || off.Tmux.ManagesStatusLine() {
+		t.Errorf("tmux.status_line = %q, want off", off.Tmux.StatusLine)
+	}
+	if len(off.Warnings) != 0 {
+		t.Errorf("a valid value should warn about nothing: %v", off.Warnings)
+	}
+
+	badPath := filepath.Join(dir, "bad.toml")
+	if err := os.WriteFile(badPath, []byte("[tmux]\nstatus_line = \"fancy\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bad, err := Load(badPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bad.Tmux.StatusLine != StatusLineAuto {
+		t.Errorf("unknown tmux.status_line = %q, want fallback to auto", bad.Tmux.StatusLine)
+	}
+	if len(bad.Warnings) == 0 {
+		t.Error("unknown tmux.status_line should be reported in warnings")
+	}
+}
