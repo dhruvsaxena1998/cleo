@@ -24,10 +24,13 @@ type Diagnostic struct {
 	Detail string
 }
 
+// StatusLineMode controls whether Cleo manages tmux's status line.
+type StatusLineMode string
+
 // StatusLine modes for [Tmux.StatusLine].
 const (
-	StatusLineAuto = "auto" // Cleo paints a compact label onto its own sessions
-	StatusLineOff  = "off"  // Cleo leaves tmux display options entirely alone
+	StatusLineAuto StatusLineMode = "auto" // Cleo paints a compact label onto its own sessions
+	StatusLineOff  StatusLineMode = "off"  // Cleo leaves tmux display options entirely alone
 )
 
 type Tmux struct {
@@ -37,7 +40,7 @@ type Tmux struct {
 	// agent's window, so an attached session reads `project · agent · name`
 	// instead of the truncated compound session ID. "off" leaves every tmux
 	// display option to the user's own config.
-	StatusLine string `toml:"status_line"`
+	StatusLine StatusLineMode `toml:"status_line"`
 }
 
 // ManagesStatusLine reports whether Cleo may relabel its own tmux sessions.

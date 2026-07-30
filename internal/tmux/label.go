@@ -31,7 +31,6 @@ const (
 	labelResetStyle  = "#[default]"
 	labelAgentStyle  = "#[bold]"
 	maxProjectRunes  = 16 // project IDs are the one unbounded segment; keep the bar short
-	maxSegmentRunes  = 24
 	labelEllipsis    = "…"
 	statusLeftMinLen = 10 // tmux's own default; never shrink a user's budget below it
 )
@@ -45,10 +44,10 @@ func StatusLeft(l SessionLabel) string {
 	if project := truncateRunes(l.Project, maxProjectRunes); project != "" {
 		b.WriteString(labelDimStyle + project + sep)
 	}
-	if agent := truncateRunes(l.Agent, maxSegmentRunes); agent != "" {
+	if agent := l.Agent; agent != "" {
 		b.WriteString(agentStyle(l.Color) + agent + "#[nobold]" + sep)
 	}
-	b.WriteString(labelNameStyle + truncateRunes(l.displayName(), maxSegmentRunes))
+	b.WriteString(labelNameStyle + l.displayName())
 	b.WriteString(labelResetStyle + " ")
 	return b.String()
 }
@@ -131,7 +130,7 @@ func windowFormatCmds(target string, formats []WindowFormat) [][]string {
 // autoRenameCond opens the tmux conditional that tests a window's
 // automatic-rename option. Its presence in a format also marks it as already
 // rewritten, which keeps re-applying the label on every attach idempotent.
-const autoRenameCond = "#{?automatic-rename,"
+const autoRenameCond = "#{?#{==:#{automatic-rename},1},"
 
 // hideAutoWindowNames rewrites a window-status format so an automatically named
 // window shows only its index — `1  2  3`. A tmux-derived name says nothing about
