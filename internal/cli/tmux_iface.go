@@ -16,6 +16,7 @@ type TmuxClient interface {
 	Kill(name string) error
 	BindDetachKey(detachKey string) error
 	InstallFocusHooks(cleoBin string) error
+	ApplySessionLabel(label tmux.SessionLabel) error
 	CapturePane(name string, lines int) (string, error)
 	SendKeys(name string, text string) error
 	RenameSession(from, to string) error

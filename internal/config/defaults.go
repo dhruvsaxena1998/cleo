@@ -5,7 +5,7 @@ import "time"
 func Defaults_() Config {
 	return Config{
 		DefaultAgent: "claude",
-		Tmux:         Tmux{DetachKey: "C-b d"},
+		Tmux:         Tmux{DetachKey: "C-b d", StatusLine: StatusLineAuto},
 		Sound: Sound{
 			Enabled: true,
 			Volume:  0.7,

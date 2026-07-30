@@ -24,9 +24,26 @@ type Diagnostic struct {
 	Detail string
 }
 
+// StatusLine modes for [Tmux.StatusLine].
+const (
+	StatusLineAuto = "auto" // Cleo paints a compact label onto its own sessions
+	StatusLineOff  = "off"  // Cleo leaves tmux display options entirely alone
+)
+
 type Tmux struct {
 	DetachKey string `toml:"detach_key"`
+	// StatusLine controls whether Cleo relabels the sessions it manages. On
+	// "auto" it sets session-scoped status-left / status-left-length and names the
+	// agent's window, so an attached session reads `project · agent · name`
+	// instead of the truncated compound session ID. "off" leaves every tmux
+	// display option to the user's own config.
+	StatusLine string `toml:"status_line"`
 }
+
+// ManagesStatusLine reports whether Cleo may relabel its own tmux sessions.
+// Anything other than an explicit "off" opts in, so a config written before this
+// setting existed gets the label too.
+func (t Tmux) ManagesStatusLine() bool { return t.StatusLine != StatusLineOff }
 
 type Sound struct {
 	Enabled bool                  `toml:"enabled"`

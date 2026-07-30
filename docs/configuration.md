@@ -21,6 +21,7 @@ default_agent = "claude"
 
 [tmux]
 detach_key = "C-b d"
+status_line = "auto"
 
 [sound]
 enabled = true
@@ -104,6 +105,19 @@ Durations use Go duration strings such as `"500ms"`, `"1.5s"`, `"30s"`, `"10m"`,
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `detach_key` | `"C-b d"` | Tmux detach key Cleo tries to bind for spawned sessions. |
+| `status_line` | `"auto"` | `"auto"` lets Cleo relabel the sessions it manages (see below). `"off"` leaves every tmux display option to your own config. |
+
+### Session labelling
+
+A Cleo tmux session is named after its full session ID — `cleo-pickup-api-codex-lucid-turing` — which overruns tmux's `status-left-length` (10 by default) and renders as a truncated `cleo-pickup-api-codex-lucid-t`. Agents also rename their own window, so the window list shows whatever the agent process is called (`2.1.220` for Claude Code's versioned binary, `codex-window` for Codex).
+
+On `status_line = "auto"`, Cleo fixes both when it creates a session and again on every attach:
+
+- `status-left` becomes a compact `project · agent · name` label, with the agent segment in that agent's configured `color`.
+- `status-left-length` is widened for that session so the label is never truncated.
+- The agent's window is named after the session, with `automatic-rename` and `allow-rename` turned off so the agent cannot overwrite it.
+
+Every option is set on the Cleo session (or its window), never globally: your own tmux sessions and your global `status-style`, `status-right`, and window formats are untouched. Set `status_line = "off"` if you would rather your own `status-left` apply to Cleo sessions too.
 
 ## `[sound]`
 

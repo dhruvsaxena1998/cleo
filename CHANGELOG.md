@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Attached sessions get a readable tmux status bar. Cleo now paints a compact `project · agent · name` label (agent segment in that agent's configured color) onto the sessions it manages, widens that session's `status-left-length` so the label isn't truncated, and names the agent's window after the session with `automatic-rename`/`allow-rename` off so the agent can't replace it with its own process name (`2.1.220`, `codex-window`). Previously the full session ID — `cleo-pickup-api-codex-lucid-turing` — was cut off at whatever `status-left-length` the user's tmux config allowed. Every option is session- or window-scoped, so your global tmux theme and your own sessions are untouched; opt out with `[tmux] status_line = "off"`.
 - TUI visual overhaul. The dashboard now ships [Nerd Font](https://www.nerdfonts.com/) iconography by default: folder glyphs in the project tree, status markers (running/waiting/idle/…), and small chrome icons across the topbar, footer, panel titles, and session metadata. A new `[ui].icons` setting selects the glyph set — `nerd` (default), `unicode` (portable symbols, for terminals without a patched font), or `ascii` (plain-text fallback). It can be cycled live in the in-app settings editor (`,`) alongside the theme.
 
 ### Changed

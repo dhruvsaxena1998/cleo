@@ -104,6 +104,7 @@ func (l *Lifecycle) Attach(sessionID string) (AttachPlan, error) {
 	// marked-dead Sessions return action-only so the caller just reports status.
 	switch result.Action {
 	case AttachReady, AttachRevived:
+		l.applySessionLabel(result.Session)
 		l.SetFocused(sessionID, true)
 		plan.Cmd = l.tmux.AttachCmd(sessionID)
 		plan.Done = func() { l.SetFocused(sessionID, false) }
